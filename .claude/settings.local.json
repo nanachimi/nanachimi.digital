@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh repo:*)",
+      "WebFetch(domain:devcredilis.nanachimi.digital)",
+      "Bash(gh api:*)",
+      "Read(//tmp/**)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:github.com)",
+      "Bash(gh org:*)",
+      "Bash(python3 -c \"import json, sys, base64; data = json.load\\(sys.stdin\\); print\\(base64.b64decode\\(data[''''content'''']\\).decode\\(''''utf-8''''\\)[:1500]\\)\")",
+      "Bash(pip install:*)",
+      "Bash(python -c \":*)",
+      "Bash(ls C:UsersnanacDownloadsKumlix*)",
+      "Read(//c/Users/nanac/**)"
+    ]
+  }
+}
