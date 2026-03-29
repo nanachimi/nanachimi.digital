@@ -374,9 +374,13 @@ export function Hero() {
 
               <div className="rounded-xl border border-white/10 bg-[#1a1d24]/90 backdrop-blur-sm px-5 py-3 shadow-lg text-center">
                 <div className="text-2xl font-black text-[#FFC62C]">
-                  <AnimatedCounter target={5} />
+                  {variant.middleStat?.animated ? (
+                    <AnimatedCounter target={variant.middleStat.animated.target} suffix={variant.middleStat.animated.suffix} />
+                  ) : (
+                    variant.middleStat?.value || "Ab 299 €"
+                  )}
                 </div>
-                <div className="text-xs text-[#5a5e66]">Produkte gebaut</div>
+                <div className="text-xs text-[#5a5e66]">{variant.middleStat?.label || "Ihre Lösung"}</div>
               </div>
 
               <div className="rounded-xl border border-white/10 bg-[#1a1d24]/90 backdrop-blur-sm px-5 py-3 shadow-lg text-center">
