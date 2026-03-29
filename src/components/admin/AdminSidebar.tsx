@@ -48,7 +48,6 @@ const NAV_ITEMS = [
     href: "/admin/bookings",
     icon: Calendar,
     exact: false,
-    disabled: true,
   },
   {
     label: "Vorfälle",
