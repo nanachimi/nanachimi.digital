@@ -120,11 +120,23 @@ done
 
 # ─── Nginx ────────────────────────────────────────────────────────
 if command -v nginx &> /dev/null && [ ! -f /etc/nginx/sites-available/$DOMAIN ]; then
-  echo "▶ Setting up Nginx for $DOMAIN..."
+  echo "▶ Setting up Nginx for $DOMAIN (password-protected)..."
+
+  # Create htpasswd file for basic auth
+  if [ ! -f /etc/nginx/.htpasswd-staging ]; then
+    apt-get install -y apache2-utils 2>/dev/null || true
+    echo "  Enter password for staging environment:"
+    htpasswd -c /etc/nginx/.htpasswd-staging nanachimi
+    echo "  ✓ Password file created"
+  fi
+
   cat > /etc/nginx/sites-available/$DOMAIN <<NGINX
 server {
     listen 80;
     server_name $DOMAIN;
+
+    auth_basic "Staging Environment — Zugriff nur mit Passwort";
+    auth_basic_user_file /etc/nginx/.htpasswd-staging;
 
     location / {
         proxy_pass http://localhost:${APP_PORT};
