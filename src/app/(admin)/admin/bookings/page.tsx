@@ -43,6 +43,11 @@ interface AvailabilitySlot {
   endMinute: number;
 }
 
+interface BookingSettings {
+  meetingDurationMinutes: number;
+  bufferMinutes: number;
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -92,6 +97,8 @@ export default function BookingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [editedAvailability, setEditedAvailability] = useState<AvailabilitySlot[]>([]);
+  const [settings, setSettings] = useState<BookingSettings>({ meetingDurationMinutes: 30, bufferMinutes: 0 });
+  const [editedSettings, setEditedSettings] = useState<BookingSettings>({ meetingDurationMinutes: 30, bufferMinutes: 0 });
   const [hasChanges, setHasChanges] = useState(false);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [tab, setTab] = useState<"bookings" | "availability">("bookings");
@@ -106,6 +113,8 @@ export default function BookingsPage() {
       setBookings(data.bookings);
       setAvailability(data.availability);
       setEditedAvailability(data.availability);
+      setSettings(data.settings || { meetingDurationMinutes: 30, bufferMinutes: 0 });
+      setEditedSettings(data.settings || { meetingDurationMinutes: 30, bufferMinutes: 0 });
       setHasChanges(false);
     } catch {
       setError("Termine konnten nicht geladen werden.");
@@ -136,19 +145,24 @@ export default function BookingsPage() {
     }
   };
 
-  // Save availability
+  // Save availability + settings
   const handleSaveAvailability = async () => {
     setSaving(true);
     try {
       const res = await fetch("/api/admin/bookings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ availability: editedAvailability }),
+        body: JSON.stringify({
+          availability: editedAvailability,
+          settings: editedSettings,
+        }),
       });
       if (!res.ok) throw new Error();
       const data = await res.json();
       setAvailability(data.availability);
       setEditedAvailability(data.availability);
+      setSettings(data.settings);
+      setEditedSettings(data.settings);
       setHasChanges(false);
     } catch {
       setError("Verfügbarkeit konnte nicht gespeichert werden.");
@@ -304,6 +318,57 @@ export default function BookingsPage() {
       {/* Availability Tab */}
       {tab === "availability" && (
         <div className="space-y-4">
+          {/* Meeting Settings */}
+          <div className="rounded-xl border border-[#FFC62C]/20 bg-[#FFC62C]/[0.03] p-4">
+            <h2 className="text-sm font-semibold text-[#FFC62C] uppercase tracking-wider mb-3">
+              Termineinstellungen
+            </h2>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="text-xs text-[#8B8F97] block mb-1">Termindauer</label>
+                <div className="flex gap-2">
+                  {[15, 30, 45, 60].map((mins) => (
+                    <button
+                      key={mins}
+                      onClick={() => {
+                        setEditedSettings({ ...editedSettings, meetingDurationMinutes: mins });
+                        setHasChanges(true);
+                      }}
+                      className={`rounded-lg px-3 py-2 text-sm font-medium transition-all ${
+                        editedSettings.meetingDurationMinutes === mins
+                          ? "bg-[#FFC62C]/20 text-[#FFC62C] border border-[#FFC62C]/40"
+                          : "bg-white/[0.04] text-[#8B8F97] border border-white/10 hover:border-white/20"
+                      }`}
+                    >
+                      {mins} Min
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-[#8B8F97] block mb-1">Pause zwischen Terminen</label>
+                <div className="flex gap-2">
+                  {[0, 5, 10, 15].map((mins) => (
+                    <button
+                      key={mins}
+                      onClick={() => {
+                        setEditedSettings({ ...editedSettings, bufferMinutes: mins });
+                        setHasChanges(true);
+                      }}
+                      className={`rounded-lg px-3 py-2 text-sm font-medium transition-all ${
+                        editedSettings.bufferMinutes === mins
+                          ? "bg-[#FFC62C]/20 text-[#FFC62C] border border-[#FFC62C]/40"
+                          : "bg-white/[0.04] text-[#8B8F97] border border-white/10 hover:border-white/20"
+                      }`}
+                    >
+                      {mins === 0 ? "Keine" : `${mins} Min`}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold text-[#c8cad0] uppercase tracking-wider">
               Wöchentliche Verfügbarkeit

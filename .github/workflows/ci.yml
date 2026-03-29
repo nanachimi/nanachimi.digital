@@ -396,8 +396,8 @@ jobs:
               --network nanachimidigital-network \
               -e DATABASE_URL="${DATABASE_URL}" \
               nanachimi-digital:dev \
-              npx prisma db push
-            echo "✓ Migrations applied"
+              sh -c "npx prisma db push && npx prisma db seed"
+            echo "✓ Migrations + seed applied"
 
             # Start app
             docker run -d \

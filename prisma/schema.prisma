@@ -159,6 +159,12 @@ model AvailabilitySlot {
   endMinute   Int
 }
 
+model BookingSettings {
+  id                    String @id @default("default")
+  meetingDurationMinutes Int    @default(30) // 15, 30, 45, 60
+  bufferMinutes         Int    @default(0)  // Break between meetings
+}
+
 // ---------------------------------------------------------------------------
 // A/B Tests
 // ---------------------------------------------------------------------------

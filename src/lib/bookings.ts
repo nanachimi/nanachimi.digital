@@ -165,6 +165,48 @@ export async function cancelBooking(id: string): Promise<Booking | undefined> {
 }
 
 // ---------------------------------------------------------------------------
+// Booking Settings
+// ---------------------------------------------------------------------------
+
+export interface BookingSettingsData {
+  meetingDurationMinutes: number;
+  bufferMinutes: number;
+}
+
+export async function getBookingSettings(): Promise<BookingSettingsData> {
+  const row = await prisma.bookingSettings.findUnique({ where: { id: "default" } });
+  return {
+    meetingDurationMinutes: row?.meetingDurationMinutes ?? 30,
+    bufferMinutes: row?.bufferMinutes ?? 0,
+  };
+}
+
+export async function updateBookingSettings(
+  settings: Partial<BookingSettingsData>
+): Promise<BookingSettingsData> {
+  const row = await prisma.bookingSettings.upsert({
+    where: { id: "default" },
+    create: {
+      id: "default",
+      meetingDurationMinutes: settings.meetingDurationMinutes ?? 30,
+      bufferMinutes: settings.bufferMinutes ?? 0,
+    },
+    update: {
+      ...(settings.meetingDurationMinutes !== undefined && {
+        meetingDurationMinutes: settings.meetingDurationMinutes,
+      }),
+      ...(settings.bufferMinutes !== undefined && {
+        bufferMinutes: settings.bufferMinutes,
+      }),
+    },
+  });
+  return {
+    meetingDurationMinutes: row.meetingDurationMinutes,
+    bufferMinutes: row.bufferMinutes,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Slot computation
 // ---------------------------------------------------------------------------
 
@@ -186,18 +228,26 @@ function formatDate(d: Date): string {
 }
 
 /**
- * Compute available 30-minute slots between `from` and `to` dates.
+ * Compute available slots between `from` and `to` dates.
+ * Uses configurable meeting duration from BookingSettings.
  * Filters out slots that are already booked (status = "confirmed") or in the past.
  */
 export async function getAvailableSlots(from: string, to: string): Promise<TimeSlot[]> {
-  const availability = await getAvailability();
-  const confirmedBookings = await prisma.booking.findMany({
-    where: {
-      status: "confirmed",
-      date: { gte: from, lte: to },
-    },
-    select: { date: true, startTime: true },
-  });
+  const [availability, confirmedBookings, settings] = await Promise.all([
+    getAvailability(),
+    prisma.booking.findMany({
+      where: {
+        status: "confirmed",
+        date: { gte: from, lte: to },
+      },
+      select: { date: true, startTime: true },
+    }),
+    getBookingSettings(),
+  ]);
+
+  const duration = settings.meetingDurationMinutes;
+  const buffer = settings.bufferMinutes;
+  const blockSize = duration + buffer;
   const berlinNow = getBerlinNow();
 
   const slots: TimeSlot[] = [];
@@ -215,19 +265,27 @@ export async function getAvailableSlots(from: string, to: string): Promise<TimeS
     const daySlots = availability.filter((a) => a.dayOfWeek === dayOfWeek);
 
     for (const slot of daySlots) {
-      // Generate 30-min blocks
       let h = slot.startHour;
       let m = slot.startMinute;
 
-      while (h < slot.endHour || (h === slot.endHour && m < slot.endMinute)) {
-        const startTime = `${pad(h)}:${pad(m)}`;
-        // Calculate end time (+30 min)
+      while (true) {
+        // Calculate end time of this meeting slot
         let endH = h;
-        let endM = m + 30;
-        if (endM >= 60) {
+        let endM = m + duration;
+        while (endM >= 60) {
           endH += 1;
           endM -= 60;
         }
+
+        // Check if the slot fits within the availability window
+        if (
+          endH > slot.endHour ||
+          (endH === slot.endHour && endM > slot.endMinute)
+        ) {
+          break;
+        }
+
+        const startTime = `${pad(h)}:${pad(m)}`;
         const endTime = `${pad(endH)}:${pad(endM)}`;
 
         // Check if in the past
@@ -244,9 +302,9 @@ export async function getAvailableSlots(from: string, to: string): Promise<TimeS
           }
         }
 
-        // Advance 30 min
-        m += 30;
-        if (m >= 60) {
+        // Advance by blockSize (duration + buffer)
+        m += blockSize;
+        while (m >= 60) {
           h += 1;
           m -= 60;
         }
