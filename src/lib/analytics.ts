@@ -156,8 +156,10 @@ export async function getAggregatedStats(): Promise<AggregatedStats> {
   const excludedIps = new Set(excludedIpRecords.map((r) => r.ip));
 
   // Build Prisma filter: exclude records whose IP is in the excluded set
-  const ipFilter = excludedIps.size > 0
-    ? { OR: [{ ip: null }, { ip: { notIn: Array.from(excludedIps) } }] }
+  // Records without IP (ip IS NULL) are always included (legacy data before IP tracking)
+  const excludedIpArray = Array.from(excludedIps);
+  const ipFilter = excludedIpArray.length > 0
+    ? { OR: [{ ip: { equals: null } }, { ip: { notIn: excludedIpArray } }] }
     : {};
 
   // --- Page views ---

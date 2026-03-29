@@ -5,23 +5,25 @@ import { getAggregatedStats } from "@/lib/analytics";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  // Auth check
   try {
     await requireAdmin();
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : "Unauthorized";
+  } catch {
     return NextResponse.json(
-      { error: msg === "SESSION_EXPIRED" ? "Sitzung abgelaufen" : "Nicht autorisiert" },
+      { error: "Nicht autorisiert" },
       { status: 401 }
     );
   }
 
+  // Stats aggregation
   try {
     const stats = await getAggregatedStats();
     return NextResponse.json(stats);
   } catch (err) {
-    console.error("[Analytics] Stats aggregation failed:", err);
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[Analytics] Aggregation failed:", message);
     return NextResponse.json(
-      { error: "Analytics konnten nicht geladen werden" },
+      { error: `Analytics-Fehler: ${message}` },
       { status: 500 }
     );
   }
