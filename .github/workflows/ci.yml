@@ -263,13 +263,14 @@ jobs:
         with:
           driver-opts: network=host
 
-      - name: Log in to self-hosted registry
+      - name: Ensure local registry is running
         run: |
-          if [ -n "${{ secrets.REGISTRY_PASSWORD }}" ]; then
-            echo "${{ secrets.REGISTRY_PASSWORD }}" | docker login localhost:5000 -u nanachimi --password-stdin
-          else
-            echo "No registry password set — assuming unauthenticated localhost registry"
+          if ! curl -sf http://localhost:5000/v2/ > /dev/null 2>&1; then
+            echo "Starting local Docker registry..."
+            docker run -d --name registry --restart unless-stopped -p 5000:5000 registry:2
+            sleep 2
           fi
+          echo "✓ Registry available at localhost:5000"
 
       - name: Extract image tag
         id: meta
