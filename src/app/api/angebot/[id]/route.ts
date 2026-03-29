@@ -1,10 +1,8 @@
 import { NextResponse } from "next/server";
 import { getSubmissionById, updateSubmissionStatus } from "@/lib/submissions";
 import { getAngebotById, updateAngebotStatus } from "@/lib/angebote";
-import { generateAngebotPdf } from "@/lib/pdf/generate";
-import { uploadFile } from "@/lib/seaweedfs";
-import { sendAngebotConfirmationEmail } from "@/lib/email";
 import { bootstrapProject } from "@/lib/project-bootstrap";
+import { enqueueJob, processJobs } from "@/lib/job-queue";
 export const dynamic = "force-dynamic";
 
 interface RouteParams {
@@ -90,72 +88,41 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     // Get submission for PDF data + project bootstrap
     const submission = await getSubmissionById(angebot.submissionId);
 
-    // Generate PDF + store + send email + bootstrap project (fire-and-forget)
-    (async () => {
-      if (!submission) {
-        console.error("[Accept] Submission not found for PDF generation");
-        return;
-      }
+    // Enqueue PDF+Email as a reliable job (retries on failure, creates incident if exhausted)
+    if (submission) {
+      await enqueueJob("angebot_accepted_email", {
+        angebotId: angebot.id,
+        to: submission.email,
+        kundenName: submission.name,
+        firma: submission.firma,
+        email: submission.email,
+        festpreis: angebot.festpreis,
+        aufwand: angebot.aufwand,
+        projektBeschreibung: submission.beschreibung,
+        plan: angebot.plan,
+        createdAt: angebot.createdAt,
+      });
 
-      // Step 1: Try to generate PDF (non-blocking — email sends regardless)
-      let pdfBuffer: Buffer | undefined;
-      try {
-        pdfBuffer = await generateAngebotPdf({
-          angebotId: angebot.id,
-          kundenName: submission.name,
-          firma: submission.firma,
-          email: submission.email,
-          festpreis: angebot.festpreis,
-          aufwand: angebot.aufwand,
-          projektBeschreibung: submission.beschreibung,
-          plan: angebot.plan,
-          createdAt: angebot.createdAt,
-        });
-        console.log(`[Accept] PDF generated: ${pdfBuffer.length} bytes`);
-      } catch (pdfError) {
-        console.error("[Accept] PDF generation failed (sending email without PDF):", pdfError);
-      }
+      // Try to process immediately (fire-and-forget — retry handled by cron if this fails)
+      processJobs().catch((err) =>
+        console.error("[Accept] Immediate job processing failed, cron will retry:", err)
+      );
 
-      // Step 2: Store PDF in SeaweedFS (optional — doesn't block email)
-      if (pdfBuffer) {
+      // Project Bootstrap (fire-and-forget, separate from email)
+      (async () => {
         try {
-          const fid = await uploadFile(pdfBuffer, `Angebot-${angebot.id}.pdf`);
-          angebot.pdfFileId = fid;
-          console.log(`[Accept] PDF stored in SeaweedFS: fid=${fid}`);
-        } catch (storageError) {
-          console.error("[Accept] SeaweedFS upload failed (PDF still sent via email):", storageError);
+          const bootstrap = bootstrapProject(submission, angebot);
+          if (bootstrap.success) {
+            await updateSubmissionStatus(submission.id, "project_bootstrapped");
+            console.log(
+              `[Accept] Project bootstrapped: ${bootstrap.projectName} (${bootstrap.files.length} files)`
+            );
+          }
+        } catch (err) {
+          console.error("[Accept] Bootstrap error:", err);
         }
-      }
-
-      // Step 3: ALWAYS send confirmation email (with or without PDF)
-      try {
-        await sendAngebotConfirmationEmail({
-          to: submission.email,
-          kundenName: submission.name,
-          festpreis: angebot.festpreis,
-          pdfBuffer,
-          angebotId: angebot.id,
-        });
-        console.log(`[Accept] Confirmation email sent to ${submission.email}${pdfBuffer ? " (with PDF)" : " (without PDF)"}`);
-      } catch (emailError) {
-        console.error("[Accept] Confirmation email failed:", emailError);
-      }
-
-      // Step 4: Project Bootstrap — generate project structure
-      try {
-        const bootstrap = bootstrapProject(submission, angebot);
-        if (bootstrap.success) {
-          await updateSubmissionStatus(submission.id, "project_bootstrapped");
-          console.log(
-            `[Accept] Project bootstrapped: ${bootstrap.projectName} (${bootstrap.files.length} files)`
-          );
-        } else {
-          console.error("[Accept] Bootstrap failed:", bootstrap.error);
-        }
-      } catch (bootstrapError) {
-        console.error("[Accept] Bootstrap error:", bootstrapError);
-      }
-    })();
+      })();
+    }
   } else {
     await updateAngebotStatus(id, "rejected_by_client", feedback);
     await updateSubmissionStatus(angebot.submissionId, "rejected_by_client", feedback);

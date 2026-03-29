@@ -57,7 +57,10 @@ export async function GET(request: NextRequest) {
   // 4. Anthropic API
   checks.push(checkAnthropicAPI());
 
-  // 5. Disk / Environment
+  // 5. Job Queue
+  checks.push(await checkJobQueue());
+
+  // 6. Disk / Environment
   checks.push(checkEnvironment());
 
   const allHealthy = checks.every((c) => c.status === "healthy");
@@ -201,6 +204,40 @@ function checkAnthropicAPI(): HealthCheck {
     status: "healthy",
     message: `API-Key konfiguriert (…${apiKey.slice(-6)})`,
   };
+}
+
+async function checkJobQueue(): Promise<HealthCheck> {
+  try {
+    const failedJobs = await prisma.job.count({
+      where: { status: "failed" },
+    });
+    const pendingJobs = await prisma.job.count({
+      where: { status: { in: ["pending", "processing"] } },
+    });
+    const openIncidents = await prisma.incident.count({
+      where: { status: "open", severity: "critical" },
+    });
+
+    if (failedJobs > 0 || openIncidents > 0) {
+      return {
+        service: "job_queue",
+        status: "unhealthy",
+        message: `${failedJobs} fehlgeschlagene Jobs, ${openIncidents} kritische Vorfälle, ${pendingJobs} ausstehend`,
+      };
+    }
+
+    return {
+      service: "job_queue",
+      status: "healthy",
+      message: `${pendingJobs} ausstehende Jobs, keine Fehler`,
+    };
+  } catch {
+    return {
+      service: "job_queue",
+      status: "degraded",
+      message: "Job-Queue-Status konnte nicht abgefragt werden",
+    };
+  }
 }
 
 function checkEnvironment(): HealthCheck {

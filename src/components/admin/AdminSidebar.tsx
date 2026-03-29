@@ -10,6 +10,7 @@ import {
   Calendar,
   Settings,
   Activity,
+  AlertTriangle,
   LogOut,
   ChevronLeft,
   ChevronRight,
@@ -48,6 +49,12 @@ const NAV_ITEMS = [
     icon: Calendar,
     exact: false,
     disabled: true,
+  },
+  {
+    label: "Vorfälle",
+    href: "/admin/incidents",
+    icon: AlertTriangle,
+    exact: false,
   },
   {
     label: "Einstellungen",
