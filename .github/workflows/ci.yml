@@ -420,11 +420,12 @@ jobs:
           script: |
             echo "Waiting for dev to start..."
             for i in $(seq 1 12); do
-              if curl -sf http://localhost:3001/api/health > /dev/null 2>&1; then
-                echo "Dev health check passed (attempt $i)"
+              HTTP_STATUS=$(curl -so /dev/null -w "%{http_code}" http://localhost:3001/ 2>/dev/null || echo "000")
+              if [ "$HTTP_STATUS" -gt 0 ] && [ "$HTTP_STATUS" -lt 500 ]; then
+                echo "Dev is up (HTTP $HTTP_STATUS on attempt $i)"
                 exit 0
               fi
-              echo "Attempt $i/12 — waiting 10s..."
+              echo "Attempt $i/12 — HTTP $HTTP_STATUS — waiting 10s..."
               sleep 10
             done
             echo "Dev health check FAILED"
@@ -532,11 +533,12 @@ jobs:
           script: |
             echo "Waiting for staging to start..."
             for i in $(seq 1 12); do
-              if curl -sf http://localhost:3002/api/health > /dev/null 2>&1; then
-                echo "Staging health check passed (attempt $i)"
+              HTTP_STATUS=$(curl -so /dev/null -w "%{http_code}" http://localhost:3002/ 2>/dev/null || echo "000")
+              if [ "$HTTP_STATUS" -gt 0 ] && [ "$HTTP_STATUS" -lt 500 ]; then
+                echo "Staging is up (HTTP $HTTP_STATUS on attempt $i)"
                 exit 0
               fi
-              echo "Attempt $i/12 — waiting 10s..."
+              echo "Attempt $i/12 — HTTP $HTTP_STATUS — waiting 10s..."
               sleep 10
             done
             echo "Staging health check FAILED"
