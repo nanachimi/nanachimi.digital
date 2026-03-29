@@ -86,7 +86,7 @@ jobs:
         run: npm run test:unit
 
       - name: Build
-        run: npm run build
+        run: NODE_OPTIONS="--max-old-space-size=2048" npm run build
         env:
           DATABASE_URL: "postgresql://dummy:dummy@localhost:5432/dummy"
           NEXT_TELEMETRY_DISABLED: 1
@@ -327,6 +327,7 @@ jobs:
         run: |
           IMAGE_TAG="${{ needs.docker-build.outputs.image-tag }}"
 
+          docker pull localhost:5000/nanachimi-digital:${IMAGE_TAG}
           docker tag localhost:5000/nanachimi-digital:${IMAGE_TAG} nanachimi-digital:dev
 
           docker stop nanachimi-dev 2>/dev/null || true
@@ -379,6 +380,7 @@ jobs:
         run: |
           IMAGE_TAG="${{ needs.docker-build.outputs.image-tag }}"
 
+          docker pull localhost:5000/nanachimi-digital:${IMAGE_TAG}
           docker tag localhost:5000/nanachimi-digital:${IMAGE_TAG} nanachimi-digital:staging
 
           docker stop nanachimi-staging 2>/dev/null || true
@@ -440,6 +442,7 @@ jobs:
         run: |
           IMAGE_TAG="${{ needs.docker-build.outputs.image-tag }}"
 
+          docker pull localhost:5000/nanachimi-digital:${IMAGE_TAG}
           docker tag localhost:5000/nanachimi-digital:${IMAGE_TAG} nanachimi-digital:latest
 
           docker stop nanachimi-app 2>/dev/null || true
