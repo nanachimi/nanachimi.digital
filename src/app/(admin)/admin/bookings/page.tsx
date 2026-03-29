@@ -97,7 +97,6 @@ export default function BookingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [editedAvailability, setEditedAvailability] = useState<AvailabilitySlot[]>([]);
-  const [settings, setSettings] = useState<BookingSettings>({ meetingDurationMinutes: 30, bufferMinutes: 0 });
   const [editedSettings, setEditedSettings] = useState<BookingSettings>({ meetingDurationMinutes: 30, bufferMinutes: 0 });
   const [hasChanges, setHasChanges] = useState(false);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
@@ -113,7 +112,6 @@ export default function BookingsPage() {
       setBookings(data.bookings);
       setAvailability(data.availability);
       setEditedAvailability(data.availability);
-      setSettings(data.settings || { meetingDurationMinutes: 30, bufferMinutes: 0 });
       setEditedSettings(data.settings || { meetingDurationMinutes: 30, bufferMinutes: 0 });
       setHasChanges(false);
     } catch {
@@ -161,7 +159,6 @@ export default function BookingsPage() {
       const data = await res.json();
       setAvailability(data.availability);
       setEditedAvailability(data.availability);
-      setSettings(data.settings);
       setEditedSettings(data.settings);
       setHasChanges(false);
     } catch {
