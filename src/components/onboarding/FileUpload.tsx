@@ -81,21 +81,24 @@ export function FileUpload({
     [tempToken, category]
   );
 
+  const filesRef = useRef(files);
+  filesRef.current = files;
+
   const handleFiles = useCallback(
     async (fileList: FileList) => {
-      const remaining = maxFiles - files.length;
+      const remaining = maxFiles - filesRef.current.length;
       const toUpload = Array.from(fileList).slice(0, remaining);
 
       for (const file of toUpload) {
         const result = await uploadFile(file);
         if (result) {
-          onFilesChange([...files, result]);
-          // Update files reference for next iteration
-          files = [...files, result];
+          const updated = [...filesRef.current, result];
+          filesRef.current = updated;
+          onFilesChange(updated);
         }
       }
     },
-    [files, maxFiles, uploadFile, onFilesChange]
+    [maxFiles, uploadFile, onFilesChange]
   );
 
   const removeFile = useCallback(

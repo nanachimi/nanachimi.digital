@@ -147,7 +147,7 @@ export default function IncidentsPage() {
     if (res.ok) fetchData();
   }
 
-  async function retryJob(_jobId: string) {
+  async function retryJob() {
     // Trigger the process-jobs cron to pick up pending/failed jobs
     await fetch("/api/cron/process-jobs");
     fetchData();
@@ -377,7 +377,7 @@ export default function IncidentsPage() {
                       {/* Actions */}
                       {(job.status === "pending" || job.status === "failed") && (
                         <Button
-                          onClick={() => retryJob(job.id)}
+                          onClick={() => retryJob()}
                           size="sm"
                           variant="outline"
                           className="border-zinc-600 text-zinc-300 hover:bg-zinc-800 text-xs shrink-0"
