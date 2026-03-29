@@ -41,6 +41,12 @@ interface PaymentData {
   bank: BankDetails;
 }
 
+interface PaidInfo {
+  amount: number;
+  type: string;
+  paidAt: string;
+}
+
 interface Props {
   id: string;
   initialStatus?: "idle" | "accepted";
@@ -91,18 +97,62 @@ export function AngebotActions({ id, initialStatus, festpreis }: Props) {
   const [paymentData, setPaymentData] = useState<PaymentData | null>(null);
   const [payingType, setPayingType] = useState<string | null>(null);
   const [stripeError, setStripeError] = useState<string | null>(null);
+  const [paidInfo, setPaidInfo] = useState<PaidInfo | null>(null);
   const isLoading = status === "loading";
 
-  // If already accepted, load payment options on mount
+  // If already accepted, load payment options + check payment status
   useEffect(() => {
-    if (initialStatus === "accepted" && festpreis && !paymentData) {
-      import("@/lib/constants").then(({ calculatePaymentOptions, BANKVERBINDUNG }) => {
-        setPaymentData({
-          festpreis,
-          options: calculatePaymentOptions(festpreis),
-          bank: { ...BANKVERBINDUNG, verwendungszweck: `Angebot ${id}` },
+    if (initialStatus === "accepted" && festpreis) {
+      // Load payment options
+      if (!paymentData) {
+        import("@/lib/constants").then(({ calculatePaymentOptions, BANKVERBINDUNG }) => {
+          setPaymentData({
+            festpreis,
+            options: calculatePaymentOptions(festpreis),
+            bank: { ...BANKVERBINDUNG, verwendungszweck: `Angebot ${id}` },
+          });
         });
-      });
+      }
+
+      // Check if already paid
+      fetch(`/api/angebot/${id}/payment`)
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.paid) {
+            setPaidInfo({
+              amount: data.amount,
+              type: data.type,
+              paidAt: data.paidAt,
+            });
+          }
+        })
+        .catch(() => {});
+
+      // Check URL for payment=success (Stripe redirect)
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("payment") === "success") {
+        // Poll for payment confirmation (webhook may take a moment)
+        const poll = setInterval(() => {
+          fetch(`/api/angebot/${id}/payment`)
+            .then((r) => r.json())
+            .then((data) => {
+              if (data.paid) {
+                setPaidInfo({
+                  amount: data.amount,
+                  type: data.type,
+                  paidAt: data.paidAt,
+                });
+                clearInterval(poll);
+              }
+            })
+            .catch(() => {});
+        }, 3000);
+
+        // Stop polling after 30s
+        setTimeout(() => clearInterval(poll), 30000);
+
+        return () => clearInterval(poll);
+      }
     }
   }, [initialStatus, festpreis, id, paymentData]);
 
@@ -155,6 +205,83 @@ export function AngebotActions({ id, initialStatus, festpreis }: Props) {
     } finally {
       setPayingType(null);
     }
+  }
+
+  // ─── Accepted + Paid State ──────────────────────────────────────
+
+  if (status === "accepted" && paidInfo) {
+    return (
+      <div className="space-y-6 mb-8">
+        <div className="rounded-2xl border border-emerald-400/30 bg-emerald-400/[0.08] p-8 text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-400/20">
+            <Check className="h-8 w-8 text-emerald-400" />
+          </div>
+          <h3 className="text-2xl font-bold text-white">
+            Zahlung erhalten!
+          </h3>
+          <p className="mt-2 text-3xl font-black text-emerald-400">
+            {formatEuro(paidInfo.amount)}
+          </p>
+          <p className="mt-2 text-sm text-[#8B8F97]">
+            {paidInfo.type === "full"
+              ? "Gesamtbetrag bezahlt — 12% Rabatt angewendet"
+              : paidInfo.type === "half"
+                ? "50% Anzahlung bezahlt — 5% Rabatt angewendet"
+                : "15% Anzahlung bezahlt"}
+          </p>
+          {paidInfo.paidAt && (
+            <p className="mt-1 text-xs text-[#6a6e76]">
+              Bezahlt am {new Date(paidInfo.paidAt).toLocaleDateString("de-DE", {
+                day: "2-digit",
+                month: "long",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </p>
+          )}
+        </div>
+
+        {/* Next Steps */}
+        <div className="rounded-2xl border border-[#FFC62C]/20 bg-[#FFC62C]/[0.04] p-6">
+          <h4 className="font-bold text-white mb-4">Nächste Schritte</h4>
+          <div className="space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-400/20 text-xs font-bold text-emerald-400">✓</div>
+              <div>
+                <p className="text-sm font-medium text-white">Angebot angenommen</p>
+                <p className="text-xs text-[#8B8F97]">Erledigt</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-400/20 text-xs font-bold text-emerald-400">✓</div>
+              <div>
+                <p className="text-sm font-medium text-white">Zahlung eingegangen</p>
+                <p className="text-xs text-[#8B8F97]">{formatEuro(paidInfo.amount)} erhalten</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#FFC62C]/20 text-xs font-bold text-[#FFC62C]">3</div>
+              <div>
+                <p className="text-sm font-medium text-white">Kickoff-Termin</p>
+                <p className="text-xs text-[#8B8F97]">Wir melden uns innerhalb von 24 Stunden bei Ihnen</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-xs font-bold text-[#8B8F97]">4</div>
+              <div>
+                <p className="text-sm font-medium text-[#8B8F97]">Projektstart</p>
+                <p className="text-xs text-[#6a6e76]">Ihre Lösung wird gebaut</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <p className="text-center text-xs text-[#6a6e76]">
+          Bei Fragen erreichen Sie uns jederzeit unter info@nanachimi.digital
+        </p>
+      </div>
+    );
   }
 
   // ─── Accepted State: Show Payment Options ──────────────────────

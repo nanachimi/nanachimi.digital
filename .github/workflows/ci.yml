@@ -265,12 +265,14 @@ jobs:
 
       - name: Ensure local registry is running
         run: |
-          if ! curl -sf http://localhost:5000/v2/ > /dev/null 2>&1; then
+          if curl -sf http://localhost:5000/v2/ > /dev/null 2>&1; then
+            echo "✓ Registry already running at localhost:5000"
+          else
             echo "Starting local Docker registry..."
-            docker run -d --name registry --restart unless-stopped -p 5000:5000 registry:2
+            docker start registry 2>/dev/null || docker run -d --name registry --restart unless-stopped -p 5000:5000 registry:2
             sleep 2
+            echo "✓ Registry started"
           fi
-          echo "✓ Registry available at localhost:5000"
 
       - name: Extract image tag
         id: meta

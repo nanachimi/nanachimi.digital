@@ -12,6 +12,40 @@ interface RouteParams {
 }
 
 /**
+ * GET /api/angebot/[id]/payment
+ * Returns the payment status for this Angebot.
+ */
+export async function GET(_request: Request, { params }: RouteParams) {
+  const { id } = await params;
+
+  const payment = await prisma.payment.findFirst({
+    where: { angebotId: id, status: "paid" },
+    orderBy: { paidAt: "desc" },
+  });
+
+  if (payment) {
+    return NextResponse.json({
+      paid: true,
+      amount: payment.amount / 100, // cents → euros
+      type: payment.type,
+      method: payment.method,
+      paidAt: payment.paidAt?.toISOString(),
+    });
+  }
+
+  // Check for pending payment
+  const pending = await prisma.payment.findFirst({
+    where: { angebotId: id, status: "pending" },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return NextResponse.json({
+    paid: false,
+    pendingPayment: pending ? { type: pending.type, method: pending.method } : null,
+  });
+}
+
+/**
  * POST /api/angebot/[id]/payment
  * Creates a Stripe Checkout Session for the selected payment option.
  * Body: { type: "full" | "half" | "tranche_1" }
