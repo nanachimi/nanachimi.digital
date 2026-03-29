@@ -115,6 +115,74 @@ async function main() {
     console.log(`⏭️  AvailabilitySlots already exist (${existingSlots} slots), skipping`);
   }
 
+  // 3. Default A/B Tests
+  const existingTests = await prisma.aBTest.count();
+  if (existingTests === 0) {
+    // Hero Messaging A/B Test
+    await prisma.aBTest.create({
+      data: {
+        name: "Hero — Messaging-Variante",
+        targetElement: "hero-messaging",
+        status: "running",
+        startedAt: new Date(),
+        variants: JSON.parse(JSON.stringify([
+          {
+            id: "automatisierung",
+            label: "Automatisierung (Ab 299 €)",
+            config: { variantId: "automatisierung" },
+            weight: 34,
+          },
+          {
+            id: "sorglos",
+            label: "Sorglos-Paket (Ab 299 €)",
+            config: { variantId: "sorglos" },
+            weight: 33,
+          },
+          {
+            id: "ohne-aufwand",
+            label: "Ohne Aufwand (5 Produkte)",
+            config: { variantId: "ohne-aufwand" },
+            weight: 33,
+          },
+        ])),
+      },
+    });
+    console.log("✅ A/B Test 'Hero — Messaging-Variante' seeded (running)");
+
+    // Urgency Section A/B Test
+    await prisma.aBTest.create({
+      data: {
+        name: "Urgency — Section-Variante",
+        targetElement: "urgency-section",
+        status: "running",
+        startedAt: new Date(),
+        variants: JSON.parse(JSON.stringify([
+          {
+            id: "security",
+            label: "Job-Sicherheit / KI-Angst",
+            config: { variantId: "security" },
+            weight: 40,
+          },
+          {
+            id: "pain",
+            label: "Alltags-Chaos (Excel, WhatsApp)",
+            config: { variantId: "pain" },
+            weight: 40,
+          },
+          {
+            id: "fomo",
+            label: "FOMO (Konkurrenz baut bereits)",
+            config: { variantId: "fomo" },
+            weight: 20,
+          },
+        ])),
+      },
+    });
+    console.log("✅ A/B Test 'Urgency — Section-Variante' seeded (running)");
+  } else {
+    console.log(`⏭️  A/B Tests already exist (${existingTests} tests), skipping`);
+  }
+
   console.log("\n🎉 Seed complete!");
 }
 

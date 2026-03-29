@@ -10,8 +10,9 @@
 export interface ABTestField {
   key: string;
   label: string;
-  type: "text" | "textarea";
+  type: "text" | "textarea" | "select";
   placeholder?: string;
+  options?: { value: string; label: string }[];
 }
 
 export interface ABTestElement {
@@ -21,34 +22,53 @@ export interface ABTestElement {
 }
 
 export const AB_TEST_ELEMENTS: Record<string, ABTestElement> = {
-  "hero-cta": {
-    label: "Hero — CTA & Headline",
+  "hero-messaging": {
+    label: "Hero — Messaging & Variante",
     component: "Hero.tsx",
     fields: [
       {
-        key: "headline",
-        label: "Headline",
-        type: "text",
-        placeholder: "z.B. Ihre App. In 48 Stunden live.",
+        key: "variantId",
+        label: "Hero-Variante",
+        type: "select",
+        options: [
+          { value: "automatisierung", label: "Automatisieren Sie Ihre Abläufe" },
+          { value: "sorglos", label: "Von der Idee zum Produkt — ohne Technik-Stress" },
+          { value: "ohne-aufwand", label: "Ohne Aufwand. Mehr Zeit für das, was zählt" },
+        ],
       },
+      {
+        key: "heading",
+        label: "Headline (überschreibt Variante)",
+        type: "text",
+        placeholder: "Leer lassen = Variante wird verwendet",
+      },
+    ],
+  },
+  "urgency-section": {
+    label: "Urgency Section — Variante",
+    component: "UrgencySection.tsx",
+    fields: [
+      {
+        key: "variantId",
+        label: "Urgency-Variante",
+        type: "select",
+        options: [
+          { value: "security", label: "Job-Sicherheit — Was, wenn KI Ihren Job übernimmt?" },
+          { value: "pain", label: "Alltags-Chaos — Excel, WhatsApp, Zettel" },
+          { value: "fomo", label: "FOMO — Ihre Konkurrenz baut bereits" },
+        ],
+      },
+    ],
+  },
+  "hero-cta": {
+    label: "Hero — CTA-Button Text",
+    component: "Hero.tsx",
+    fields: [
       {
         key: "ctaLabel",
         label: "CTA-Button Text",
         type: "text",
         placeholder: "z.B. Projekt starten",
-      },
-    ],
-  },
-  "hero-subheadline": {
-    label: "Hero — Subheadline",
-    component: "Hero.tsx",
-    fields: [
-      {
-        key: "subheadline",
-        label: "Subheadline",
-        type: "textarea",
-        placeholder:
-          "z.B. Digitale Lösungen für Gründer und Kleingewerbe — von der Idee bis zum Go-Live.",
       },
     ],
   },
@@ -66,27 +86,7 @@ export const AB_TEST_ELEMENTS: Record<string, ABTestElement> = {
         key: "subtext",
         label: "Subtext",
         type: "textarea",
-        placeholder:
-          "z.B. In 48 Stunden von der Idee zur fertigen App.",
-      },
-    ],
-  },
-  "urgency-heading": {
-    label: "Urgency Section — Headline",
-    component: "UrgencySection.tsx",
-    fields: [
-      {
-        key: "heading",
-        label: "Headline",
-        type: "text",
-        placeholder:
-          "z.B. Ihre Konkurrenz baut bereits. Wann starten Sie?",
-      },
-      {
-        key: "subheading",
-        label: "Subheadline",
-        type: "textarea",
-        placeholder: "z.B. Warum jetzt der richtige Zeitpunkt ist.",
+        placeholder: "z.B. In 48 Stunden von der Idee zur fertigen Lösung.",
       },
     ],
   },
@@ -103,7 +103,7 @@ export const AB_TEST_ELEMENTS: Record<string, ABTestElement> = {
     ],
   },
   "offers-grid": {
-    label: "Angebote — Kartentitel & Beschreibung",
+    label: "Angebote — Sektions-Headline",
     component: "OffersGrid.tsx",
     fields: [
       {
