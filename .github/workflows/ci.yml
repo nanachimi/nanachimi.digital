@@ -341,7 +341,7 @@ jobs:
             DB_NAME="nanachimi_dev"
 
             # --- Bootstrap infrastructure (idempotent) ---
-            docker network create nanachimi-network 2>/dev/null || true
+            docker network create nanachimidigital-network 2>/dev/null || true
             mkdir -p ${ENV_DIR}
 
             # Start dev PostgreSQL if not running
@@ -349,7 +349,7 @@ jobs:
               docker rm -f ${DB_CONTAINER} 2>/dev/null || true
               docker run -d \
                 --name ${DB_CONTAINER} \
-                --network nanachimi-network \
+                --network nanachimidigital-network \
                 --restart unless-stopped \
                 -e POSTGRES_USER=${DB_USER} \
                 -e POSTGRES_PASSWORD=${DB_PASS} \
@@ -393,7 +393,7 @@ jobs:
 
             # Run migrations
             docker run --rm \
-              --network nanachimi-network \
+              --network nanachimidigital-network \
               -e DATABASE_URL="${DATABASE_URL}" \
               nanachimi-digital:dev \
               npx prisma db push
@@ -402,7 +402,7 @@ jobs:
             # Start app
             docker run -d \
               --name nanachimi-dev \
-              --network nanachimi-network \
+              --network nanachimidigital-network \
               --restart unless-stopped \
               -p 3001:3000 \
               --env-file ${ENV_DIR}/.env \
@@ -459,14 +459,14 @@ jobs:
             DB_PASS="ncd_staging_$(hostname | md5sum | cut -c1-12)"
             DB_NAME="nanachimi_staging"
 
-            docker network create nanachimi-network 2>/dev/null || true
+            docker network create nanachimidigital-network 2>/dev/null || true
             mkdir -p ${ENV_DIR}
 
             if ! docker ps --format '{{.Names}}' | grep -q "^${DB_CONTAINER}$"; then
               docker rm -f ${DB_CONTAINER} 2>/dev/null || true
               docker run -d \
                 --name ${DB_CONTAINER} \
-                --network nanachimi-network \
+                --network nanachimidigital-network \
                 --restart unless-stopped \
                 -e POSTGRES_USER=${DB_USER} \
                 -e POSTGRES_PASSWORD=${DB_PASS} \
@@ -506,7 +506,7 @@ jobs:
             docker rm nanachimi-staging 2>/dev/null || true
 
             docker run --rm \
-              --network nanachimi-network \
+              --network nanachimidigital-network \
               -e DATABASE_URL="${DATABASE_URL}" \
               nanachimi-digital:staging \
               npx prisma db push
@@ -514,7 +514,7 @@ jobs:
 
             docker run -d \
               --name nanachimi-staging \
-              --network nanachimi-network \
+              --network nanachimidigital-network \
               --restart unless-stopped \
               -p 3002:3000 \
               --env-file ${ENV_DIR}/.env \
@@ -579,7 +579,7 @@ jobs:
             IMAGE_TAG="${{ needs.docker-build.outputs.image-tag }}"
             REGISTRY="${{ vars.REGISTRY_HOST }}"
 
-            docker network create nanachimi-network 2>/dev/null || true
+            docker network create nanachimidigital-network 2>/dev/null || true
 
             docker pull ${REGISTRY}/nanachimi-digital:${IMAGE_TAG}
             docker tag ${REGISTRY}/nanachimi-digital:${IMAGE_TAG} nanachimi-digital:latest
@@ -588,14 +588,14 @@ jobs:
             docker rm nanachimi-app 2>/dev/null || true
 
             docker run --rm \
-              --network nanachimi-network \
+              --network nanachimidigital-network \
               -e DATABASE_URL="${{ secrets.DATABASE_URL }}" \
               nanachimi-digital:latest \
               npx prisma db push
 
             docker run -d \
               --name nanachimi-app \
-              --network nanachimi-network \
+              --network nanachimidigital-network \
               --restart unless-stopped \
               -p 3000:3000 \
               --env-file /opt/nanachimi/.env \
@@ -661,7 +661,7 @@ jobs:
             PREV_IMAGE=$(docker images nanachimi-digital --format '{{.Tag}}' | grep -v latest | grep -v dev | grep -v staging | head -1)
             if [ -n "$PREV_IMAGE" ]; then
               echo "Rolling back to nanachimi-digital:$PREV_IMAGE"
-              docker run -d --name nanachimi-app --network nanachimi-network --restart unless-stopped -p 3000:3000 --env-file /opt/nanachimi/.env nanachimi-digital:$PREV_IMAGE
+              docker run -d --name nanachimi-app --network nanachimidigital-network --restart unless-stopped -p 3000:3000 --env-file /opt/nanachimi/.env nanachimi-digital:$PREV_IMAGE
               echo "Rollback complete"
             else
               echo "No previous image found!"
