@@ -11,7 +11,7 @@ const testimonials = [
     name: "Bertrand Foller",
     role: "Vorstand",
     company: "Golden Lions e.G.",
-    image: "",
+    image: "https://i.pravatar.cc/160?img=68",
   },
   {
     quote:
@@ -19,7 +19,7 @@ const testimonials = [
     name: "Amelie Charlemagne",
     role: "Inhaberin",
     company: "Amelia Hair",
-    image: "",
+    image: "https://i.pravatar.cc/160?img=47",
   },
   {
     quote:
@@ -27,7 +27,7 @@ const testimonials = [
     name: "Jan Polner",
     role: "Partner",
     company: "Kanzlei Polner GmbH & Co. KG",
-    image: "",
+    image: "https://i.pravatar.cc/160?img=53",
   },
 ];
 
