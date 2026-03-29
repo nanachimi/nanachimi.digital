@@ -10,8 +10,18 @@ import {
   ExternalLink,
   FolderCode,
   Loader2,
+  CreditCard,
+  BanknoteIcon,
 } from "lucide-react";
 import type { Angebot } from "@/lib/angebote";
+
+interface PaymentInfo {
+  paid: boolean;
+  amount?: number;
+  type?: string;
+  method?: string;
+  paidAt?: string;
+}
 
 interface AngebotHistoryProps {
   submissionId: string;
@@ -59,6 +69,7 @@ const STATUS_CONFIG: Record<
 
 export function AngebotHistory({ submissionId }: AngebotHistoryProps) {
   const [angebote, setAngebote] = useState<Angebot[]>([]);
+  const [payments, setPayments] = useState<Record<string, PaymentInfo>>({});
   const [loading, setLoading] = useState(true);
 
   const fetchAngebote = useCallback(async () => {
@@ -67,7 +78,23 @@ export function AngebotHistory({ submissionId }: AngebotHistoryProps) {
         `/api/admin/submissions/${submissionId}/angebote`
       );
       const data = await res.json();
-      setAngebote(data.angebote || []);
+      const list: Angebot[] = data.angebote || [];
+      setAngebote(list);
+
+      // Fetch payment status for accepted angebote
+      const accepted = list.filter((a) => a.status === "accepted");
+      const paymentResults: Record<string, PaymentInfo> = {};
+      await Promise.all(
+        accepted.map(async (a) => {
+          try {
+            const pRes = await fetch(`/api/angebot/${a.id}/payment`);
+            paymentResults[a.id] = await pRes.json();
+          } catch {
+            paymentResults[a.id] = { paid: false };
+          }
+        })
+      );
+      setPayments(paymentResults);
     } catch {
       // Handle silently
     } finally {
@@ -129,6 +156,20 @@ export function AngebotHistory({ submissionId }: AngebotHistoryProps) {
                 <span className="text-sm font-medium text-[#FFC62C]">
                   {formatEur(angebot.festpreis)}
                 </span>
+                {/* Payment status badge */}
+                {angebot.status === "accepted" && payments[angebot.id] && (
+                  payments[angebot.id].paid ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
+                      <CreditCard className="h-3 w-3" />
+                      {formatEur(payments[angebot.id].amount!)} bezahlt
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 text-[10px] font-semibold text-amber-400">
+                      <BanknoteIcon className="h-3 w-3" />
+                      Zahlung ausstehend
+                    </span>
+                  )
+                )}
                 {angebot.status === "accepted" && (
                   <BootstrapButton angebotId={angebot.id} />
                 )}
@@ -145,6 +186,29 @@ export function AngebotHistory({ submissionId }: AngebotHistoryProps) {
                   </a>
                 )}
               </div>
+
+              {/* Payment details for paid angebote */}
+              {angebot.status === "accepted" && payments[angebot.id]?.paid && (
+                <div className="mt-2 w-full pl-10 flex items-center gap-3 text-xs text-emerald-400/80">
+                  <span>
+                    {payments[angebot.id].type === "full" ? "100% Sofortzahlung (12% Rabatt)" :
+                     payments[angebot.id].type === "half" ? "50% Anzahlung (5% Rabatt)" :
+                     "15% Anzahlung"}
+                  </span>
+                  <span className="text-[#6a6e76]">·</span>
+                  <span className="text-[#6a6e76]">
+                    {payments[angebot.id].method === "stripe" ? "Stripe" : "Überweisung"}
+                  </span>
+                  {payments[angebot.id].paidAt && (
+                    <>
+                      <span className="text-[#6a6e76]">·</span>
+                      <span className="text-[#6a6e76]">
+                        {formatDate(payments[angebot.id].paidAt!)}
+                      </span>
+                    </>
+                  )}
+                </div>
+              )}
 
               {angebot.status === "rejected_by_client" &&
                 angebot.clientFeedback && (
