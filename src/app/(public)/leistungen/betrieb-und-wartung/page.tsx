@@ -3,9 +3,9 @@ import { services } from "@/data/services";
 import { ServicePageTemplate } from "@/components/sections/ServicePageTemplate";
 
 export const metadata: Metadata = {
-  title: "Betrieb, Monitoring & Wartung",
+  title: "Laufende Betreuung — Wir kümmern uns um den Betrieb",
   description:
-    "Laufender Betrieb, Monitoring, Updates und Support für bestehende oder neu entwickelte Apps. 24/7 Uptime-Monitoring und proaktive Wartung.",
+    "Ihre Lösung läuft — wir sorgen dafür, dass das so bleibt. Überwachung, Updates und schnelle Hilfe. Ab 29 €/Monat für Kleingewerbe und Gründer.",
 };
 
 export default function BetriebUndWartungPage() {

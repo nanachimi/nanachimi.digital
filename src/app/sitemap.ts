@@ -8,7 +8,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "",
     "/leistungen",
     "/leistungen/48h-mvp",
-    "/leistungen/app-entwicklung",
+    "/leistungen/individuelle-loesung",
     "/leistungen/betrieb-und-wartung",
     "/portfolio",
     "/ueber-mich",

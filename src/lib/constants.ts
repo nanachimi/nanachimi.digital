@@ -20,7 +20,7 @@ export const FOOTER_SECTIONS = [
     title: "Leistungen",
     links: [
       { label: "In 48h online", href: "/leistungen/48h-mvp" },
-      { label: "App-Entwicklung", href: "/leistungen/app-entwicklung" },
+      { label: "Individuelle Lösung", href: "/leistungen/individuelle-loesung" },
       { label: "Betrieb & Wartung", href: "/leistungen/betrieb-und-wartung" },
     ],
   },

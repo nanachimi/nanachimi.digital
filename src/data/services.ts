@@ -3,118 +3,118 @@ import { Service } from "@/lib/types";
 export const services: Service[] = [
   {
     slug: "48h-mvp",
-    title: "48h Go-Live",
+    title: "In 48 Stunden online",
     shortDescription:
-      "Für ausgewählte MVP-Projekte mit klarem Scope: Von der finalen Abstimmung bis zum Deployment in 48 Stunden.",
+      "Sie beschreiben Ihre Idee — wir bringen sie in 48 Stunden live. Für klare Vorhaben mit definiertem Umfang.",
     icon: "Zap",
     idealFor:
-      "Gründer und Kleingewerbe mit einer klaren Idee und definiertem Scope, die schnell am Markt sein wollen.",
+      "Gründer und Kleingewerbe, die eine klare Idee haben und schnell starten wollen — ohne monatelanges Warten.",
     features: [
-      "Klarer Scope vorab definiert",
-      "Entwicklung in 48 Stunden",
-      "Deployment auf Ihrer Infrastruktur",
-      "Basis-Monitoring inklusive",
-      "Produktionsreifer Code",
-      "Dokumentation der Architektur",
+      "Ihre Idee wird in 48 Stunden umgesetzt",
+      "Sie müssen nichts Technisches verstehen",
+      "Sofort online und für Ihre Kunden nutzbar",
+      "1 Monat Betreuung nach dem Start inklusive",
+      "Alles aus einer Hand — ein Ansprechpartner",
+      "Auf Wunsch: laufende Weiterentwicklung",
     ],
     process: [
       {
         step: 1,
-        title: "Scope bestätigen",
+        title: "Sie beschreiben Ihr Vorhaben",
         description:
-          "Gemeinsame finale Abstimmung der Anforderungen und des Funktionsumfangs.",
+          "In 3 Minuten online — ohne technische Kenntnisse. Wir klären den Rest.",
       },
       {
         step: 2,
-        title: "Entwicklung",
+        title: "Wir bauen Ihre Lösung",
         description:
-          "Konzentrierte Umsetzung mit modernem Tech-Stack und bewährten Patterns.",
+          "Konzentrierte Umsetzung in 48 Stunden. Sie werden regelmäßig informiert.",
       },
       {
         step: 3,
-        title: "Go-Live",
+        title: "Ihre Lösung ist live",
         description:
-          "Deployment, Basis-Tests und Übergabe — Ihre App ist live.",
+          "Online, nutzbar, betreut. Sie können sofort loslegen — wir kümmern uns um den Rest.",
       },
     ],
   },
   {
-    slug: "app-entwicklung",
-    title: "Individuelle App-Entwicklung",
+    slug: "individuelle-loesung",
+    title: "Ihre individuelle Lösung",
     shortDescription:
-      "Maßgeschneiderte Web- und Mobile-Apps mit modernem Tech-Stack. Iterativ, transparent und produktionsreif.",
+      "Von der Idee bis zur fertigen Lösung — wir übernehmen alles. Planung, Umsetzung, Start und Betreuung. Komplett.",
     icon: "Code",
     idealFor:
-      "Kleingewerbe und Gründer, die eine professionelle Web- oder Mobile-Lösung entwickeln lassen wollen — von einfachen Tools bis zu komplexen Plattformen.",
+      "Gründer und Kleingewerbe, die eine professionelle digitale Lösung brauchen — von einfachen Tools bis zu komplexen Plattformen. Keine technischen Vorkenntnisse nötig.",
     features: [
-      "Discovery und Anforderungsanalyse",
-      "UX/UI-Design (oder Integration bestehender Designs)",
-      "Iterative Entwicklung mit regelmäßigen Updates",
-      "Automatisierte Tests und Qualitätssicherung",
-      "Deployment und Go-Live Begleitung",
-      "Technische Dokumentation",
+      "Wir verstehen Ihr Vorhaben und planen die Umsetzung",
+      "Sie sehen regelmäßig den Fortschritt",
+      "Design nach Ihren Wünschen oder unseren Vorschlägen",
+      "Qualität wird automatisch geprüft",
+      "Wir bringen Ihre Lösung online",
+      "Dokumentation und Einweisung inklusive",
     ],
     process: [
       {
         step: 1,
-        title: "Discovery",
+        title: "Wir verstehen Ihr Vorhaben",
         description:
-          "Anforderungen verstehen, Scope definieren, Architektur planen.",
+          "Sie beschreiben, was Sie brauchen. Wir planen die Umsetzung — verständlich und transparent.",
       },
       {
         step: 2,
-        title: "Design & Prototyping",
+        title: "Sie sehen erste Ergebnisse",
         description:
-          "UI/UX-Entwürfe und interaktive Prototypen zur Abstimmung.",
+          "Wir zeigen Ihnen Entwürfe und Prototypen. Sie geben Feedback — wir passen an.",
       },
       {
         step: 3,
-        title: "Entwicklung",
+        title: "Schrittweise Umsetzung",
         description:
-          "Iterative Umsetzung in Sprints mit regelmäßigem Feedback.",
+          "Ihre Lösung entsteht Schritt für Schritt. Sie werden regelmäßig über den Stand informiert.",
       },
       {
         step: 4,
-        title: "Testing & Go-Live",
+        title: "Ihre Lösung geht live",
         description:
-          "Qualitätssicherung, Performance-Optimierung und Deployment.",
+          "Wir bringen alles online, testen gründlich und übergeben — inklusive 1 Monat Betreuung.",
       },
     ],
   },
   {
     slug: "betrieb-und-wartung",
-    title: "Betrieb, Monitoring & Wartung",
+    title: "Wir kümmern uns um den Betrieb",
     shortDescription:
-      "Laufender Betrieb, Monitoring, Updates und Support für bestehende oder neu entwickelte Apps.",
+      "Ihre Lösung läuft — wir sorgen dafür, dass das so bleibt. Überwachung, Updates, Sicherheit und schnelle Hilfe bei Problemen.",
     icon: "Shield",
     idealFor:
-      "Kleingewerbe mit bestehenden oder neu entwickelten Lösungen, die zuverlässigen Betrieb und kontinuierliche Verbesserung brauchen.",
+      "Kleingewerbe und Gründer, die sich nicht um Technik kümmern wollen. Wir übernehmen den laufenden Betrieb — Sie konzentrieren sich auf Ihr Vorhaben.",
     features: [
-      "24/7 Uptime-Monitoring",
-      "Incident Response und Fehlerbehebung",
-      "Regelmäßige Security-Updates",
-      "Performance-Optimierung",
-      "Backup-Management",
-      "Monatliche Status-Reports",
+      "Ihre Lösung wird rund um die Uhr überwacht",
+      "Sicherheitsupdates werden automatisch eingespielt",
+      "Bei Problemen reagieren wir sofort",
+      "Regelmäßige Verbesserungen und Optimierungen",
+      "Ihre Daten werden täglich gesichert",
+      "Monatlicher Statusbericht für Sie",
     ],
     process: [
       {
         step: 1,
-        title: "Analyse",
+        title: "Wir prüfen Ihre Lösung",
         description:
-          "Bestandsaufnahme der Infrastruktur und Identifikation von Risiken.",
+          "Bestandsaufnahme: Was läuft gut? Wo gibt es Risiken? Was können wir verbessern?",
       },
       {
         step: 2,
-        title: "Setup",
+        title: "Wir richten alles ein",
         description:
-          "Monitoring, Alerting und Backup-Systeme einrichten.",
+          "Überwachung, Sicherheitsnetze und automatische Backups — alles wird eingerichtet.",
       },
       {
         step: 3,
-        title: "Laufender Betrieb",
+        title: "Wir kümmern uns — Sie nicht",
         description:
-          "Kontinuierliches Monitoring, proaktive Wartung und schnelle Reaktion bei Problemen.",
+          "Laufende Überwachung, proaktive Wartung und schnelle Hilfe. 24/7, auch am Wochenende.",
       },
     ],
   },

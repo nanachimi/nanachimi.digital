@@ -17,14 +17,14 @@ const techStacks: Record<string, { category: string; items: string[] }[]> = {
     { category: "Backend", items: ["Node.js", "Spring Boot", "PostgreSQL"] },
     { category: "Deployment", items: ["Docker", "Hetzner", "GitHub Actions"] },
   ],
-  "app-entwicklung": [
+  "individuelle-loesung": [
     { category: "Frontend", items: ["Next.js", "React", "Angular", "Tailwind CSS"] },
     { category: "Backend", items: ["Java", "Spring Boot", "Node.js", "Python"] },
     { category: "Datenbanken", items: ["PostgreSQL", "MongoDB", "Neo4J"] },
-    { category: "DevOps", items: ["Docker", "Kubernetes", "Terraform", "CI/CD"] },
+    { category: "Infrastruktur", items: ["Docker", "Kubernetes", "Hetzner", "CI/CD"] },
   ],
   "betrieb-und-wartung": [
-    { category: "Monitoring", items: ["Uptime-Checks", "Alerting", "Logs"] },
+    { category: "Überwachung", items: ["Uptime-Checks", "Alerting", "Logs"] },
     { category: "Infrastruktur", items: ["Docker", "Kubernetes", "Hetzner"] },
     { category: "Sicherheit", items: ["SSL/TLS", "Backups", "Security-Patches"] },
   ],
@@ -33,28 +33,28 @@ const techStacks: Record<string, { category: string; items: string[] }[]> = {
 const targetGroups: Record<string, string[]> = {
   "48h-mvp": [
     "Gründer mit einer klaren Idee",
-    "Startups, die schnell am Markt testen wollen",
-    "Kleingewerbe mit definiertem MVP-Scope",
-    "Projekte mit knapper Deadline",
+    "Selbstständige, die schnell starten wollen",
+    "Kleingewerbe mit definiertem Vorhaben",
+    "Projekte, die nicht warten können",
   ],
-  "app-entwicklung": [
-    "Kleingewerbe mit komplexeren Anforderungen",
-    "Gründer, die maßgeschneiderte Lösungen brauchen",
-    "Projekte, die iterative Entwicklung erfordern",
-    "Teams, die einen erfahrenen Lead-Entwickler suchen",
+  "individuelle-loesung": [
+    "Kleingewerbe mit größeren Vorhaben",
+    "Gründer, die eine maßgeschneiderte Lösung brauchen",
+    "Vorhaben, die Schritt für Schritt umgesetzt werden",
+    "Alle, die sich nicht um Technik kümmern wollen",
   ],
   "betrieb-und-wartung": [
-    "Kleingewerbe mit bestehenden Web-Anwendungen",
-    "Teams ohne eigene DevOps-Kapazität",
-    "Lösungen, die zuverlässigen 24/7-Betrieb brauchen",
+    "Kleingewerbe mit bestehender Lösung",
+    "Gründer ohne Zeit für Technik-Pflege",
+    "Lösungen, die zuverlässig laufen müssen",
     "Projekte nach dem Go-Live",
   ],
 };
 
 const pricing: Record<string, { price: string; note: string }> = {
-  "48h-mvp": { price: "ab 1.990 €", note: "Festpreis nach Scope-Abstimmung" },
-  "app-entwicklung": { price: "2.990 – 25.000 €", note: "Je nach Umfang und Komplexität" },
-  "betrieb-und-wartung": { price: "ab 199 €/Monat", note: "Ab dem zweiten Jahr — erstes Jahr inklusive" },
+  "48h-mvp": { price: "ab 299 €", note: "Festpreis nach Abstimmung" },
+  "individuelle-loesung": { price: "ab 999 €", note: "Maßgeschneidert nach Ihren Wünschen" },
+  "betrieb-und-wartung": { price: "ab 29 €/Monat", note: "1. Monat im Festpreis inklusive" },
 };
 
 interface PageProps {

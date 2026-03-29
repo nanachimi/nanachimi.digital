@@ -3,9 +3,9 @@ import { services } from "@/data/services";
 import { ServicePageTemplate } from "@/components/sections/ServicePageTemplate";
 
 export const metadata: Metadata = {
-  title: "48h Go-Live — MVP in 48 Stunden",
+  title: "In 48 Stunden online — Ihre Idee wird Realität",
   description:
-    "Für ausgewählte MVP-Projekte mit klarem Scope: Von der finalen Abstimmung bis zum Deployment in 48 Stunden. Produktionsreifer Code, Hetzner-Deployment inklusive.",
+    "Sie beschreiben Ihre Idee — wir bringen sie in 48 Stunden live. Für Gründer und Kleingewerbe. Ab 299 €, keine technischen Vorkenntnisse nötig.",
 };
 
 export default function MVP48hPage() {
