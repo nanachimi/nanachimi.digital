@@ -65,6 +65,39 @@ export const BETRIEB_UND_WARTUNG = {
     "1 Monat Betrieb & Wartung nach dem Start inklusive. Danach eigenverantwortlicher Betrieb.",
 } as const;
 
+export const BANKVERBINDUNG = {
+  kontoinhaber: "Achille Nana Chimi",
+  iban: "DE89 3704 0044 0532 0130 00",
+  bic: "COBADEFFXXX",
+  bank: "Commerzbank",
+} as const;
+
+export const PAYMENT_DISCOUNTS = {
+  full:      { percent: 100, discount: 0.12, label: "Sofort komplett zahlen", badgeLabel: "12% Rabatt" },
+  half:      { percent: 50,  discount: 0.05, label: "50% Anzahlung",         badgeLabel: "5% Rabatt" },
+  tranche_1: { percent: 15,  discount: 0,    label: "15% Anzahlung",         badgeLabel: "" },
+} as const;
+
+export type PaymentType = keyof typeof PAYMENT_DISCOUNTS;
+
+export function calculatePaymentOptions(festpreis: number) {
+  return Object.entries(PAYMENT_DISCOUNTS).map(([type, config]) => {
+    const discountedTotal = Math.round(festpreis * (1 - config.discount));
+    const amount = Math.round(discountedTotal * (config.percent / 100));
+    const discountAmount = festpreis - discountedTotal;
+    return {
+      type: type as PaymentType,
+      amount,
+      discount: discountAmount,
+      discountPercent: Math.round(config.discount * 100),
+      label: config.label,
+      badgeLabel: config.badgeLabel,
+      festpreisOriginal: festpreis,
+      festpreisDiscounted: discountedTotal,
+    };
+  });
+}
+
 export const TRUST_SIGNALS = [
   { label: "Ex-Accenture", description: "Consultant" },
   { label: "Ex-SAP", description: "Engineer" },

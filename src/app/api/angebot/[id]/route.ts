@@ -157,8 +157,26 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     await updateSubmissionStatus(angebot.submissionId, "rejected_by_client", feedback);
   }
 
+  if (action === "accept") {
+    // Return payment options with discount calculations
+    const { calculatePaymentOptions, BANKVERBINDUNG } = await import("@/lib/constants");
+    const options = calculatePaymentOptions(angebot.festpreis);
+    return NextResponse.json({
+      success: true,
+      status: "accepted",
+      payment: {
+        festpreis: angebot.festpreis,
+        options,
+        bank: {
+          ...BANKVERBINDUNG,
+          verwendungszweck: `Angebot ${angebot.id}`,
+        },
+      },
+    });
+  }
+
   return NextResponse.json({
     success: true,
-    status: action === "accept" ? "accepted" : "rejected_by_client",
+    status: "rejected_by_client",
   });
 }
