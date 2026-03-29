@@ -352,7 +352,7 @@ jobs:
               --network nanachimi-network \
               --restart unless-stopped \
               -p 3001:3000 \
-              --env-file /opt/nanachimi-dev/.env \
+              --env-file /opt/nanachimidigital-dev/.env \
               nanachimi-digital:dev
 
             docker system prune -f
@@ -418,7 +418,7 @@ jobs:
               --network nanachimi-network \
               --restart unless-stopped \
               -p 3002:3000 \
-              --env-file /opt/nanachimi-staging/.env \
+              --env-file /opt/nanachimidigital-staging/.env \
               nanachimi-digital:staging
 
             docker system prune -f
