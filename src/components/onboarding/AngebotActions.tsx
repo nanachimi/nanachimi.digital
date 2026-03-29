@@ -156,7 +156,7 @@ export function AngebotActions({ id, initialStatus, festpreis }: Props) {
 
   if (status === "accepted") {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 mb-8">
         {/* Success Banner */}
         <div className="rounded-2xl border border-emerald-400/30 bg-emerald-400/[0.08] p-6 text-center">
           <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-400/20">
