@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getRunningTests } from "@/lib/ab-tests";
 
+export const dynamic = "force-dynamic";
+
 /**
  * GET /api/ab-tests/active
  *

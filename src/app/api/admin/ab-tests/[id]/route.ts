@@ -8,6 +8,8 @@ import {
   getEventsByTest,
 } from "@/lib/ab-tests";
 
+export const dynamic = "force-dynamic";
+
 /**
  * GET /api/admin/ab-tests/[id]
  * Get a single A/B test with full stats and events.

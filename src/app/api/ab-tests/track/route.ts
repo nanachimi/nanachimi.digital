@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { addEvent, getTestById } from "@/lib/ab-tests";
+export const dynamic = "force-dynamic";
 
 /**
  * POST /api/ab-tests/track

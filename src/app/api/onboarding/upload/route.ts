@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { uploadFile } from "@/lib/seaweedfs";
 import { prisma } from "@/lib/db";
+export const dynamic = "force-dynamic";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 const MAX_FILES = 5;

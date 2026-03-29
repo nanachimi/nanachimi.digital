@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSubmissionById, updateSubmissionStatus } from "@/lib/submissions";
 import { requireAdmin } from "@/lib/auth/require-admin";
+export const dynamic = "force-dynamic";
 
 // GET /api/admin/submissions/[id] — get single submission
 export async function GET(

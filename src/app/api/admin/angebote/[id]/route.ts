@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAngebotById } from "@/lib/angebote";
 import { requireAdmin } from "@/lib/auth/require-admin";
+export const dynamic = "force-dynamic";
 
 // GET /api/admin/angebote/[id] — Get a single Angebot (admin view)
 export async function GET(

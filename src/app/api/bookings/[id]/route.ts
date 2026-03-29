@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { cancelBooking, getBookingById } from "@/lib/bookings";
+export const dynamic = "force-dynamic";
 
 /**
  * PATCH /api/bookings/[id]

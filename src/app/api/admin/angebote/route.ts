@@ -9,6 +9,7 @@ import {
 } from "@/lib/angebote";
 import { sendAngebotEmail } from "@/lib/email";
 import { requireAdmin } from "@/lib/auth/require-admin";
+export const dynamic = "force-dynamic";
 
 // POST /api/admin/angebote — Create a new Angebot from an amended Anfrage
 export async function POST(request: Request) {

@@ -5,6 +5,8 @@ import {
 } from "@/lib/submissions";
 import { generateAutoAngebot } from "@/lib/auto-angebot";
 
+export const dynamic = "force-dynamic";
+
 /**
  * GET /api/cron/sla-check — SLA enforcement cron job.
  *

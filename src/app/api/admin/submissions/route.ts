@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAllSubmissions } from "@/lib/submissions";
 import { requireAdmin } from "@/lib/auth/require-admin";
+export const dynamic = "force-dynamic";
 
 // GET /api/admin/submissions — list all submissions
 export async function GET() {

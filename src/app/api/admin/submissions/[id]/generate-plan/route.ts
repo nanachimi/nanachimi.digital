@@ -8,6 +8,8 @@ import {
   type PlanPromptInput,
 } from "@/lib/plan-template";
 
+export const dynamic = "force-dynamic";
+
 // POST /api/admin/submissions/[id]/generate-plan
 // Calls Anthropic Claude API to generate a structured project plan
 export async function POST(

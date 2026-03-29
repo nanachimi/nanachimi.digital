@@ -7,6 +7,8 @@ import {
   type ABTest,
 } from "@/lib/ab-tests";
 
+export const dynamic = "force-dynamic";
+
 /**
  * GET /api/admin/ab-tests
  * List all A/B tests with aggregated stats.

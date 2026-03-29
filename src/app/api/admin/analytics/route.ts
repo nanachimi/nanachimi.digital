@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getAggregatedStats } from "@/lib/analytics";
+export const dynamic = "force-dynamic";
 
 export async function GET() {
   // Check admin auth

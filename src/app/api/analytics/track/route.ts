@@ -6,6 +6,7 @@ import {
   addConversionEvent,
 } from "@/lib/analytics";
 import { getExcludedIps } from "@/lib/excluded-ips";
+export const dynamic = "force-dynamic";
 
 function getClientIp(request: Request): string {
   const headers = new Headers(request.headers);

@@ -5,6 +5,7 @@ import {
 } from "@/lib/submissions";
 import type { ProjectPlan } from "@/lib/plan-template";
 import { requireAdmin } from "@/lib/auth/require-admin";
+export const dynamic = "force-dynamic";
 
 interface AmendBody {
   plan: ProjectPlan;

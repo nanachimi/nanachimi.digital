@@ -3,6 +3,7 @@ import { getAngebotById } from "@/lib/angebote";
 import { getSubmissionById } from "@/lib/submissions";
 import { downloadFile } from "@/lib/seaweedfs";
 import { generateAngebotPdf } from "@/lib/pdf/generate";
+export const dynamic = "force-dynamic";
 
 interface RouteParams {
   params: Promise<{ id: string }>;

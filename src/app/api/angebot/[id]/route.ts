@@ -5,6 +5,7 @@ import { generateAngebotPdf } from "@/lib/pdf/generate";
 import { uploadFile } from "@/lib/seaweedfs";
 import { sendAngebotConfirmationEmail } from "@/lib/email";
 import { bootstrapProject } from "@/lib/project-bootstrap";
+export const dynamic = "force-dynamic";
 
 interface RouteParams {
   params: Promise<{ id: string }>;

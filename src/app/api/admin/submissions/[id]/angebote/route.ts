@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSubmissionById } from "@/lib/submissions";
 import { getAngeboteBySubmission } from "@/lib/angebote";
 import { requireAdmin } from "@/lib/auth/require-admin";
+export const dynamic = "force-dynamic";
 
 // GET /api/admin/submissions/[id]/angebote — List all Angebote for an Anfrage
 export async function GET(

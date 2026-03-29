@@ -4,6 +4,7 @@ import { calculateEstimate } from "@/lib/estimation";
 import { addSubmission } from "@/lib/submissions";
 import { sendOnboardingConfirmationEmail } from "@/lib/email";
 import { prisma } from "@/lib/db";
+export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   try {

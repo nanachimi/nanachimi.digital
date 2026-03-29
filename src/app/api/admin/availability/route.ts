@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAvailability, setAvailability } from "@/lib/bookings";
 import { requireAdmin } from "@/lib/auth/require-admin";
+export const dynamic = "force-dynamic";
 
 /**
  * GET /api/admin/availability

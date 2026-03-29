@@ -6,6 +6,7 @@ import {
   type Booking,
 } from "@/lib/bookings";
 import { getSubmissionById } from "@/lib/submissions";
+export const dynamic = "force-dynamic";
 
 /**
  * POST /api/bookings

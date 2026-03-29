@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAvailableSlots } from "@/lib/bookings";
+export const dynamic = "force-dynamic";
 
 /**
  * GET /api/bookings/available?from=YYYY-MM-DD&to=YYYY-MM-DD

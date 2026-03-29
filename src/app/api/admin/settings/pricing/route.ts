@@ -6,6 +6,8 @@ import {
   type PricingConfig,
 } from "@/lib/pricing-config";
 
+export const dynamic = "force-dynamic";
+
 /**
  * GET /api/admin/settings/pricing — Get current pricing config
  */
