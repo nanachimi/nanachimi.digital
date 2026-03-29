@@ -138,29 +138,6 @@ export function AdminSidebar() {
           const active = isActive(item.href, item.exact);
           const Icon = item.icon;
 
-          if (item.disabled) {
-            return (
-              <div
-                key={item.href}
-                className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-zinc-600 cursor-not-allowed",
-                  collapsed && !isMobile && "justify-center px-2"
-                )}
-                title={collapsed && !isMobile ? item.label : undefined}
-              >
-                <Icon className="h-5 w-5 shrink-0" />
-                {(!collapsed || isMobile) && (
-                  <span className="truncate">{item.label}</span>
-                )}
-                {(!collapsed || isMobile) && (
-                  <span className="ml-auto text-[10px] uppercase tracking-wider text-zinc-700 bg-zinc-800/50 px-1.5 py-0.5 rounded">
-                    Bald
-                  </span>
-                )}
-              </div>
-            );
-          }
-
           return (
             <Link
               key={item.href}
