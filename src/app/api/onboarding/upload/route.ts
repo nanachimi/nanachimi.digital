@@ -94,9 +94,15 @@ export async function POST(request: Request) {
     });
   } catch (err) {
     console.error("[Upload] Error:", err);
+    const message = err instanceof Error ? err.message : "Unbekannter Fehler";
+    const isSeaweedDown = message.includes("fetch failed") || message.includes("ECONNREFUSED") || message.includes("SeaweedFS");
     return NextResponse.json(
-      { error: "Upload fehlgeschlagen" },
-      { status: 500 }
+      {
+        error: isSeaweedDown
+          ? "Datei-Storage nicht erreichbar. Bitte versuchen Sie es später erneut."
+          : "Upload fehlgeschlagen",
+      },
+      { status: isSeaweedDown ? 503 : 500 }
     );
   }
 }

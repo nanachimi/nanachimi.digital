@@ -8,7 +8,7 @@ export function CookieSettingsLink() {
   return (
     <button
       onClick={openBanner}
-      className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+      className="text-[10px] text-muted-foreground/60 transition-colors hover:text-muted-foreground"
     >
       Cookie-Einstellungen
     </button>

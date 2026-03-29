@@ -14,24 +14,35 @@ const rollenOptions = [
   { value: "3+", label: "Drei oder mehr Gruppen", desc: "z.B. Kunden, Mitarbeiter, Verwaltung" },
 ] as const;
 
+const MIN_ROLES_FOR_3PLUS = 3;
+const MAX_ROLES = 10;
+
 const appTypOptions = [
   { value: "web", label: "Web", icon: Globe },
   { value: "mobile", label: "Mobile", icon: Smartphone },
   { value: "desktop", label: "Desktop", icon: Monitor },
 ] as const;
 
-function getRollenCount(anzahl: string): number {
-  return anzahl === "3+" ? 3 : parseInt(anzahl, 10);
+function getDefaultRollenCount(anzahl: string): number {
+  return anzahl === "3+" ? MIN_ROLES_FOR_3PLUS : parseInt(anzahl, 10);
 }
 
 export function StepNutzerrollen({ data, onChange }: Props) {
   const hasMultipleRoles = data.rollenAnzahl === "2" || data.rollenAnzahl === "3+";
-  const rollenCount = data.rollenAnzahl ? getRollenCount(data.rollenAnzahl) : 0;
+  const canAddMore = data.rollenAnzahl === "3+";
+  const defaultCount = data.rollenAnzahl ? getDefaultRollenCount(data.rollenAnzahl) : 0;
+  // For "3+", use the actual rollenApps array length (user can add more)
+  const rollenCount = canAddMore && data.rollenApps
+    ? Math.max(data.rollenApps.length, MIN_ROLES_FOR_3PLUS)
+    : defaultCount;
 
   // Initialize rollenApps when switching structure
   function handleAppStrukturChange(struktur: "shared" | "separate") {
-    if (!data.rollenApps || data.rollenApps.length !== rollenCount) {
-      const apps = Array.from({ length: rollenCount }, (_, i) => ({
+    const targetCount = canAddMore && data.rollenApps
+      ? Math.max(data.rollenApps.length, defaultCount)
+      : defaultCount;
+    if (!data.rollenApps || data.rollenApps.length !== targetCount) {
+      const apps = Array.from({ length: targetCount }, (_, i) => ({
         rolle: data.rollenApps?.[i]?.rolle || `Rolle ${i + 1}`,
         appTyp: data.rollenApps?.[i]?.appTyp || ["web"] as ("web" | "mobile" | "desktop")[],
         beschreibung: data.rollenApps?.[i]?.beschreibung || "",
@@ -40,6 +51,24 @@ export function StepNutzerrollen({ data, onChange }: Props) {
     } else {
       onChange({ appStruktur: struktur });
     }
+  }
+
+  function addRole() {
+    const apps = [...(data.rollenApps || [])];
+    if (apps.length >= MAX_ROLES) return;
+    apps.push({
+      rolle: `Rolle ${apps.length + 1}`,
+      appTyp: ["web"] as ("web" | "mobile" | "desktop")[],
+      beschreibung: "",
+    });
+    onChange({ rollenApps: apps });
+  }
+
+  function removeRole(index: number) {
+    const apps = [...(data.rollenApps || [])];
+    if (apps.length <= MIN_ROLES_FOR_3PLUS) return;
+    apps.splice(index, 1);
+    onChange({ rollenApps: apps });
   }
 
   function toggleAppTyp(index: number, typ: "web" | "mobile" | "desktop") {
@@ -170,8 +199,18 @@ export function StepNutzerrollen({ data, onChange }: Props) {
           {data.rollenApps.map((app, idx) => (
             <div
               key={idx}
-              className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4 space-y-3"
+              className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4 space-y-3 relative"
             >
+              {canAddMore && data.rollenApps && data.rollenApps.length > MIN_ROLES_FOR_3PLUS && (
+                <button
+                  type="button"
+                  onClick={() => removeRole(idx)}
+                  className="absolute top-3 right-3 text-[#6a6e76] hover:text-red-400 transition-colors text-xs"
+                  aria-label={`${app.rolle} entfernen`}
+                >
+                  ✕
+                </button>
+              )}
               <Input
                 value={app.rolle}
                 onChange={(e) => updateRolleField(idx, "rolle", e.target.value)}
@@ -206,6 +245,15 @@ export function StepNutzerrollen({ data, onChange }: Props) {
               </div>
             </div>
           ))}
+          {canAddMore && data.rollenApps && data.rollenApps.length < MAX_ROLES && (
+            <button
+              type="button"
+              onClick={addRole}
+              className="w-full rounded-xl border border-dashed border-white/10 p-3 text-sm text-[#8B8F97] hover:border-[#FFC62C]/30 hover:text-[#FFC62C] transition-all"
+            >
+              + Weitere Rolle hinzufügen
+            </button>
+          )}
         </div>
       )}
 
@@ -221,8 +269,18 @@ export function StepNutzerrollen({ data, onChange }: Props) {
             return (
               <div
                 key={idx}
-                className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4 space-y-3"
+                className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4 space-y-3 relative"
               >
+                {canAddMore && apps.length > MIN_ROLES_FOR_3PLUS && (
+                  <button
+                    type="button"
+                    onClick={() => removeRole(idx)}
+                    className="absolute top-3 right-3 text-[#6a6e76] hover:text-red-400 transition-colors text-xs"
+                    aria-label={`${app.rolle} entfernen`}
+                  >
+                    ✕
+                  </button>
+                )}
                 <Input
                   value={app.rolle}
                   onChange={(e) => {
@@ -248,6 +306,15 @@ export function StepNutzerrollen({ data, onChange }: Props) {
               </div>
             );
           })}
+          {canAddMore && (data.rollenApps?.length || rollenCount) < MAX_ROLES && (
+            <button
+              type="button"
+              onClick={addRole}
+              className="w-full rounded-xl border border-dashed border-white/10 p-3 text-sm text-[#8B8F97] hover:border-[#FFC62C]/30 hover:text-[#FFC62C] transition-all"
+            >
+              + Weitere Rolle hinzufügen
+            </button>
+          )}
         </div>
       )}
 

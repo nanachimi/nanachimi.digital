@@ -47,14 +47,14 @@ export function Footer() {
         </div>
 
         {/* Bottom Bar */}
-        <div className="mt-12 border-t pt-6 space-y-3">
-          <div className="flex justify-center">
-            <CookieSettingsLink />
-          </div>
+        <div className="mt-12 border-t pt-6 space-y-2">
           <p className="text-center text-xs text-muted-foreground">
             &copy; {new Date().getFullYear()} {SITE_CONFIG.name}. Alle Rechte
             vorbehalten.
           </p>
+          <div className="flex justify-center">
+            <CookieSettingsLink />
+          </div>
         </div>
       </div>
     </footer>
