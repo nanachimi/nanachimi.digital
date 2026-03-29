@@ -13,6 +13,7 @@ import { prisma } from "@/lib/db";
 export interface PageView {
   id: string;
   visitorId: string;
+  ip?: string;
   path: string;
   referrer: string;
   utmSource?: string;
@@ -26,6 +27,7 @@ export interface PageView {
 export interface OnboardingEvent {
   id: string;
   visitorId: string;
+  ip?: string;
   sessionId: string;
   step: number;
   stepName: string;
@@ -37,6 +39,7 @@ export interface OnboardingEvent {
 export interface ConversionEvent {
   id: string;
   visitorId: string;
+  ip?: string;
   type: "cta_click" | "conversion_path";
   ctaId?: string; // e.g., "hero_primary", "urgency_cta"
   conversionPath?: string; // "call" or "angebot"
@@ -80,6 +83,7 @@ export async function addPageView(pv: PageView): Promise<void> {
     data: {
       id: pv.id,
       visitorId: pv.visitorId,
+      ip: pv.ip ?? null,
       path: pv.path,
       referrer: pv.referrer,
       utmSource: pv.utmSource ?? null,
@@ -114,6 +118,7 @@ export async function addOnboardingEvent(event: OnboardingEvent): Promise<void> 
     data: {
       id: event.id,
       visitorId: event.visitorId,
+      ip: event.ip ?? null,
       sessionId: event.sessionId,
       step: event.step,
       stepName: event.stepName,
@@ -132,6 +137,7 @@ export async function addConversionEvent(event: ConversionEvent): Promise<void> 
     data: {
       id: event.id,
       visitorId: event.visitorId,
+      ip: event.ip ?? null,
       type: event.type,
       ctaId: event.ctaId ?? null,
       conversionPath: event.conversionPath ?? null,
@@ -145,8 +151,17 @@ export async function addConversionEvent(event: ConversionEvent): Promise<void> 
 // ---------------------------------------------------------------------------
 
 export async function getAggregatedStats(): Promise<AggregatedStats> {
+  // Load excluded IPs for retroactive filtering
+  const excludedIpRecords = await prisma.excludedIp.findMany();
+  const excludedIps = new Set(excludedIpRecords.map((r) => r.ip));
+
+  // Build Prisma filter: exclude records whose IP is in the excluded set
+  const ipFilter = excludedIps.size > 0
+    ? { OR: [{ ip: null }, { ip: { notIn: Array.from(excludedIps) } }] }
+    : {};
+
   // --- Page views ---
-  const allPVs = await prisma.pageView.findMany();
+  const allPVs = await prisma.pageView.findMany({ where: ipFilter });
   const totalPV = allPVs.length;
   const uniqueVisitors = new Set(allPVs.map((p) => p.visitorId)).size;
   const pvWithTime = allPVs.filter((p) => p.timeOnPage != null);
@@ -187,7 +202,7 @@ export async function getAggregatedStats(): Promise<AggregatedStats> {
     .slice(0, 20);
 
   // --- Onboarding funnel ---
-  const allEvents = await prisma.onboardingAnalyticsEvent.findMany();
+  const allEvents = await prisma.onboardingAnalyticsEvent.findMany({ where: ipFilter });
   const stepMap = new Map<
     number,
     { stepName: string; entries: number; completions: number; totalDuration: number; durationCount: number }
@@ -222,7 +237,7 @@ export async function getAggregatedStats(): Promise<AggregatedStats> {
     }));
 
   // --- Conversions ---
-  const allConversions = await prisma.conversionEvent.findMany();
+  const allConversions = await prisma.conversionEvent.findMany({ where: ipFilter });
   const totalCtaClicks = allConversions.filter((e) => e.type === "cta_click").length;
   const pathEvents = allConversions.filter((e) => e.type === "conversion_path");
   const callCount = pathEvents.filter((e) => e.conversionPath === "call").length;

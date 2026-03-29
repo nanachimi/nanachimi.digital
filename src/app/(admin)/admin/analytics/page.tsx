@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   Eye,
   Users,
@@ -9,7 +9,9 @@ import {
   TrendingUp,
   Phone,
   Mail,
+  RefreshCw,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface Stats {
   pageViews: {
@@ -48,16 +50,28 @@ function formatPercent(n: number): string {
 export default function AnalyticsPage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+
+  const fetchStats = useCallback(async () => {
+    setLoading(true);
+    try {
+      const r = await fetch("/api/admin/analytics");
+      const d = await r.json();
+      setStats(d);
+      setLastRefresh(new Date());
+    } catch {
+      // ignore
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    fetch("/api/admin/analytics")
-      .then((r) => r.json())
-      .then((d) => {
-        setStats(d);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  }, []);
+    fetchStats();
+    // Auto-refresh every 30 seconds
+    const interval = setInterval(fetchStats, 30_000);
+    return () => clearInterval(interval);
+  }, [fetchStats]);
 
   if (loading) {
     return (
@@ -83,7 +97,26 @@ export default function AnalyticsPage() {
 
   return (
     <div className="p-8 space-y-8">
-      <h1 className="text-2xl font-bold text-white">Analytics</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-white">Analytics</h1>
+        <div className="flex items-center gap-3">
+          {lastRefresh && (
+            <span className="text-xs text-zinc-500">
+              Aktualisiert: {lastRefresh.toLocaleTimeString("de-DE")}
+            </span>
+          )}
+          <Button
+            onClick={fetchStats}
+            disabled={loading}
+            variant="outline"
+            size="sm"
+            className="border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+            Aktualisieren
+          </Button>
+        </div>
+      </div>
 
       {/* ── Overview Cards ──────────────────────────────── */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

@@ -30,6 +30,7 @@ export async function POST(request: Request) {
       }
     }
 
+    const clientIp = getClientIp(request);
     const body = await request.json();
     const { type, ...data } = body;
 
@@ -38,6 +39,7 @@ export async function POST(request: Request) {
         await addPageView({
           id: data.id ?? crypto.randomUUID(),
           visitorId: data.visitorId ?? "",
+          ip: clientIp || undefined,
           path: data.path ?? "/",
           referrer: data.referrer ?? "",
           utmSource: data.utmSource,
@@ -58,6 +60,7 @@ export async function POST(request: Request) {
         await addOnboardingEvent({
           id: crypto.randomUUID(),
           visitorId: data.visitorId ?? "",
+          ip: clientIp || undefined,
           sessionId: data.sessionId ?? "",
           step: data.step ?? 0,
           stepName: data.stepName ?? "",
@@ -71,6 +74,7 @@ export async function POST(request: Request) {
         await addConversionEvent({
           id: crypto.randomUUID(),
           visitorId: data.visitorId ?? "",
+          ip: clientIp || undefined,
           type: data.conversionType ?? "cta_click",
           ctaId: data.ctaId,
           conversionPath: data.conversionPath,

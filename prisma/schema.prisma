@@ -199,6 +199,7 @@ model ABEvent {
 model PageView {
   id          String   @id @default(cuid())
   visitorId   String
+  ip          String?  // Client IP for retroactive exclusion
   path        String
   referrer    String   @default("")
   utmSource   String?
@@ -210,6 +211,7 @@ model PageView {
 
   @@index([visitorId])
   @@index([timestamp])
+  @@index([ip])
 }
 
 // ---------------------------------------------------------------------------
@@ -219,6 +221,7 @@ model PageView {
 model OnboardingAnalyticsEvent {
   id        String   @id @default(cuid())
   visitorId String
+  ip        String?  // Client IP for retroactive exclusion
   sessionId String
   step      Int
   stepName  String
@@ -227,6 +230,7 @@ model OnboardingAnalyticsEvent {
   timestamp DateTime @default(now())
 
   @@index([sessionId])
+  @@index([ip])
 }
 
 // ---------------------------------------------------------------------------
@@ -236,11 +240,14 @@ model OnboardingAnalyticsEvent {
 model ConversionEvent {
   id             String   @id @default(cuid())
   visitorId      String
+  ip             String?  // Client IP for retroactive exclusion
   type           String   // "cta_click" | "conversion_path"
   ctaId          String?
   conversionPath String?
   page           String
   timestamp      DateTime @default(now())
+
+  @@index([ip])
 }
 
 // ---------------------------------------------------------------------------
