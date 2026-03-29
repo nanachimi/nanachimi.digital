@@ -10,6 +10,9 @@ import {
   Phone,
   Mail,
   RefreshCw,
+  X,
+  ShieldBan,
+  Globe,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -36,6 +39,18 @@ interface Stats {
   };
 }
 
+interface DetailView {
+  id: string;
+  visitorId: string;
+  ip: string | null;
+  path: string;
+  referrer: string;
+  utmSource: string | null;
+  timeOnPage: number | null;
+  timestamp: string;
+  isExcluded: boolean;
+}
+
 function formatTime(seconds: number): string {
   if (seconds < 60) return `${Math.round(seconds)}s`;
   const m = Math.floor(seconds / 60);
@@ -52,6 +67,9 @@ export default function AnalyticsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+  const [detailPath, setDetailPath] = useState<string | null>(null);
+  const [detailViews, setDetailViews] = useState<DetailView[]>([]);
+  const [detailLoading, setDetailLoading] = useState(false);
 
   const fetchStats = useCallback(async () => {
     setLoading(true);
@@ -67,7 +85,9 @@ export default function AnalyticsPage() {
       setStats(d);
       setLastRefresh(new Date());
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Verbindung fehlgeschlagen");
+      setError(
+        err instanceof Error ? err.message : "Verbindung fehlgeschlagen"
+      );
     } finally {
       setLoading(false);
     }
@@ -75,12 +95,29 @@ export default function AnalyticsPage() {
 
   useEffect(() => {
     fetchStats();
-    // Auto-refresh every 30 seconds
     const interval = setInterval(fetchStats, 30_000);
     return () => clearInterval(interval);
   }, [fetchStats]);
 
-  if (loading) {
+  async function openDetail(path: string) {
+    setDetailPath(path);
+    setDetailLoading(true);
+    try {
+      const r = await fetch(
+        `/api/admin/analytics?detail=${encodeURIComponent(path)}`
+      );
+      if (r.ok) {
+        const data = await r.json();
+        setDetailViews(data.views || []);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setDetailLoading(false);
+    }
+  }
+
+  if (loading && !stats) {
     return (
       <div className="p-8">
         <h1 className="text-2xl font-bold text-white mb-8">Analytics</h1>
@@ -109,6 +146,8 @@ export default function AnalyticsPage() {
     );
   }
 
+  if (!stats) return null;
+
   const callTotal = stats.conversions.callVsAngebot.call;
   const angebotTotal = stats.conversions.callVsAngebot.angebot;
   const pathTotal = callTotal + angebotTotal;
@@ -130,7 +169,9 @@ export default function AnalyticsPage() {
             size="sm"
             className="border-zinc-700 text-zinc-300 hover:bg-zinc-800"
           >
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+            <RefreshCw
+              className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`}
+            />
             Aktualisieren
           </Button>
         </div>
@@ -163,19 +204,28 @@ export default function AnalyticsPage() {
       <div className="grid gap-6 lg:grid-cols-2">
         {/* ── Top Pages ────────────────────────────────────── */}
         <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6">
-          <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider mb-4">
-            Top Seiten
-          </h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider">
+              Top Seiten
+            </h2>
+            <button
+              onClick={() => openDetail("all")}
+              className="text-[10px] text-[#FFC62C] hover:underline"
+            >
+              Alle Aufrufe anzeigen →
+            </button>
+          </div>
           {stats.pageViews.topPages.length === 0 ? (
             <p className="text-zinc-600 text-sm">Noch keine Daten.</p>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-1">
               {stats.pageViews.topPages.slice(0, 10).map((page) => (
-                <div
+                <button
                   key={page.path}
-                  className="flex items-center justify-between text-sm"
+                  onClick={() => openDetail(page.path)}
+                  className="flex items-center justify-between text-sm w-full text-left rounded-lg px-2 py-1.5 hover:bg-white/[0.04] transition-colors"
                 >
-                  <span className="text-zinc-300 truncate max-w-[60%]">
+                  <span className="text-zinc-300 truncate max-w-[55%]">
                     {page.path}
                   </span>
                   <div className="flex items-center gap-4 text-zinc-500">
@@ -184,7 +234,7 @@ export default function AnalyticsPage() {
                       Ø {formatTime(page.avgTime)}
                     </span>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           )}
@@ -216,6 +266,151 @@ export default function AnalyticsPage() {
           )}
         </div>
       </div>
+
+      {/* ── Detail Panel (IP-Ansicht) ──────────────────── */}
+      {detailPath && (
+        <div className="rounded-xl border border-[#FFC62C]/20 bg-[#FFC62C]/[0.03] p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold text-white flex items-center gap-2">
+              <Globe className="h-4 w-4 text-[#FFC62C]" />
+              Aufrufe:{" "}
+              <span className="text-[#FFC62C] font-mono">
+                {detailPath === "all" ? "Alle Seiten" : detailPath}
+              </span>
+            </h2>
+            <button
+              onClick={() => setDetailPath(null)}
+              className="text-zinc-400 hover:text-white"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          {detailLoading ? (
+            <p className="text-zinc-500 text-sm">Laden...</p>
+          ) : detailViews.length === 0 ? (
+            <p className="text-zinc-500 text-sm">Keine Aufrufe gefunden.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-white/[0.06]">
+                    <th className="text-left py-2 px-2 text-zinc-500 font-medium">
+                      Zeitpunkt
+                    </th>
+                    <th className="text-left py-2 px-2 text-zinc-500 font-medium">
+                      IP-Adresse
+                    </th>
+                    <th className="text-left py-2 px-2 text-zinc-500 font-medium">
+                      Seite
+                    </th>
+                    <th className="text-left py-2 px-2 text-zinc-500 font-medium">
+                      Quelle
+                    </th>
+                    <th className="text-left py-2 px-2 text-zinc-500 font-medium">
+                      Verweildauer
+                    </th>
+                    <th className="text-left py-2 px-2 text-zinc-500 font-medium">
+                      Besucher
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {detailViews.map((view) => (
+                    <tr
+                      key={view.id}
+                      className={`border-b border-white/[0.03] ${
+                        view.isExcluded
+                          ? "opacity-40 line-through"
+                          : ""
+                      }`}
+                    >
+                      <td className="py-2 px-2 text-zinc-400">
+                        {new Date(view.timestamp).toLocaleString("de-DE", {
+                          day: "2-digit",
+                          month: "2-digit",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </td>
+                      <td className="py-2 px-2">
+                        <span className="flex items-center gap-1.5">
+                          {view.ip ? (
+                            <>
+                              <span className="font-mono text-white">
+                                {view.ip}
+                              </span>
+                              {view.isExcluded && (
+                                <ShieldBan className="h-3 w-3 text-red-400" />
+                              )}
+                            </>
+                          ) : (
+                            <span className="text-zinc-600 italic">
+                              nicht erfasst
+                            </span>
+                          )}
+                        </span>
+                      </td>
+                      <td className="py-2 px-2 text-zinc-300 font-mono">
+                        {view.path}
+                      </td>
+                      <td className="py-2 px-2 text-zinc-400">
+                        {view.utmSource || view.referrer || "direkt"}
+                      </td>
+                      <td className="py-2 px-2 text-zinc-400">
+                        {view.timeOnPage
+                          ? formatTime(view.timeOnPage)
+                          : "—"}
+                      </td>
+                      <td className="py-2 px-2 text-zinc-600 font-mono">
+                        {view.visitorId.slice(0, 8)}…
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              {/* IP summary */}
+              <div className="mt-4 pt-3 border-t border-white/[0.06]">
+                <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-2">
+                  IP-Übersicht
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {(() => {
+                    const ipCounts = new Map<string, { count: number; excluded: boolean }>();
+                    for (const v of detailViews) {
+                      const ip = v.ip || "unbekannt";
+                      const entry = ipCounts.get(ip) || { count: 0, excluded: v.isExcluded };
+                      entry.count++;
+                      ipCounts.set(ip, entry);
+                    }
+                    return Array.from(ipCounts.entries())
+                      .sort((a, b) => b[1].count - a[1].count)
+                      .map(([ip, data]) => (
+                        <span
+                          key={ip}
+                          className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-mono ${
+                            data.excluded
+                              ? "bg-red-500/10 text-red-400 border border-red-500/20 line-through"
+                              : ip === "unbekannt"
+                                ? "bg-zinc-800 text-zinc-500 border border-zinc-700"
+                                : "bg-white/[0.04] text-zinc-300 border border-white/[0.08]"
+                          }`}
+                        >
+                          {data.excluded && <ShieldBan className="h-2.5 w-2.5" />}
+                          {ip}
+                          <span className="text-zinc-500 ml-1">
+                            ×{data.count}
+                          </span>
+                        </span>
+                      ));
+                  })()}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── Onboarding Funnel ─────────────────────────────── */}
       <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6">
@@ -288,9 +483,7 @@ export default function AnalyticsPage() {
               <p className="text-3xl font-bold text-white">
                 {formatPercent(stats.conversions.conversionRate)}
               </p>
-              <p className="text-xs text-zinc-500">
-                Besucher → Abschluss
-              </p>
+              <p className="text-xs text-zinc-500">Besucher → Abschluss</p>
             </div>
           </div>
         </div>
@@ -307,7 +500,9 @@ export default function AnalyticsPage() {
                 <Phone className="h-5 w-5 text-blue-400" />
                 <div className="flex-1">
                   <div className="flex justify-between text-sm mb-1">
-                    <span className="text-zinc-300">Persönlich besprechen</span>
+                    <span className="text-zinc-300">
+                      Persönlich besprechen
+                    </span>
                     <span className="text-zinc-500">
                       {callTotal} ({formatPercent(callTotal / pathTotal)})
                     </span>
@@ -328,7 +523,8 @@ export default function AnalyticsPage() {
                   <div className="flex justify-between text-sm mb-1">
                     <span className="text-zinc-300">Direkt loslegen</span>
                     <span className="text-zinc-500">
-                      {angebotTotal} ({formatPercent(angebotTotal / pathTotal)})
+                      {angebotTotal} (
+                      {formatPercent(angebotTotal / pathTotal)})
                     </span>
                   </div>
                   <div className="h-2 rounded-full bg-zinc-800">
@@ -344,6 +540,13 @@ export default function AnalyticsPage() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Info hint about IP tracking */}
+      <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-3 text-[10px] text-zinc-600 text-center">
+        IP-Adressen werden erst seit dem letzten Update erfasst. Ältere
+        Einträge zeigen &quot;nicht erfasst&quot;. Ausgeschlossene IPs werden
+        in den Statistiken oben <strong>nicht</strong> mitgezählt.
       </div>
     </div>
   );
