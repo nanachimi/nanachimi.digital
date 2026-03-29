@@ -4,31 +4,30 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { Star } from "lucide-react";
 
-// TODO: Replace placeholder testimonials with real customer quotes + photos before go-live
 const testimonials = [
   {
     quote:
-      "Hier kommt ein Kundenzitat hin. Platzhalter für das erste Testimonial — wird vor dem Go-Live ersetzt.",
-    name: "Max Mustermann",
-    role: "Gründer",
-    company: "Startup GmbH",
-    image: "https://i.pravatar.cc/160?img=11",
+      "Vom Onboarding über interne Abstimmungen bis hin zu Zinsberechnungen und Reporting — Credilis deckt alles ab, was wir als Genossenschaft brauchen. So eine umfangreiche Lösung hätte ich nicht in dieser Geschwindigkeit erwartet.",
+    name: "Bertrand Foller",
+    role: "Vorstand",
+    company: "Golden Lions e.G.",
+    image: "",
   },
   {
     quote:
-      "Hier kommt ein Kundenzitat hin. Platzhalter für das zweite Testimonial — wird vor dem Go-Live ersetzt.",
-    name: "Erika Musterfrau",
-    role: "Geschäftsführerin",
-    company: "Muster GmbH",
-    image: "https://i.pravatar.cc/160?img=32",
+      "Ich verkaufe jetzt Extensions direkt über meine Website — vorher lief alles nur über WhatsApp. Ich habe null technische Kenntnisse und trotzdem war mein Shop in zwei Tagen online. Meine Kundinnen sind begeistert.",
+    name: "Amelie Charlemagne",
+    role: "Inhaberin",
+    company: "Amelia Hair",
+    image: "",
   },
   {
     quote:
-      "Hier kommt ein Kundenzitat hin. Platzhalter für das dritte Testimonial — wird vor dem Go-Live ersetzt.",
-    name: "Thomas Beispiel",
-    role: "CTO",
-    company: "Tech Solutions",
-    image: "https://i.pravatar.cc/160?img=60",
+      "Für eine Kanzlei ist Datenschutz nicht verhandelbar. Cerebra überzeugt uns durch absolute Zuverlässigkeit, volle DSGVO-Konformität und eine Sicherheitsarchitektur, der wir bedenkenlos unsere Mandantendaten anvertrauen.",
+    name: "Jan Polner",
+    role: "Partner",
+    company: "Kanzlei Polner GmbH & Co. KG",
+    image: "",
   },
 ];
 
