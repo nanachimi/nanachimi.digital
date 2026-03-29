@@ -264,7 +264,12 @@ jobs:
           driver-opts: network=host
 
       - name: Log in to self-hosted registry
-        run: echo "${{ secrets.REGISTRY_PASSWORD }}" | docker login localhost:5000 -u nanachimi --password-stdin
+        run: |
+          if [ -n "${{ secrets.REGISTRY_PASSWORD }}" ]; then
+            echo "${{ secrets.REGISTRY_PASSWORD }}" | docker login localhost:5000 -u nanachimi --password-stdin
+          else
+            echo "No registry password set — assuming unauthenticated localhost registry"
+          fi
 
       - name: Extract image tag
         id: meta
