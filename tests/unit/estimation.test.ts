@@ -43,7 +43,8 @@ vi.mock("@/lib/pricing-config", () => ({
 }));
 
 // Now import after mocks are set up
-const { calculateEstimate } = await import("@/lib/estimation");
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const { calculateEstimate } = (await import("@/lib/estimation")) as any;
 
 describe("estimation engine", () => {
   it("calculates a basic web project estimate", async () => {

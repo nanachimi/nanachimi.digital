@@ -12,6 +12,11 @@ import {
   CheckCheck,
   Sparkles,
   Loader2,
+  Download,
+  FolderCode,
+  FileCode2,
+  Database,
+  FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -320,6 +325,9 @@ export function AngebotActions({ id }: Props) {
             Schritte zu besprechen.
           </p>
         )}
+
+        {/* Project Download */}
+        <ProjectDownload angebotId={id} />
       </div>
     );
   }
@@ -401,6 +409,109 @@ export function AngebotActions({ id }: Props) {
         <X className="mr-2 h-4 w-4" />
         Angebot ablehnen
       </Button>
+    </div>
+  );
+}
+
+// ─── Project Download Component ──────────────────────────────────
+
+function ProjectDownload({ angebotId }: { angebotId: string }) {
+  const [downloading, setDownloading] = useState(false);
+  const [downloaded, setDownloaded] = useState(false);
+
+  async function handleDownload() {
+    setDownloading(true);
+    try {
+      const res = await fetch(`/api/angebot/${angebotId}/bootstrap`, {
+        method: "POST",
+      });
+
+      if (!res.ok) {
+        throw new Error("Download fehlgeschlagen");
+      }
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download =
+        res.headers
+          .get("Content-Disposition")
+          ?.match(/filename="(.+)"/)?.[1] || "projekt.zip";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      setDownloaded(true);
+    } catch (err) {
+      console.error("Download error:", err);
+    } finally {
+      setDownloading(false);
+    }
+  }
+
+  return (
+    <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/[0.04] p-6 mt-6">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-400/20">
+          <FolderCode className="h-5 w-5 text-emerald-400" />
+        </div>
+        <div>
+          <h4 className="font-semibold text-white">
+            Ihr Projekt ist bereit
+          </h4>
+          <p className="text-xs text-[#8B8F97]">
+            KI-generiertes Projekt-Setup — sofort einsatzbereit
+          </p>
+        </div>
+      </div>
+
+      {/* What's included */}
+      <div className="grid grid-cols-2 gap-2 mb-4">
+        {[
+          { icon: FileText, label: "CLAUDE.md & README" },
+          { icon: Database, label: "Prisma DB-Schema" },
+          { icon: FileCode2, label: "API-Stubs & Components" },
+          { icon: FolderCode, label: "Docker & CI/CD" },
+        ].map((item, i) => (
+          <div
+            key={i}
+            className="flex items-center gap-2 rounded-lg bg-white/[0.03] px-3 py-2"
+          >
+            <item.icon className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+            <span className="text-[11px] text-[#8B8F97]">{item.label}</span>
+          </div>
+        ))}
+      </div>
+
+      <Button
+        onClick={handleDownload}
+        disabled={downloading}
+        className="w-full rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold"
+      >
+        {downloading ? (
+          <>
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            KI generiert Ihr Projekt...
+          </>
+        ) : downloaded ? (
+          <>
+            <Check className="h-4 w-4 mr-2" />
+            Erneut herunterladen
+          </>
+        ) : (
+          <>
+            <Download className="h-4 w-4 mr-2" />
+            Projekt-Setup herunterladen (ZIP)
+          </>
+        )}
+      </Button>
+
+      {downloaded && (
+        <p className="text-[10px] text-emerald-400/60 text-center mt-2">
+          ZIP enthält alles für den sofortigen Projektstart mit Claude Code
+        </p>
+      )}
     </div>
   );
 }
