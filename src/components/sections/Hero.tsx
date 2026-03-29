@@ -30,6 +30,158 @@ function AnimatedCounter({ target, suffix = "" }: { target: number; suffix?: str
   return <>{count}{suffix}</>;
 }
 
+// ─── Chaos → Order Animation ─────────────────────────────────────
+// Visualizes the daily struggle of solo entrepreneurs:
+// Scattered sticky notes, messages, deadlines → organized dashboard
+
+const CHAOS_ITEMS = [
+  { emoji: "📋", label: "Excel-Listen", x: 12, y: 8, rotate: -12, delay: 0 },
+  { emoji: "📱", label: "WhatsApp", x: 68, y: 5, rotate: 8, delay: 0.1 },
+  { emoji: "📧", label: "47 E-Mails", x: 35, y: 55, rotate: -5, delay: 0.2 },
+  { emoji: "📞", label: "Rückrufe", x: 72, y: 48, rotate: 15, delay: 0.3 },
+  { emoji: "📝", label: "Zettelwirtschaft", x: 8, y: 42, rotate: -20, delay: 0.15 },
+  { emoji: "⏰", label: "Deadlines", x: 50, y: 22, rotate: 6, delay: 0.25 },
+  { emoji: "💸", label: "Rechnungen", x: 22, y: 75, rotate: -8, delay: 0.35 },
+  { emoji: "🤯", label: "Überfordert", x: 60, y: 72, rotate: 10, delay: 0.05 },
+];
+
+const ORDER_ITEMS = [
+  { emoji: "✅", label: "Aufgaben erledigt", progress: 100 },
+  { emoji: "📊", label: "Alles im Blick", progress: 87 },
+  { emoji: "🤝", label: "Kunden zufrieden", progress: 95 },
+  { emoji: "⏱️", label: "Zeit gespart", progress: 72 },
+];
+
+function ChaosToOrderAnimation() {
+  const [phase, setPhase] = useState<"chaos" | "transition" | "order">("chaos");
+
+  useEffect(() => {
+    const cycle = () => {
+      setPhase("chaos");
+      const t1 = setTimeout(() => setPhase("transition"), 3000);
+      const t2 = setTimeout(() => setPhase("order"), 3800);
+      const t3 = setTimeout(() => setPhase("chaos"), 8000);
+      return [t1, t2, t3];
+    };
+
+    let timers = cycle();
+    const interval = setInterval(() => {
+      timers.forEach(clearTimeout);
+      timers = cycle();
+    }, 8000);
+
+    return () => {
+      timers.forEach(clearTimeout);
+      clearInterval(interval);
+    };
+  }, []);
+
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-sm p-6 shadow-2xl overflow-hidden relative h-[360px]">
+      {/* Phase label */}
+      <div className="flex items-center justify-between mb-4">
+        <div className={`flex items-center gap-2 transition-all duration-500 ${
+          phase === "order" ? "opacity-0 -translate-y-2" : "opacity-100"
+        }`}>
+          <span className="relative flex h-2.5 w-2.5">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-400" />
+          </span>
+          <span className="text-xs font-medium text-red-400">Ihr Alltag heute</span>
+        </div>
+        <div className={`flex items-center gap-2 transition-all duration-500 ${
+          phase === "order" ? "opacity-100" : "opacity-0 translate-y-2"
+        }`}>
+          <span className="relative flex h-2.5 w-2.5">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-400" />
+          </span>
+          <span className="text-xs font-medium text-emerald-400">Mit nanachimi.digital</span>
+        </div>
+      </div>
+
+      {/* Chaos phase — scattered sticky notes */}
+      <div className={`absolute inset-6 top-14 transition-all duration-700 ${
+        phase === "chaos"
+          ? "opacity-100 scale-100"
+          : "opacity-0 scale-90 pointer-events-none"
+      }`}>
+        {CHAOS_ITEMS.map((item, i) => (
+          <div
+            key={i}
+            className="absolute animate-in fade-in zoom-in duration-500"
+            style={{
+              left: `${item.x}%`,
+              top: `${item.y}%`,
+              transform: `rotate(${item.rotate}deg)`,
+              animationDelay: `${item.delay}s`,
+            }}
+          >
+            <div className="flex items-center gap-1.5 rounded-lg bg-white/[0.06] border border-white/10 px-2.5 py-1.5 shadow-lg backdrop-blur-sm hover:scale-110 transition-transform cursor-default">
+              <span className="text-base">{item.emoji}</span>
+              <span className="text-[10px] text-[#8B8F97] font-medium whitespace-nowrap">{item.label}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Transition — swirl effect */}
+      <div className={`absolute inset-6 top-14 flex items-center justify-center transition-all duration-500 ${
+        phase === "transition"
+          ? "opacity-100 scale-100"
+          : "opacity-0 scale-110 pointer-events-none"
+      }`}>
+        <div className="relative">
+          <div className="h-16 w-16 rounded-full border-2 border-[#FFC62C]/40 border-t-[#FFC62C] animate-spin" />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="text-2xl">✨</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Order phase — clean dashboard */}
+      <div className={`absolute inset-6 top-14 transition-all duration-700 ${
+        phase === "order"
+          ? "opacity-100 scale-100"
+          : "opacity-0 scale-95 pointer-events-none"
+      }`}>
+        <div className="space-y-3 pt-2">
+          {ORDER_ITEMS.map((item, i) => (
+            <div
+              key={i}
+              className="animate-in slide-in-from-bottom-2 fade-in"
+              style={{ animationDelay: `${i * 150}ms`, animationFillMode: "both" }}
+            >
+              <div className="flex items-center gap-3 rounded-xl bg-white/[0.04] border border-white/[0.08] p-3.5">
+                <span className="text-lg shrink-0">{item.emoji}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex justify-between items-center mb-1.5">
+                    <span className="text-sm font-medium text-white">{item.label}</span>
+                    <span className="text-xs text-emerald-400 font-bold">{item.progress}%</span>
+                  </div>
+                  <div className="h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-[#FFC62C] to-emerald-400 rounded-full transition-all duration-[2000ms] ease-out"
+                      style={{ width: phase === "order" ? `${item.progress}%` : "0%" }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Bottom summary */}
+        <div className="absolute bottom-0 left-0 right-0 rounded-xl bg-emerald-400/[0.08] border border-emerald-400/20 p-3 text-center">
+          <p className="text-xs text-emerald-400 font-semibold">
+            ✨ Alles läuft — auch ohne Sie. In 48h online.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function Hero() {
   const { config: abConfig, trackImpression, trackConversion } = useABTest("hero-messaging");
 
@@ -124,42 +276,13 @@ export function Hero() {
             </div>
           </div>
 
-          {/* Right: Visual card stack */}
+          {/* Right: Animated "Chaos → Order" illustration */}
           <div className="hidden lg:block">
             <div className="relative">
-              {/* Main card */}
-              <div className="rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-sm p-8 shadow-2xl">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="h-3 w-3 rounded-full bg-[#FF5F57]" />
-                  <div className="h-3 w-3 rounded-full bg-[#FFBD2E]" />
-                  <div className="h-3 w-3 rounded-full bg-[#28C840]" />
-                  <div className="ml-4 h-5 w-48 rounded bg-white/5" />
-                </div>
-                <div className="space-y-4 font-mono text-sm">
-                  <div className="text-[#8B8F97]">
-                    <span className="text-[#FFC62C]">$</span> npx nanachimi deploy --production
-                  </div>
-                  <div className="text-[#5a5e66]">
-                    ✓ Anforderungen validiert
-                  </div>
-                  <div className="text-[#5a5e66]">
-                    ✓ Lösung gebaut und getestet
-                  </div>
-                  <div className="text-[#5a5e66]">
-                    ✓ Deployment auf Hetzner
-                  </div>
-                  <div className="text-[#5a5e66]">
-                    ✓ Monitoring aktiviert
-                  </div>
-                  <div className="mt-4 text-[#28C840]">
-                    ✨ Ihre Lösung ist online — in 47h 23m
-                  </div>
-                </div>
-              </div>
-
+              <ChaosToOrderAnimation />
             </div>
 
-            {/* Stats row below terminal card */}
+            {/* Stats row */}
             <div className="mt-6 grid grid-cols-3 gap-3">
               <div className="rounded-xl border border-white/10 bg-[#1a1d24]/90 backdrop-blur-sm px-5 py-3 shadow-lg text-center">
                 <div className="text-2xl font-black text-[#FFC62C]">
