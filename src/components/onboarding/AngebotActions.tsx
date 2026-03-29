@@ -90,6 +90,7 @@ export function AngebotActions({ id, initialStatus, festpreis }: Props) {
   const [feedback, setFeedback] = useState("");
   const [paymentData, setPaymentData] = useState<PaymentData | null>(null);
   const [payingType, setPayingType] = useState<string | null>(null);
+  const [stripeError, setStripeError] = useState<string | null>(null);
   const isLoading = status === "loading";
 
   // If already accepted, load payment options on mount
@@ -130,6 +131,7 @@ export function AngebotActions({ id, initialStatus, festpreis }: Props) {
 
   async function handleStripePayment(type: string) {
     setPayingType(type);
+    setStripeError(null);
     try {
       const res = await fetch(`/api/angebot/${id}/payment`, {
         method: "POST",
@@ -137,17 +139,20 @@ export function AngebotActions({ id, initialStatus, festpreis }: Props) {
         body: JSON.stringify({ type }),
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        if (data.url) {
-          window.location.href = data.url;
-          return;
-        }
+      const data = await res.json();
+
+      if (res.ok && data.url) {
+        window.location.href = data.url;
+        return;
       }
 
-      // Stripe not available — show info
-      setPayingType(null);
+      // Show error from API
+      setStripeError(
+        data.error || "Online-Zahlung ist derzeit nicht verfügbar. Bitte nutzen Sie die Banküberweisung."
+      );
     } catch {
+      setStripeError("Verbindungsfehler. Bitte nutzen Sie die Banküberweisung unten.");
+    } finally {
       setPayingType(null);
     }
   }
@@ -176,6 +181,12 @@ export function AngebotActions({ id, initialStatus, festpreis }: Props) {
             <h4 className="text-sm font-semibold text-[#c8cad0] uppercase tracking-wider">
               Zahlungsoptionen
             </h4>
+
+            {stripeError && (
+              <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-sm text-amber-300">
+                {stripeError}
+              </div>
+            )}
 
             {paymentData.options.map((option, idx) => {
               const isRecommended = idx === 0;
