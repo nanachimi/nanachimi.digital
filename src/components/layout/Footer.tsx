@@ -17,9 +17,9 @@ export function Footer() {
               </span>
             </Link>
             <p className="text-sm text-muted-foreground">
-              Web- und Mobile-Apps, die schnell live gehen.
+              Digitale Lösungen, die schnell live gehen.
               <br />
-              Vom Onboarding bis zur Produktion.
+              Von der Idee bis zum laufenden Betrieb.
             </p>
             <p className="text-sm text-muted-foreground">
               {SITE_CONFIG.location}

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Check, X, Clock, FileText, Server, Code, Shield, CreditCard, Wrench } from "lucide-react";
-import { ZAHLUNGSBEDINGUNGEN, BETRIEB_UND_WARTUNG } from "@/lib/constants";
+import { Check, X, Clock, FileText, CalendarDays, Package, Headphones } from "lucide-react";
+import { BETRIEB_UND_WARTUNG } from "@/lib/constants";
 import { getSubmissionById } from "@/lib/submissions";
 import { getAngebotById } from "@/lib/angebote";
 import { AngebotActions } from "@/components/onboarding/AngebotActions";
@@ -41,12 +41,6 @@ const ZEITRAHMEN_FINAL_LABELS: Record<string, string> = {
   "2-3monate": "2-3 Monate",
   "6monate": "6 Monate",
   laufend: "Laufend",
-};
-
-const PRIORITAET_COLORS: Record<string, string> = {
-  must: "bg-red-400/10 text-red-400 border-red-400/20",
-  should: "bg-yellow-400/10 text-yellow-400 border-yellow-400/20",
-  could: "bg-green-400/10 text-green-400 border-green-400/20",
 };
 
 export default async function AngebotPage({ params }: PageProps) {
@@ -191,251 +185,129 @@ export default async function AngebotPage({ params }: PageProps) {
             festpreis={angebot.festpreis}
           />
 
-          {/* Zahlungsbedingungen */}
+          {/* Was Sie bekommen */}
           <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-6 mb-6">
             <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-              <CreditCard className="h-5 w-5 text-[#FFC62C]" />
-              Zahlungsbedingungen
+              <Package className="h-5 w-5 text-[#FFC62C]" />
+              Was Sie bekommen
             </h2>
-            <p className="text-xs text-[#8B8F97] uppercase tracking-wider mb-3">
-              Zahlungsmethode: {ZAHLUNGSBEDINGUNGEN.methode}
-            </p>
-            <div className="space-y-2">
-              {ZAHLUNGSBEDINGUNGEN.tranchen.map((tranche, i) => {
-                const t1 = Math.round(angebot.festpreis * 0.15);
-                const t2 = Math.round(angebot.festpreis * 0.35);
-                const amounts = [t1, t2, angebot.festpreis - t1 - t2];
-                return (
-                  <div
-                    key={i}
-                    className="flex items-center justify-between rounded-lg bg-white/[0.03] border border-white/[0.06] p-3"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs font-bold text-[#FFC62C] bg-[#FFC62C]/10 rounded-full px-2 py-0.5 min-w-[40px] text-center">
-                        {tranche.prozent}%
-                      </span>
-                      <span className="text-sm text-[#c0c3c9]">
-                        {tranche.label}
-                      </span>
-                    </div>
-                    <span className="text-sm font-semibold text-white">
-                      {formatter.format(amounts[i])}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Project summary */}
-          <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-6 mb-6">
-            <h2 className="text-lg font-bold text-white mb-4">
-              Projektübersicht
-            </h2>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div>
-                <p className="text-xs text-[#8B8F97] uppercase tracking-wider">
-                  Projekttyp
-                </p>
+            <div className="grid gap-3 sm:grid-cols-2 mb-4">
+              <div className="rounded-lg bg-white/[0.03] border border-white/[0.06] p-3">
+                <p className="text-xs text-[#8B8F97] uppercase tracking-wider">Plattform</p>
                 <p className="text-white font-medium mt-1">
                   {PROJEKTTYP_LABELS[submission.projekttyp] || submission.projekttyp}
                 </p>
               </div>
-              <div>
-                <p className="text-xs text-[#8B8F97] uppercase tracking-wider">
-                  Design
-                </p>
+              <div className="rounded-lg bg-white/[0.03] border border-white/[0.06] p-3">
+                <p className="text-xs text-[#8B8F97] uppercase tracking-wider">Design</p>
                 <p className="text-white font-medium mt-1">
                   {DESIGN_LABELS[submission.designLevel] || submission.designLevel}
                 </p>
               </div>
-              <div>
-                <p className="text-xs text-[#8B8F97] uppercase tracking-wider">
-                  MVP-Lieferung
-                </p>
-                <p className="text-white font-medium mt-1">
-                  {ZEITRAHMEN_MVP_LABELS[submission.zeitrahmenMvp] || submission.zeitrahmenMvp}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-[#8B8F97] uppercase tracking-wider">
-                  Endlieferung
-                </p>
-                <p className="text-white font-medium mt-1">
-                  {ZEITRAHMEN_FINAL_LABELS[submission.zeitrahmenFinal] || submission.zeitrahmenFinal}
-                </p>
-              </div>
             </div>
-          </div>
-
-          {/* Features */}
-          <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-6 mb-6">
-            <h2 className="text-lg font-bold text-white mb-4">
-              Enthaltene Features
-            </h2>
             <div className="flex flex-wrap gap-2">
               {submission.funktionen.map((f) => (
                 <span
                   key={f}
-                  className="rounded-full border border-white/[0.1] bg-white/[0.04] px-3 py-1 text-sm text-[#c8cad0]"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.1] bg-white/[0.04] px-3 py-1 text-sm text-[#c8cad0]"
                 >
+                  <Check className="h-3 w-3 text-[#FFC62C]" />
                   {f}
                 </span>
               ))}
             </div>
           </div>
 
-          {/* Project Plan */}
-          {plan && (
-            <>
-              {/* Requirements */}
-              <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-6 mb-6">
-                <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                  <Check className="h-5 w-5 text-[#FFC62C]" />
-                  Anforderungen
-                </h2>
-                <div className="space-y-2">
-                  {plan.anforderungen.userStories.map((story, i) => (
-                    <div
-                      key={i}
-                      className="rounded-lg bg-white/[0.03] border border-white/[0.06] p-3 flex items-start gap-3"
-                    >
-                      <span
-                        className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase border ${PRIORITAET_COLORS[story.prioritaet] || ""}`}
-                      >
-                        {story.prioritaet}
-                      </span>
-                      <p className="text-sm text-[#c0c3c9]">
-                        Als <span className="text-white font-medium">{story.rolle}</span>{" "}
-                        möchte ich {story.aktion}, damit {story.nutzen}
-                      </p>
-                    </div>
-                  ))}
+          {/* Zeitplan */}
+          <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-6 mb-6">
+            <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+              <CalendarDays className="h-5 w-5 text-[#FFC62C]" />
+              Zeitplan
+            </h2>
+            <div className="space-y-3">
+              <div className="flex items-center gap-4">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#FFC62C] text-sm font-bold text-[#111318]">1</div>
+                <div>
+                  <p className="text-sm font-medium text-white">Erste Version live</p>
+                  <p className="text-xs text-[#8B8F97]">{ZEITRAHMEN_MVP_LABELS[submission.zeitrahmenMvp] || submission.zeitrahmenMvp}</p>
                 </div>
               </div>
+              <div className="w-px h-4 bg-[#FFC62C]/20 ml-4" />
+              <div className="flex items-center gap-4">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#FFC62C]/20 text-sm font-bold text-[#FFC62C]">2</div>
+                <div>
+                  <p className="text-sm font-medium text-white">Fertige Lösung</p>
+                  <p className="text-xs text-[#8B8F97]">{ZEITRAHMEN_FINAL_LABELS[submission.zeitrahmenFinal] || submission.zeitrahmenFinal}</p>
+                </div>
+              </div>
+            </div>
+          </div>
 
-              {/* Architecture */}
-              <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-6 mb-6">
-                <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                  <Server className="h-5 w-5 text-[#FFC62C]" />
-                  Architektur
-                </h2>
-                <p className="text-sm text-[#c0c3c9] mb-4">
-                  {plan.architektur.beschreibung}
-                </p>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-lg bg-white/[0.03] border border-white/[0.06] p-3">
-                    <p className="text-xs text-[#8B8F97] uppercase tracking-wider mb-1">
-                      Datenfluss
-                    </p>
+          {/* Was wir für Sie erledigen — user stories in Klartext */}
+          {plan && plan.anforderungen?.userStories?.length > 0 && (
+            <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-6 mb-6">
+              <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                <Check className="h-5 w-5 text-[#FFC62C]" />
+                Was wir für Sie umsetzen
+              </h2>
+              <div className="space-y-2">
+                {plan.anforderungen.userStories.map((story, i) => (
+                  <div
+                    key={i}
+                    className="flex items-start gap-3 rounded-lg bg-white/[0.03] border border-white/[0.06] p-3"
+                  >
+                    <Check className="h-4 w-4 mt-0.5 shrink-0 text-[#FFC62C]" />
                     <p className="text-sm text-[#c0c3c9]">
-                      {plan.architektur.datenfluss}
+                      {story.aktion} — <span className="text-[#8B8F97]">{story.nutzen}</span>
                     </p>
                   </div>
-                  <div className="rounded-lg bg-white/[0.03] border border-white/[0.06] p-3">
-                    <p className="text-xs text-[#8B8F97] uppercase tracking-wider mb-1">
-                      Datenmodell
-                    </p>
-                    <p className="text-sm text-[#c0c3c9]">
-                      {plan.architektur.datenbankmodell}
-                    </p>
-                  </div>
-                </div>
+                ))}
               </div>
+            </div>
+          )}
 
-              {/* Tech Stack */}
-              <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-6 mb-6">
-                <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                  <Code className="h-5 w-5 text-[#FFC62C]" />
-                  Technologie-Stack
-                </h2>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {plan.technologieStack.map((tech, i) => (
-                    <div
-                      key={i}
-                      className="rounded-lg bg-white/[0.03] border border-white/[0.06] p-3"
-                    >
-                      <span className="text-[10px] uppercase tracking-wider text-[#8B8F97]">
-                        {tech.kategorie}
-                      </span>
-                      <p className="text-sm font-medium text-white mt-0.5">
-                        {tech.technologie}
-                      </p>
-                      <p className="text-xs text-[#8B8F97] mt-0.5">
-                        {tech.begruendung}
-                      </p>
-                    </div>
-                  ))}
+          {/* Betreuung nach dem Start */}
+          <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-6 mb-6">
+            <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+              <Headphones className="h-5 w-5 text-[#FFC62C]" />
+              Betreuung nach dem Start
+            </h2>
+            <div className="rounded-lg bg-[#FFC62C]/[0.03] border border-[#FFC62C]/10 p-3 mb-4">
+              <p className="text-sm text-[#FFC62C] font-medium">
+                {BETRIEB_UND_WARTUNG.hinweis}
+              </p>
+            </div>
+            {plan?.betriebUndWartung && (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-lg bg-white/[0.03] border border-white/[0.06] p-3">
+                  <p className="text-xs text-[#8B8F97] mb-1">Im Festpreis enthalten</p>
+                  <p className="text-sm text-white font-medium">{plan.betriebUndWartung.vertragslaufzeit}</p>
+                </div>
+                <div className="rounded-lg bg-white/[0.03] border border-white/[0.06] p-3">
+                  <p className="text-xs text-[#8B8F97] mb-1">Danach optional</p>
+                  <p className="text-sm text-[#c0c3c9]">Ab 29 €/Monat</p>
                 </div>
               </div>
+            )}
+          </div>
 
-              {/* Critical Considerations */}
-              <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-6 mb-8">
-                <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                  <Shield className="h-5 w-5 text-[#FFC62C]" />
-                  Wichtige Hinweise
-                </h2>
-                <div className="space-y-2">
-                  {plan.kritischePunkte.map((point, i) => (
-                    <div
-                      key={i}
-                      className="rounded-lg bg-white/[0.03] border border-white/[0.06] p-3"
-                    >
-                      <span className="text-[10px] uppercase tracking-wider text-yellow-400 bg-yellow-400/10 rounded-full px-2 py-0.5">
-                        {point.kategorie}
-                      </span>
-                      <p className="text-sm text-[#c0c3c9] mt-1.5">
-                        {point.beschreibung}
-                      </p>
-                      <p className="text-xs text-green-400 mt-1">
-                        → {point.empfehlung}
-                      </p>
-                    </div>
-                  ))}
-                </div>
+          {/* Nächste Schritte — nur bei "sent" (nicht angenommen) */}
+          {angebot.status === "sent" && (
+            <div className="rounded-2xl border border-[#FFC62C]/10 bg-[#FFC62C]/[0.03] p-6 mb-6">
+              <h2 className="text-lg font-bold text-white mb-3">So geht es weiter</h2>
+              <div className="space-y-2 text-sm text-[#c0c3c9]">
+                <p>1. Angebot prüfen und annehmen</p>
+                <p>2. Zahlungsart wählen (12% Rabatt bei Sofortzahlung)</p>
+                <p>3. Kickoff-Termin — wir starten mit der Umsetzung</p>
               </div>
-              {/* Betrieb & Wartung */}
-              {plan.betriebUndWartung && (
-                <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-6 mb-8">
-                  <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                    <Wrench className="h-5 w-5 text-[#FFC62C]" />
-                    Betrieb &amp; Wartung
-                  </h2>
-                  <div className="rounded-lg bg-[#FFC62C]/[0.03] border border-[#FFC62C]/10 p-3 mb-4">
-                    <p className="text-sm text-[#FFC62C] font-medium">
-                      {BETRIEB_UND_WARTUNG.hinweis}
-                    </p>
-                  </div>
-                  <div className="space-y-3">
-                    <div>
-                      <p className="text-xs text-[#8B8F97] uppercase tracking-wider mb-1">Leistungsumfang</p>
-                      <p className="text-sm text-[#c0c3c9]">{plan.betriebUndWartung.umfang}</p>
-                    </div>
-                    <div className="grid gap-3 sm:grid-cols-3">
-                      <div className="rounded-lg bg-white/[0.03] border border-white/[0.06] p-3">
-                        <p className="text-xs text-[#8B8F97] uppercase tracking-wider mb-1">Vertragslaufzeit</p>
-                        <p className="text-sm text-white font-medium">{plan.betriebUndWartung.vertragslaufzeit}</p>
-                      </div>
-                      <div className="rounded-lg bg-white/[0.03] border border-white/[0.06] p-3">
-                        <p className="text-xs text-[#8B8F97] uppercase tracking-wider mb-1">Abo-Optionen</p>
-                        <p className="text-sm text-[#c0c3c9]">{plan.betriebUndWartung.aboOptionen || "3 Mo: 69€/Mo, 6 Mo: 49€/Mo, 12 Mo: 29€/Mo"}</p>
-                      </div>
-                    </div>
-                    <div>
-                      <p className="text-xs text-[#8B8F97] uppercase tracking-wider mb-1">SLA</p>
-                      <p className="text-sm text-[#c0c3c9]">{plan.betriebUndWartung.sla}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </>
+            </div>
           )}
 
           {/* Disclaimer */}
           <p className="mt-8 text-center text-xs text-[#5a5e66]">
-            Dieses Angebot ist unverbindlich und basiert auf den angegebenen
-            Anforderungen. Der finale Preis wird nach detaillierter Abstimmung
-            festgelegt.
+            {angebot.status === "accepted"
+              ? "Dieses Angebot ist verbindlich. Bei Fragen erreichen Sie uns jederzeit unter info@nanachimi.digital."
+              : "Dieses Angebot ist verbindlich und basiert auf den angegebenen Anforderungen. Bei Fragen antworten Sie einfach auf die E-Mail."}
           </p>
         </div>
       </div>
