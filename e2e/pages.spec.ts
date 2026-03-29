@@ -65,13 +65,13 @@ test.describe("Services Pages", () => {
     await expect(page.locator("text=/48h|48 Stunden/i").first()).toBeVisible();
   });
 
-  test("App-Entwicklung service page loads", async ({ page }) => {
-    await page.goto("/leistungen/app-entwicklung");
+  test("Individuelle Lösung service page loads", async ({ page }) => {
+    await page.goto("/leistungen/individuelle-loesung");
     await dismissBanners(page);
 
     await expect(page.locator("main")).not.toBeEmpty();
     await expect(
-      page.locator("text=/App-Entwicklung|Entwicklung/i").first()
+      page.locator("text=/individuelle Lösung|Ihre individuelle/i").first()
     ).toBeVisible();
   });
 
