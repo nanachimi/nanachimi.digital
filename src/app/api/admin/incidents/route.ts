@@ -14,12 +14,18 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const incidents = await prisma.incident.findMany({
-    orderBy: { createdAt: "desc" },
-    take: 100,
-  });
+  const [incidents, jobs] = await Promise.all([
+    prisma.incident.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 100,
+    }),
+    prisma.job.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 100,
+    }),
+  ]);
 
-  return NextResponse.json({ incidents });
+  return NextResponse.json({ incidents, jobs });
 }
 
 /**
