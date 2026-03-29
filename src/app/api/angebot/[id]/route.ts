@@ -92,14 +92,15 @@ export async function PATCH(request: Request, { params }: RouteParams) {
 
     // Generate PDF + store + send email + bootstrap project (fire-and-forget)
     (async () => {
-      try {
-        if (!submission) {
-          console.error("[Accept] Submission not found for PDF generation");
-          return;
-        }
+      if (!submission) {
+        console.error("[Accept] Submission not found for PDF generation");
+        return;
+      }
 
-        // Generate PDF
-        const pdfBuffer = await generateAngebotPdf({
+      // Step 1: Try to generate PDF (non-blocking — email sends regardless)
+      let pdfBuffer: Buffer | undefined;
+      try {
+        pdfBuffer = await generateAngebotPdf({
           angebotId: angebot.id,
           kundenName: submission.name,
           firma: submission.firma,
@@ -111,8 +112,12 @@ export async function PATCH(request: Request, { params }: RouteParams) {
           createdAt: angebot.createdAt,
         });
         console.log(`[Accept] PDF generated: ${pdfBuffer.length} bytes`);
+      } catch (pdfError) {
+        console.error("[Accept] PDF generation failed (sending email without PDF):", pdfError);
+      }
 
-        // Store in SeaweedFS
+      // Step 2: Store PDF in SeaweedFS (optional — doesn't block email)
+      if (pdfBuffer) {
         try {
           const fid = await uploadFile(pdfBuffer, `Angebot-${angebot.id}.pdf`);
           angebot.pdfFileId = fid;
@@ -120,36 +125,35 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         } catch (storageError) {
           console.error("[Accept] SeaweedFS upload failed (PDF still sent via email):", storageError);
         }
+      }
 
-        // Send confirmation email with PDF attachment
-        try {
-          await sendAngebotConfirmationEmail({
-            to: submission.email,
-            kundenName: submission.name,
-            festpreis: angebot.festpreis,
-            pdfBuffer,
-            angebotId: angebot.id,
-          });
-        } catch (emailError) {
-          console.error("[Accept] Confirmation email failed:", emailError);
-        }
+      // Step 3: ALWAYS send confirmation email (with or without PDF)
+      try {
+        await sendAngebotConfirmationEmail({
+          to: submission.email,
+          kundenName: submission.name,
+          festpreis: angebot.festpreis,
+          pdfBuffer,
+          angebotId: angebot.id,
+        });
+        console.log(`[Accept] Confirmation email sent to ${submission.email}${pdfBuffer ? " (with PDF)" : " (without PDF)"}`);
+      } catch (emailError) {
+        console.error("[Accept] Confirmation email failed:", emailError);
+      }
 
-        // Project Bootstrap — generate project structure
-        try {
-          const bootstrap = bootstrapProject(submission, angebot);
-          if (bootstrap.success) {
-            await updateSubmissionStatus(submission.id, "project_bootstrapped");
-            console.log(
-              `[Accept] Project bootstrapped: ${bootstrap.projectName} (${bootstrap.files.length} files)`
-            );
-          } else {
-            console.error("[Accept] Bootstrap failed:", bootstrap.error);
-          }
-        } catch (bootstrapError) {
-          console.error("[Accept] Bootstrap error:", bootstrapError);
+      // Step 4: Project Bootstrap — generate project structure
+      try {
+        const bootstrap = bootstrapProject(submission, angebot);
+        if (bootstrap.success) {
+          await updateSubmissionStatus(submission.id, "project_bootstrapped");
+          console.log(
+            `[Accept] Project bootstrapped: ${bootstrap.projectName} (${bootstrap.files.length} files)`
+          );
+        } else {
+          console.error("[Accept] Bootstrap failed:", bootstrap.error);
         }
-      } catch (pdfError) {
-        console.error("[Accept] PDF generation failed:", pdfError);
+      } catch (bootstrapError) {
+        console.error("[Accept] Bootstrap error:", bootstrapError);
       }
     })();
   } else {
