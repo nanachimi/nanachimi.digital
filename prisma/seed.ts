@@ -73,20 +73,20 @@ const DEFAULT_PRICING_CONFIG = {
 // ---------------------------------------------------------------------------
 
 const DEFAULT_AVAILABILITY = [
-  // Montag
-  { dayOfWeek: 1, startHour: 9, startMinute: 0, endHour: 12, endMinute: 0 },
-  { dayOfWeek: 1, startHour: 14, startMinute: 0, endHour: 16, endMinute: 0 },
-  // Dienstag
-  { dayOfWeek: 2, startHour: 9, startMinute: 0, endHour: 12, endMinute: 0 },
-  { dayOfWeek: 2, startHour: 14, startMinute: 0, endHour: 16, endMinute: 0 },
-  // Mittwoch
-  { dayOfWeek: 3, startHour: 9, startMinute: 0, endHour: 12, endMinute: 0 },
-  { dayOfWeek: 3, startHour: 14, startMinute: 0, endHour: 16, endMinute: 0 },
-  // Donnerstag
-  { dayOfWeek: 4, startHour: 9, startMinute: 0, endHour: 12, endMinute: 0 },
-  { dayOfWeek: 4, startHour: 14, startMinute: 0, endHour: 16, endMinute: 0 },
-  // Freitag
-  { dayOfWeek: 5, startHour: 9, startMinute: 0, endHour: 13, endMinute: 0 },
+  // Montag: 8-9, 12:25-12:55
+  { dayOfWeek: 1, startHour: 8, startMinute: 0, endHour: 9, endMinute: 0 },
+  { dayOfWeek: 1, startHour: 12, startMinute: 25, endHour: 12, endMinute: 55 },
+  // Dienstag: 8-9, 17:00-17:30
+  { dayOfWeek: 2, startHour: 8, startMinute: 0, endHour: 9, endMinute: 0 },
+  { dayOfWeek: 2, startHour: 17, startMinute: 0, endHour: 17, endMinute: 30 },
+  // Mittwoch: 12:25-12:55
+  { dayOfWeek: 3, startHour: 12, startMinute: 25, endHour: 12, endMinute: 55 },
+  // Donnerstag: 8-9, 17:00-17:30
+  { dayOfWeek: 4, startHour: 8, startMinute: 0, endHour: 9, endMinute: 0 },
+  { dayOfWeek: 4, startHour: 17, startMinute: 0, endHour: 17, endMinute: 30 },
+  // Freitag: 8-9, 12:25-12:55
+  { dayOfWeek: 5, startHour: 8, startMinute: 0, endHour: 9, endMinute: 0 },
+  { dayOfWeek: 5, startHour: 12, startMinute: 25, endHour: 12, endMinute: 55 },
 ];
 
 // ---------------------------------------------------------------------------
@@ -104,18 +104,22 @@ async function main() {
   });
   console.log("✅ PricingConfig seeded (id: default)");
 
-  // 2. Availability Slots
-  const existingSlots = await prisma.availabilitySlot.count();
-  if (existingSlots === 0) {
-    await prisma.availabilitySlot.createMany({
-      data: DEFAULT_AVAILABILITY,
-    });
-    console.log(`✅ AvailabilitySlots seeded (${DEFAULT_AVAILABILITY.length} slots)`);
-  } else {
-    console.log(`⏭️  AvailabilitySlots already exist (${existingSlots} slots), skipping`);
-  }
+  // 2. Availability Slots (always replace to stay in sync with seed)
+  await prisma.availabilitySlot.deleteMany();
+  await prisma.availabilitySlot.createMany({
+    data: DEFAULT_AVAILABILITY,
+  });
+  console.log(`✅ AvailabilitySlots seeded (${DEFAULT_AVAILABILITY.length} slots)`);
 
-  // 3. Default A/B Tests
+  // 3. Booking Settings (30 min meetings, no buffer)
+  await prisma.bookingSettings.upsert({
+    where: { id: "default" },
+    update: {},
+    create: { id: "default", meetingDurationMinutes: 30, bufferMinutes: 0 },
+  });
+  console.log("✅ BookingSettings seeded (30 min, no buffer)");
+
+  // 4. Default A/B Tests
   const existingTests = await prisma.aBTest.count();
   if (existingTests === 0) {
     // Hero Messaging A/B Test
