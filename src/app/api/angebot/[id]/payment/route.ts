@@ -88,9 +88,10 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     return NextResponse.json({ url: result.url });
   } catch (err) {
-    console.error("[Payment] Stripe checkout error:", err);
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[Payment] Stripe checkout error:", message, err);
     return NextResponse.json(
-      { error: "Zahlung konnte nicht erstellt werden" },
+      { error: `Zahlung fehlgeschlagen: ${message}` },
       { status: 500 }
     );
   }
