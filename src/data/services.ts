@@ -8,7 +8,7 @@ export const services: Service[] = [
       "Für ausgewählte MVP-Projekte mit klarem Scope: Von der finalen Abstimmung bis zum Deployment in 48 Stunden.",
     icon: "Zap",
     idealFor:
-      "Gründer und Unternehmen mit einer klaren App-Idee und definiertem Scope, die schnell am Markt sein wollen.",
+      "Gründer und Kleingewerbe mit einer klaren Idee und definiertem Scope, die schnell am Markt sein wollen.",
     features: [
       "Klarer Scope vorab definiert",
       "Entwicklung in 48 Stunden",
@@ -45,7 +45,7 @@ export const services: Service[] = [
       "Maßgeschneiderte Web- und Mobile-Apps mit modernem Tech-Stack. Iterativ, transparent und produktionsreif.",
     icon: "Code",
     idealFor:
-      "KMU und Unternehmen, die eine professionelle Web- oder Mobile-App entwickeln lassen wollen — von einfachen Tools bis zu komplexen Plattformen.",
+      "Kleingewerbe und Gründer, die eine professionelle Web- oder Mobile-Lösung entwickeln lassen wollen — von einfachen Tools bis zu komplexen Plattformen.",
     features: [
       "Discovery und Anforderungsanalyse",
       "UX/UI-Design (oder Integration bestehender Designs)",
@@ -88,7 +88,7 @@ export const services: Service[] = [
       "Laufender Betrieb, Monitoring, Updates und Support für bestehende oder neu entwickelte Apps.",
     icon: "Shield",
     idealFor:
-      "Unternehmen mit bestehenden oder neu entwickelten Apps, die zuverlässigen Betrieb und kontinuierliche Verbesserung brauchen.",
+      "Kleingewerbe mit bestehenden oder neu entwickelten Lösungen, die zuverlässigen Betrieb und kontinuierliche Verbesserung brauchen.",
     features: [
       "24/7 Uptime-Monitoring",
       "Incident Response und Fehlerbehebung",

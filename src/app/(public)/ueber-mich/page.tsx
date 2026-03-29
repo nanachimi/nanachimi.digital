@@ -192,7 +192,7 @@ export default function UeberMichPage() {
                 Commerzbank und das BAMF.
               </p>
               <p className="mt-4 max-w-xl text-lg leading-relaxed text-[#8B8F97]">
-                Heute helfe ich Gründern und KMUs, ihre App-Ideen
+                Heute helfe ich Gründern und Kleingewerbe, ihre Ideen
                 schnell und professionell umzusetzen — vom ersten
                 Gespräch bis zum laufenden Betrieb.
               </p>
@@ -289,8 +289,8 @@ export default function UeberMichPage() {
               <p>
                 Deshalb habe ich{" "}
                 <strong className="text-foreground">nanachimi.digital</strong>{" "}
-                gegründet: um Gründern und kleinen Unternehmen dabei zu helfen,
-                ihre App-Ideen schnell und professionell umzusetzen — ohne
+                gegründet: um Gründern und Kleingewerbe dabei zu helfen,
+                ihre Ideen schnell und professionell umzusetzen — ohne
                 Overhead, ohne unnötige Komplexität, ohne endlose Abstimmungsrunden.
               </p>
             </div>

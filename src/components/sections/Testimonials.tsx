@@ -19,7 +19,7 @@ const testimonials = [
       "Hier kommt ein Kundenzitat hin. Platzhalter für das zweite Testimonial — wird vor dem Go-Live ersetzt.",
     name: "Erika Musterfrau",
     role: "Geschäftsführerin",
-    company: "KMU AG",
+    company: "Muster GmbH",
     image: "https://i.pravatar.cc/160?img=32",
   },
   {

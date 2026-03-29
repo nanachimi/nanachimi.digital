@@ -10,7 +10,6 @@ import {
   RefreshCw,
   Clock,
   Play,
-  Pause,
   XCircle,
   Loader2,
   RotateCcw,
@@ -148,9 +147,8 @@ export default function IncidentsPage() {
     if (res.ok) fetchData();
   }
 
-  async function retryJob(jobId: string) {
-    // Reset job to pending for immediate retry
-    // We use the process-jobs cron endpoint
+  async function retryJob(_jobId: string) {
+    // Trigger the process-jobs cron to pick up pending/failed jobs
     await fetch("/api/cron/process-jobs");
     fetchData();
   }

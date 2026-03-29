@@ -48,7 +48,7 @@ export const AB_TEST_ELEMENTS: Record<string, ABTestElement> = {
         label: "Subheadline",
         type: "textarea",
         placeholder:
-          "z.B. Web- und Mobile-Apps für Gründer und KMUs — von der Idee bis zum Go-Live.",
+          "z.B. Digitale Lösungen für Gründer und Kleingewerbe — von der Idee bis zum Go-Live.",
       },
     ],
   },

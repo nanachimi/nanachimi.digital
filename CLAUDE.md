@@ -23,10 +23,10 @@ From onboarding to first live version in 48 hours
 - Provide end-to-end service (build, deploy, monitor, maintain)
 
 ## Target Clients
-- SMEs
+- Kleingewerbe
 - Founders
-- Businesses with app ideas
-- Companies needing web/mobile apps users actually like
+- Businesses with ideas for digital solutions
+- Companies needing web/mobile solutions users actually like
 
 ## Offers
 1. 48h golive on agreed scope
@@ -82,4 +82,9 @@ From onboarding to first live version in 48 hours
 ## Language
 - The website must be written in German
 - All copy, CTAs, onboarding questions, and emails must be in German
-- Tone should be professional, clear, and adapted to German-speaking business clients (SMEs, founders)
+- Tone should be professional, clear, and adapted to German-speaking business clients (solo entrepreneurs, small entreprises, founders)
+
+## Quality Standard
+- No critical bug should reach deployment
+- Tests must be integrated into CI/CD
+- Business logic, E2E flows, and integration health must be validated before release

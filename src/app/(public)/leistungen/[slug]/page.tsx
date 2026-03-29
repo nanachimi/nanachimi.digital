@@ -32,21 +32,21 @@ const techStacks: Record<string, { category: string; items: string[] }[]> = {
 
 const targetGroups: Record<string, string[]> = {
   "48h-mvp": [
-    "Gründer mit einer klaren App-Idee",
+    "Gründer mit einer klaren Idee",
     "Startups, die schnell am Markt testen wollen",
-    "Unternehmen mit definiertem MVP-Scope",
+    "Kleingewerbe mit definiertem MVP-Scope",
     "Projekte mit knapper Deadline",
   ],
   "app-entwicklung": [
-    "KMUs mit komplexeren Anforderungen",
-    "Unternehmen, die maßgeschneiderte Software brauchen",
+    "Kleingewerbe mit komplexeren Anforderungen",
+    "Gründer, die maßgeschneiderte Lösungen brauchen",
     "Projekte, die iterative Entwicklung erfordern",
     "Teams, die einen erfahrenen Lead-Entwickler suchen",
   ],
   "betrieb-und-wartung": [
-    "Unternehmen mit bestehenden Web-Anwendungen",
+    "Kleingewerbe mit bestehenden Web-Anwendungen",
     "Teams ohne eigene DevOps-Kapazität",
-    "Apps, die zuverlässigen 24/7-Betrieb brauchen",
+    "Lösungen, die zuverlässigen 24/7-Betrieb brauchen",
     "Projekte nach dem Go-Live",
   ],
 };
