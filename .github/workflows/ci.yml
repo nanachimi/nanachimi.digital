@@ -169,16 +169,37 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
-      - name: Integration tests
-        run: npm run test:integration
+      - name: Start dev server for integration tests
+        run: |
+          npm run dev &
+          echo "Waiting for dev server..."
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:3000 > /dev/null 2>&1; then
+              echo "Dev server ready (attempt $i)"
+              break
+            fi
+            sleep 2
+          done
         env:
-          TEST_BASE_URL: http://localhost:3000
           DATABASE_URL: postgresql://nanachimi:nanachimi@localhost:5432/nanachimi
           NEXT_PUBLIC_SITE_URL: http://localhost:3000
           NEXT_TELEMETRY_DISABLED: 1
           SESSION_SECRET: ci-test-session-secret-32-chars-minimum
           ADMIN_USERNAME: admin
           ADMIN_PASSWORD: ci-test-password
+
+      - name: Integration tests
+        run: npm run test:integration
+        env:
+          TEST_BASE_URL: http://localhost:3000
+          DATABASE_URL: postgresql://nanachimi:nanachimi@localhost:5432/nanachimi
+          SESSION_SECRET: ci-test-session-secret-32-chars-minimum
+          ADMIN_USERNAME: admin
+          ADMIN_PASSWORD: ci-test-password
+
+      - name: Stop dev server
+        if: always()
+        run: kill $(lsof -t -i:3000) 2>/dev/null || true
 
       - name: Run E2E tests
         id: playwright
