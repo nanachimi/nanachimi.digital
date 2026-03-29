@@ -115,37 +115,26 @@ export default async function AngebotPage({ params }: PageProps) {
     );
   }
 
-  // Already accepted or rejected by client
-  if (angebot.status === "accepted" || angebot.status === "rejected_by_client") {
-    const isAccepted = angebot.status === "accepted";
+  // Rejected by client — simple message
+  if (angebot.status === "rejected_by_client") {
     return (
       <section className="min-h-screen bg-[#111318]">
         <div className="container mx-auto px-4 py-20 md:px-6">
           <div className="mx-auto max-w-2xl text-center">
-            <div
-              className={`mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full ${
-                isAccepted ? "bg-green-400/10" : "bg-white/[0.06]"
-              }`}
-            >
-              {isAccepted ? (
-                <Check className="h-8 w-8 text-green-400" />
-              ) : (
-                <X className="h-8 w-8 text-[#8B8F97]" />
-              )}
+            <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-white/[0.06]">
+              <X className="h-8 w-8 text-[#8B8F97]" />
             </div>
-            <h1 className="text-3xl font-bold text-white">
-              {isAccepted ? "Angebot angenommen" : "Angebot abgelehnt"}
-            </h1>
+            <h1 className="text-3xl font-bold text-white">Angebot abgelehnt</h1>
             <p className="mt-4 text-lg text-[#8B8F97]">
-              {isAccepted
-                ? "Vielen Dank! Wir melden uns in Kürze bei Ihnen."
-                : "Dieses Angebot wurde abgelehnt."}
+              Dieses Angebot wurde abgelehnt.
             </p>
           </div>
         </div>
       </section>
     );
   }
+
+  // Accepted — show full Angebot + payment + project download (falls through to the main render below)
 
   // Sent — show the full Angebot for accept/reject
   const formatter = new Intl.NumberFormat("de-DE", {
@@ -435,8 +424,12 @@ export default async function AngebotPage({ params }: PageProps) {
             </>
           )}
 
-          {/* Accept / Reject */}
-          <AngebotActions id={id} />
+          {/* Accept / Reject / Payment + Download */}
+          <AngebotActions
+            id={id}
+            initialStatus={angebot.status === "accepted" ? "accepted" : "idle"}
+            festpreis={angebot.festpreis}
+          />
 
           {/* Disclaimer */}
           <p className="mt-8 text-center text-xs text-[#5a5e66]">

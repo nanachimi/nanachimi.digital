@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Check,
   X,
@@ -48,6 +48,8 @@ interface PaymentData {
 
 interface Props {
   id: string;
+  initialStatus?: "idle" | "accepted";
+  festpreis?: number;
 }
 
 function formatEuro(amount: number): string {
@@ -86,14 +88,27 @@ function CopyButton({ text, label }: { text: string; label: string }) {
   );
 }
 
-export function AngebotActions({ id }: Props) {
+export function AngebotActions({ id, initialStatus, festpreis }: Props) {
   const [status, setStatus] = useState<
     "idle" | "rejecting" | "accepted" | "rejected" | "loading"
-  >("idle");
+  >(initialStatus || "idle");
   const [feedback, setFeedback] = useState("");
   const [paymentData, setPaymentData] = useState<PaymentData | null>(null);
   const [payingType, setPayingType] = useState<string | null>(null);
   const isLoading = status === "loading";
+
+  // If already accepted, load payment options on mount
+  useEffect(() => {
+    if (initialStatus === "accepted" && festpreis && !paymentData) {
+      import("@/lib/constants").then(({ calculatePaymentOptions, BANKVERBINDUNG }) => {
+        setPaymentData({
+          festpreis,
+          options: calculatePaymentOptions(festpreis),
+          bank: { ...BANKVERBINDUNG, verwendungszweck: `Angebot ${id}` },
+        });
+      });
+    }
+  }, [initialStatus, festpreis, id, paymentData]);
 
   async function handleAction(action: "accept" | "reject") {
     setStatus("loading");
