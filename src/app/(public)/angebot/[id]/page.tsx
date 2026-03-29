@@ -184,6 +184,13 @@ export default async function AngebotPage({ params }: PageProps) {
             </p>
           </div>
 
+          {/* Accept / Reject / Payment */}
+          <AngebotActions
+            id={id}
+            initialStatus={angebot.status === "accepted" ? "accepted" : "idle"}
+            festpreis={angebot.festpreis}
+          />
+
           {/* Zahlungsbedingungen */}
           <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-6 mb-6">
             <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
@@ -423,13 +430,6 @@ export default async function AngebotPage({ params }: PageProps) {
               )}
             </>
           )}
-
-          {/* Accept / Reject / Payment + Download */}
-          <AngebotActions
-            id={id}
-            initialStatus={angebot.status === "accepted" ? "accepted" : "idle"}
-            festpreis={angebot.festpreis}
-          />
 
           {/* Disclaimer */}
           <p className="mt-8 text-center text-xs text-[#5a5e66]">
