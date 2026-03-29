@@ -323,46 +323,59 @@ jobs:
       name: dev
       url: https://dev.nanachimi.digital
     steps:
-      - name: Deploy to dev
-        run: |
-          IMAGE_TAG="${{ needs.docker-build.outputs.image-tag }}"
+      - name: Deploy to dev via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ vars.NONPROD_HOST }}
+          username: ${{ vars.NONPROD_USER }}
+          key: ${{ secrets.NONPROD_SSH_KEY }}
+          script: |
+            IMAGE_TAG="${{ needs.docker-build.outputs.image-tag }}"
+            REGISTRY="${{ vars.REGISTRY_HOST }}"
 
-          docker pull localhost:5000/nanachimi-digital:${IMAGE_TAG}
-          docker tag localhost:5000/nanachimi-digital:${IMAGE_TAG} nanachimi-digital:dev
+            docker network create nanachimi-network 2>/dev/null || true
 
-          docker stop nanachimi-dev 2>/dev/null || true
-          docker rm nanachimi-dev 2>/dev/null || true
+            docker pull ${REGISTRY}/nanachimi-digital:${IMAGE_TAG}
+            docker tag ${REGISTRY}/nanachimi-digital:${IMAGE_TAG} nanachimi-digital:dev
 
-          docker run --rm \
-            --network nanachimi-network \
-            -e DATABASE_URL="${{ secrets.DEV_DATABASE_URL }}" \
-            nanachimi-digital:dev \
-            npx prisma db push
+            docker stop nanachimi-dev 2>/dev/null || true
+            docker rm nanachimi-dev 2>/dev/null || true
 
-          docker run -d \
-            --name nanachimi-dev \
-            --network nanachimi-network \
-            --restart unless-stopped \
-            -p 3001:3000 \
-            --env-file /opt/nanachimi-dev/.env \
-            nanachimi-digital:dev
+            docker run --rm \
+              --network nanachimi-network \
+              -e DATABASE_URL="${{ secrets.DEV_DATABASE_URL }}" \
+              nanachimi-digital:dev \
+              npx prisma db push
 
-          docker system prune -f
+            docker run -d \
+              --name nanachimi-dev \
+              --network nanachimi-network \
+              --restart unless-stopped \
+              -p 3001:3000 \
+              --env-file /opt/nanachimi-dev/.env \
+              nanachimi-digital:dev
+
+            docker system prune -f
 
       - name: Dev smoke test
-        run: |
-          echo "Waiting for dev to start..."
-          for i in $(seq 1 12); do
-            if curl -sf http://localhost:3001/api/health > /dev/null 2>&1; then
-              echo "Dev health check passed (attempt $i)"
-              exit 0
-            fi
-            echo "Attempt $i/12 — waiting 10s..."
-            sleep 10
-          done
-          echo "Dev health check FAILED"
-          docker logs nanachimi-dev --tail 30
-          exit 1
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ vars.NONPROD_HOST }}
+          username: ${{ vars.NONPROD_USER }}
+          key: ${{ secrets.NONPROD_SSH_KEY }}
+          script: |
+            echo "Waiting for dev to start..."
+            for i in $(seq 1 12); do
+              if curl -sf http://localhost:3001/api/health > /dev/null 2>&1; then
+                echo "Dev health check passed (attempt $i)"
+                exit 0
+              fi
+              echo "Attempt $i/12 — waiting 10s..."
+              sleep 10
+            done
+            echo "Dev health check FAILED"
+            docker logs nanachimi-dev --tail 30
+            exit 1
 
   # ===========================================================================
   # STAGE 4b — DEPLOY STAGING (auto on push to staging)
@@ -376,46 +389,59 @@ jobs:
       name: staging
       url: https://staging.nanachimi.digital
     steps:
-      - name: Deploy to staging
-        run: |
-          IMAGE_TAG="${{ needs.docker-build.outputs.image-tag }}"
+      - name: Deploy to staging via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ vars.NONPROD_HOST }}
+          username: ${{ vars.NONPROD_USER }}
+          key: ${{ secrets.NONPROD_SSH_KEY }}
+          script: |
+            IMAGE_TAG="${{ needs.docker-build.outputs.image-tag }}"
+            REGISTRY="${{ vars.REGISTRY_HOST }}"
 
-          docker pull localhost:5000/nanachimi-digital:${IMAGE_TAG}
-          docker tag localhost:5000/nanachimi-digital:${IMAGE_TAG} nanachimi-digital:staging
+            docker network create nanachimi-network 2>/dev/null || true
 
-          docker stop nanachimi-staging 2>/dev/null || true
-          docker rm nanachimi-staging 2>/dev/null || true
+            docker pull ${REGISTRY}/nanachimi-digital:${IMAGE_TAG}
+            docker tag ${REGISTRY}/nanachimi-digital:${IMAGE_TAG} nanachimi-digital:staging
 
-          docker run --rm \
-            --network nanachimi-network \
-            -e DATABASE_URL="${{ secrets.STAGING_DATABASE_URL }}" \
-            nanachimi-digital:staging \
-            npx prisma db push
+            docker stop nanachimi-staging 2>/dev/null || true
+            docker rm nanachimi-staging 2>/dev/null || true
 
-          docker run -d \
-            --name nanachimi-staging \
-            --network nanachimi-network \
-            --restart unless-stopped \
-            -p 3002:3000 \
-            --env-file /opt/nanachimi-staging/.env \
-            nanachimi-digital:staging
+            docker run --rm \
+              --network nanachimi-network \
+              -e DATABASE_URL="${{ secrets.STAGING_DATABASE_URL }}" \
+              nanachimi-digital:staging \
+              npx prisma db push
 
-          docker system prune -f
+            docker run -d \
+              --name nanachimi-staging \
+              --network nanachimi-network \
+              --restart unless-stopped \
+              -p 3002:3000 \
+              --env-file /opt/nanachimi-staging/.env \
+              nanachimi-digital:staging
+
+            docker system prune -f
 
       - name: Staging smoke test
-        run: |
-          echo "Waiting for staging to start..."
-          for i in $(seq 1 12); do
-            if curl -sf http://localhost:3002/api/health > /dev/null 2>&1; then
-              echo "Staging health check passed (attempt $i)"
-              exit 0
-            fi
-            echo "Attempt $i/12 — waiting 10s..."
-            sleep 10
-          done
-          echo "Staging health check FAILED"
-          docker logs nanachimi-staging --tail 30
-          exit 1
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ vars.NONPROD_HOST }}
+          username: ${{ vars.NONPROD_USER }}
+          key: ${{ secrets.NONPROD_SSH_KEY }}
+          script: |
+            echo "Waiting for staging to start..."
+            for i in $(seq 1 12); do
+              if curl -sf http://localhost:3002/api/health > /dev/null 2>&1; then
+                echo "Staging health check passed (attempt $i)"
+                exit 0
+              fi
+              echo "Attempt $i/12 — waiting 10s..."
+              sleep 10
+            done
+            echo "Staging health check FAILED"
+            docker logs nanachimi-staging --tail 30
+            exit 1
 
   # ===========================================================================
   # STAGE 4c — DEPLOY PRODUCTION (on push to main/master)
@@ -430,67 +456,85 @@ jobs:
       url: https://nanachimi.digital
     steps:
       - name: Backup database
-        run: |
-          TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-          mkdir -p /opt/nanachimi/backups
-          docker exec nanachimi-db pg_dump -U nanachimi nanachimi \
-            | gzip > /opt/nanachimi/backups/pre_deploy_${TIMESTAMP}.sql.gz 2>/dev/null || true
-          echo "Backup: pre_deploy_${TIMESTAMP}.sql.gz"
-          cd /opt/nanachimi/backups && ls -t *.sql.gz 2>/dev/null | tail -n +11 | xargs rm -f 2>/dev/null || true
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ vars.PROD_HOST }}
+          username: ${{ vars.PROD_USER }}
+          key: ${{ secrets.PROD_SSH_KEY }}
+          script: |
+            TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+            mkdir -p /opt/nanachimi/backups
+            docker exec nanachimi-db pg_dump -U nanachimi nanachimi \
+              | gzip > /opt/nanachimi/backups/pre_deploy_${TIMESTAMP}.sql.gz 2>/dev/null || true
+            echo "Backup: pre_deploy_${TIMESTAMP}.sql.gz"
+            cd /opt/nanachimi/backups && ls -t *.sql.gz 2>/dev/null | tail -n +11 | xargs rm -f 2>/dev/null || true
 
       - name: Deploy to production
-        run: |
-          IMAGE_TAG="${{ needs.docker-build.outputs.image-tag }}"
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ vars.PROD_HOST }}
+          username: ${{ vars.PROD_USER }}
+          key: ${{ secrets.PROD_SSH_KEY }}
+          script: |
+            IMAGE_TAG="${{ needs.docker-build.outputs.image-tag }}"
+            REGISTRY="${{ vars.REGISTRY_HOST }}"
 
-          docker pull localhost:5000/nanachimi-digital:${IMAGE_TAG}
-          docker tag localhost:5000/nanachimi-digital:${IMAGE_TAG} nanachimi-digital:latest
+            docker network create nanachimi-network 2>/dev/null || true
 
-          docker stop nanachimi-app 2>/dev/null || true
-          docker rm nanachimi-app 2>/dev/null || true
+            docker pull ${REGISTRY}/nanachimi-digital:${IMAGE_TAG}
+            docker tag ${REGISTRY}/nanachimi-digital:${IMAGE_TAG} nanachimi-digital:latest
 
-          docker run --rm \
-            --network nanachimi-network \
-            -e DATABASE_URL="${{ secrets.DATABASE_URL }}" \
-            nanachimi-digital:latest \
-            npx prisma db push
+            docker stop nanachimi-app 2>/dev/null || true
+            docker rm nanachimi-app 2>/dev/null || true
 
-          docker run -d \
-            --name nanachimi-app \
-            --network nanachimi-network \
-            --restart unless-stopped \
-            -p 3000:3000 \
-            --env-file /opt/nanachimi/.env \
-            nanachimi-digital:latest
+            docker run --rm \
+              --network nanachimi-network \
+              -e DATABASE_URL="${{ secrets.DATABASE_URL }}" \
+              nanachimi-digital:latest \
+              npx prisma db push
 
-          sleep 10
-          docker ps | grep nanachimi-app || { echo "Container failed to start!"; exit 1; }
+            docker run -d \
+              --name nanachimi-app \
+              --network nanachimi-network \
+              --restart unless-stopped \
+              -p 3000:3000 \
+              --env-file /opt/nanachimi/.env \
+              nanachimi-digital:latest
+
+            sleep 10
+            docker ps | grep nanachimi-app || { echo "Container failed to start!"; exit 1; }
 
       - name: Production health check
-        run: |
-          echo "Running production health checks..."
-          for i in $(seq 1 6); do
-            HEALTH_RESPONSE=$(curl -sf -H "Authorization: Bearer ${{ secrets.HEALTH_CHECK_SECRET }}" \
-              http://localhost:3000/api/health 2>/dev/null || echo '{"status":"unreachable"}')
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ vars.PROD_HOST }}
+          username: ${{ vars.PROD_USER }}
+          key: ${{ secrets.PROD_SSH_KEY }}
+          script: |
+            echo "Running production health checks..."
+            for i in $(seq 1 6); do
+              HEALTH_RESPONSE=$(curl -sf -H "Authorization: Bearer ${{ secrets.HEALTH_CHECK_SECRET }}" \
+                http://localhost:3000/api/health 2>/dev/null || echo '{"status":"unreachable"}')
 
-            HEALTH_STATUS=$(echo "$HEALTH_RESPONSE" | jq -r '.status // "unreachable"')
+              HEALTH_STATUS=$(echo "$HEALTH_RESPONSE" | jq -r '.status // "unreachable"')
 
-            if [ "$HEALTH_STATUS" = "healthy" ]; then
-              echo "All health checks passed!"
-              echo "$HEALTH_RESPONSE" | jq .
-              exit 0
-            elif [ "$HEALTH_STATUS" = "degraded" ]; then
-              echo "WARNING: Some services degraded (acceptable)."
-              echo "$HEALTH_RESPONSE" | jq .
-              exit 0
-            fi
+              if [ "$HEALTH_STATUS" = "healthy" ]; then
+                echo "All health checks passed!"
+                echo "$HEALTH_RESPONSE" | jq .
+                exit 0
+              elif [ "$HEALTH_STATUS" = "degraded" ]; then
+                echo "WARNING: Some services degraded (acceptable)."
+                echo "$HEALTH_RESPONSE" | jq .
+                exit 0
+              fi
 
-            echo "Attempt $i/6 — Status: $HEALTH_STATUS — waiting 10s..."
-            sleep 10
-          done
+              echo "Attempt $i/6 — Status: $HEALTH_STATUS — waiting 10s..."
+              sleep 10
+            done
 
-          echo "CRITICAL: Health checks failed!"
-          echo "$HEALTH_RESPONSE" | jq . 2>/dev/null || echo "$HEALTH_RESPONSE"
-          exit 1
+            echo "CRITICAL: Health checks failed!"
+            echo "$HEALTH_RESPONSE" | jq . 2>/dev/null || echo "$HEALTH_RESPONSE"
+            exit 1
 
       - name: Notify on success
         if: success()
@@ -505,17 +549,22 @@ jobs:
 
       - name: Automatic rollback on failure
         if: failure()
-        run: |
-          echo "=== ROLLBACK TRIGGERED ==="
-          docker stop nanachimi-app 2>/dev/null || true
-          docker rm nanachimi-app 2>/dev/null || true
-          PREV_IMAGE=$(docker images nanachimi-digital --format '{{.Tag}}' | grep -v latest | grep -v dev | grep -v staging | head -1)
-          if [ -n "$PREV_IMAGE" ]; then
-            echo "Rolling back to nanachimi-digital:$PREV_IMAGE"
-            docker run -d \
-              --name nanachimi-app \
-              --network nanachimi-network \
-              --restart unless-stopped \
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ vars.PROD_HOST }}
+          username: ${{ vars.PROD_USER }}
+          key: ${{ secrets.PROD_SSH_KEY }}
+          script: |
+            echo "=== ROLLBACK TRIGGERED ==="
+            docker stop nanachimi-app 2>/dev/null || true
+            docker rm nanachimi-app 2>/dev/null || true
+            PREV_IMAGE=$(docker images nanachimi-digital --format '{{.Tag}}' | grep -v latest | grep -v dev | grep -v staging | head -1)
+            if [ -n "$PREV_IMAGE" ]; then
+              echo "Rolling back to nanachimi-digital:$PREV_IMAGE"
+              docker run -d \
+                --name nanachimi-app \
+                --network nanachimi-network \
+                --restart unless-stopped \
               -p 3000:3000 \
               --env-file /opt/nanachimi/.env \
               nanachimi-digital:$PREV_IMAGE
