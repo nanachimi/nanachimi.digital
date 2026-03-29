@@ -9,6 +9,7 @@ import {
   BarChart3,
   Calendar,
   Settings,
+  Activity,
   LogOut,
   ChevronLeft,
   ChevronRight,
@@ -52,6 +53,12 @@ const NAV_ITEMS = [
     label: "Einstellungen",
     href: "/admin/settings",
     icon: Settings,
+    exact: false,
+  },
+  {
+    label: "Systemstatus",
+    href: "/admin/status",
+    icon: Activity,
     exact: false,
   },
 ];

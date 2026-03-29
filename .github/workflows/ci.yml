@@ -240,11 +240,37 @@ jobs:
               -e ADMIN_PASSWORD="${{ secrets.ADMIN_PASSWORD }}" \
               -e ADMIN_TOTP_SECRET="${{ secrets.ADMIN_TOTP_SECRET }}" \
               -e SESSION_SECRET="${{ secrets.SESSION_SECRET }}" \
+              -e HEALTH_CHECK_SECRET="${{ secrets.HEALTH_CHECK_SECRET }}" \
               ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
 
+            # Wait for container startup
+            sleep 10
+
             # Verify container is running
-            sleep 5
-            docker ps | grep nanachimi-app
+            docker ps | grep nanachimi-app || { echo "Container failed to start!"; exit 1; }
+
+            # Run health check — all services must be healthy before deployment is considered successful
+            echo "Running health checks..."
+            HEALTH_RESPONSE=$(curl -sf -H "Authorization: Bearer ${{ secrets.HEALTH_CHECK_SECRET }}" \
+              http://localhost:3000/api/health || echo '{"status":"unreachable"}')
+
+            echo "Health check response: $HEALTH_RESPONSE"
+
+            HEALTH_STATUS=$(echo "$HEALTH_RESPONSE" | jq -r '.status // "unreachable"')
+
+            if [ "$HEALTH_STATUS" = "healthy" ]; then
+              echo "All health checks passed!"
+            elif [ "$HEALTH_STATUS" = "degraded" ]; then
+              echo "WARNING: Some services are degraded. Check /admin/status for details."
+              # Degraded is acceptable — non-critical services may be unavailable
+            else
+              echo "CRITICAL: Health checks failed! Rolling back..."
+              docker stop nanachimi-app 2>/dev/null || true
+              docker rm nanachimi-app 2>/dev/null || true
+              echo "Deployment aborted. Status: $HEALTH_STATUS"
+              exit 1
+            fi
+
             echo "Deployment successful!"
 
             # Cleanup old images
