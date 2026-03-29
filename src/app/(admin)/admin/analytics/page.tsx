@@ -50,17 +50,24 @@ function formatPercent(n: number): string {
 export default function AnalyticsPage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
 
   const fetchStats = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const r = await fetch("/api/admin/analytics");
+      if (!r.ok) {
+        const data = await r.json().catch(() => ({}));
+        setError(data.error || `Fehler ${r.status}`);
+        return;
+      }
       const d = await r.json();
       setStats(d);
       setLastRefresh(new Date());
-    } catch {
-      // ignore
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Verbindung fehlgeschlagen");
     } finally {
       setLoading(false);
     }
@@ -82,11 +89,22 @@ export default function AnalyticsPage() {
     );
   }
 
-  if (!stats) {
+  if (!stats && !loading) {
     return (
       <div className="p-8">
         <h1 className="text-2xl font-bold text-white mb-8">Analytics</h1>
-        <div className="text-zinc-500">Fehler beim Laden der Daten.</div>
+        <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-red-400 text-sm">
+          {error || "Fehler beim Laden der Daten."}
+        </div>
+        <Button
+          onClick={fetchStats}
+          className="mt-4"
+          variant="outline"
+          size="sm"
+        >
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Erneut versuchen
+        </Button>
       </div>
     );
   }
