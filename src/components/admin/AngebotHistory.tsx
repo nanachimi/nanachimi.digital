@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, type MouseEvent } from "react";
 import {
   FileText,
   CheckCircle2,
@@ -8,6 +8,8 @@ import {
   Clock,
   Send,
   ExternalLink,
+  FolderCode,
+  Loader2,
 } from "lucide-react";
 import type { Angebot } from "@/lib/angebote";
 
@@ -123,10 +125,13 @@ export function AngebotHistory({ submissionId }: AngebotHistoryProps) {
                 </span>
               </div>
 
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3">
                 <span className="text-sm font-medium text-[#FFC62C]">
                   {formatEur(angebot.festpreis)}
                 </span>
+                {angebot.status === "accepted" && (
+                  <BootstrapButton angebotId={angebot.id} />
+                )}
                 {(angebot.status === "sent" ||
                   angebot.status === "accepted") && (
                   <a
@@ -152,5 +157,55 @@ export function AngebotHistory({ submissionId }: AngebotHistoryProps) {
         })}
       </div>
     </div>
+  );
+}
+
+// ─── Bootstrap Download Button (admin only) ──────────────────────
+
+function BootstrapButton({ angebotId }: { angebotId: string }) {
+  const [downloading, setDownloading] = useState(false);
+
+  async function handleDownload(e: MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    setDownloading(true);
+    try {
+      const res = await fetch(`/api/angebot/${angebotId}/bootstrap`, {
+        method: "POST",
+      });
+      if (!res.ok) throw new Error("Download fehlgeschlagen");
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download =
+        res.headers.get("Content-Disposition")?.match(/filename="(.+)"/)?.[1] ||
+        "projekt.zip";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Bootstrap download error:", err);
+    } finally {
+      setDownloading(false);
+    }
+  }
+
+  return (
+    <button
+      onClick={handleDownload}
+      disabled={downloading}
+      className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 text-[10px] font-semibold text-emerald-400 hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
+      title="KI-generiertes Projekt-Setup herunterladen (ZIP)"
+    >
+      {downloading ? (
+        <Loader2 className="h-3 w-3 animate-spin" />
+      ) : (
+        <FolderCode className="h-3 w-3" />
+      )}
+      {downloading ? "Generiert..." : "Projekt-Setup"}
+    </button>
   );
 }
