@@ -35,6 +35,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Disable Next.js telemetry
+        run: npx next telemetry disable
+
       - name: Generate Prisma client
         run: npx prisma generate
 
@@ -97,11 +100,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Disable Next.js telemetry
+        run: npx next telemetry disable
+
       - name: Generate Prisma client
         run: npx prisma generate
 
       - name: Push database schema
-        run: npx prisma db push --skip-generate
+        run: npx prisma db push
         env:
           DATABASE_URL: postgresql://nanachimi:nanachimi@localhost:5432/nanachimi
 
@@ -217,7 +223,7 @@ jobs:
               --network nanachimi-network \
               -e DATABASE_URL="${{ secrets.DATABASE_URL }}" \
               ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
-              npx prisma db push --skip-generate
+              npx prisma db push
 
             # Start new container
             docker run -d \
