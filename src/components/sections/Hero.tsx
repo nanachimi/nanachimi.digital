@@ -34,16 +34,7 @@ function AnimatedCounter({ target, suffix = "" }: { target: number; suffix?: str
 // Visualizes the daily struggle of solo entrepreneurs:
 // Scattered sticky notes, messages, deadlines → organized dashboard
 
-const CHAOS_ITEMS = [
-  { emoji: "📋", label: "Excel-Listen", x: 12, y: 8, rotate: -12, delay: 0 },
-  { emoji: "📱", label: "WhatsApp", x: 68, y: 5, rotate: 8, delay: 0.1 },
-  { emoji: "📧", label: "47 E-Mails", x: 35, y: 55, rotate: -5, delay: 0.2 },
-  { emoji: "📞", label: "Rückrufe", x: 72, y: 48, rotate: 15, delay: 0.3 },
-  { emoji: "📝", label: "Zettelwirtschaft", x: 8, y: 42, rotate: -20, delay: 0.15 },
-  { emoji: "⏰", label: "Deadlines", x: 50, y: 22, rotate: 6, delay: 0.25 },
-  { emoji: "💸", label: "Rechnungen", x: 22, y: 75, rotate: -8, delay: 0.35 },
-  { emoji: "🤯", label: "Überfordert", x: 60, y: 72, rotate: 10, delay: 0.05 },
-];
+// Detailed pain-point cards that zoom into real daily chaos
 
 const ORDER_ITEMS = [
   { emoji: "✅", label: "Aufgaben erledigt", progress: 100 },
@@ -100,29 +91,119 @@ function ChaosToOrderAnimation() {
         </div>
       </div>
 
-      {/* Chaos phase — scattered sticky notes */}
+      {/* Chaos phase — zoomed pain point cards */}
       <div className={`absolute inset-6 top-14 transition-all duration-700 ${
         phase === "chaos"
           ? "opacity-100 scale-100"
           : "opacity-0 scale-90 pointer-events-none"
       }`}>
-        {CHAOS_ITEMS.map((item, i) => (
-          <div
-            key={i}
-            className="absolute animate-in fade-in zoom-in duration-500"
-            style={{
-              left: `${item.x}%`,
-              top: `${item.y}%`,
-              transform: `rotate(${item.rotate}deg)`,
-              animationDelay: `${item.delay}s`,
-            }}
-          >
-            <div className="flex items-center gap-1.5 rounded-lg bg-white/[0.06] border border-white/10 px-2.5 py-1.5 shadow-lg backdrop-blur-sm hover:scale-110 transition-transform cursor-default">
-              <span className="text-base">{item.emoji}</span>
-              <span className="text-[10px] text-[#8B8F97] font-medium whitespace-nowrap">{item.label}</span>
+        {/* WhatsApp messages — top left, tilted */}
+        <div className="absolute left-0 top-0 w-[55%] animate-in fade-in slide-in-from-left-4 duration-500" style={{ transform: "rotate(-2deg)" }}>
+          <div className="rounded-xl bg-[#1a2e1a]/80 border border-[#25D366]/20 p-3 shadow-xl">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="h-5 w-5 rounded-full bg-[#25D366]/30 flex items-center justify-center">
+                <span className="text-[10px]">📱</span>
+              </div>
+              <span className="text-[10px] font-bold text-[#25D366]">WhatsApp</span>
+              <span className="ml-auto rounded-full bg-[#25D366] px-1.5 py-0.5 text-[8px] font-bold text-white">12</span>
+            </div>
+            <div className="space-y-1.5">
+              <div className="rounded-lg bg-white/[0.06] px-2.5 py-1.5">
+                <p className="text-[9px] text-[#6a6e76]">Kunde Müller · 09:14</p>
+                <p className="text-[10px] text-white/80">Wann ist meine Bestellung da?? 😤</p>
+              </div>
+              <div className="rounded-lg bg-white/[0.06] px-2.5 py-1.5">
+                <p className="text-[9px] text-[#6a6e76]">Lieferant Schmidt · 10:31</p>
+                <p className="text-[10px] text-white/80">Rechnung überfällig, bitte dringend!</p>
+              </div>
+              <div className="rounded-lg bg-white/[0.06] px-2.5 py-1.5">
+                <p className="text-[9px] text-[#6a6e76]">Team-Gruppe · 11:02</p>
+                <p className="text-[10px] text-white/80">Wer hat den Zugang zum Lager?</p>
+              </div>
             </div>
           </div>
-        ))}
+        </div>
+
+        {/* Missed calls — top right */}
+        <div className="absolute right-0 top-2 w-[42%] animate-in fade-in slide-in-from-right-4 duration-500" style={{ animationDelay: "0.2s", animationFillMode: "both", transform: "rotate(3deg)" }}>
+          <div className="rounded-xl bg-red-500/[0.08] border border-red-500/20 p-3 shadow-xl">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-xs">📞</span>
+              <span className="text-[10px] font-bold text-red-400">Verpasste Anrufe</span>
+            </div>
+            <div className="space-y-1.5">
+              {[
+                { name: "Fr. Weber", time: "vor 2 Std.", count: 3 },
+                { name: "Steuerberater", time: "vor 4 Std.", count: 1 },
+                { name: "+49 621 …", time: "gestern", count: 2 },
+              ].map((call, i) => (
+                <div key={i} className="flex items-center justify-between">
+                  <div>
+                    <p className="text-[10px] text-white/80 font-medium">{call.name}</p>
+                    <p className="text-[8px] text-[#6a6e76]">{call.time}</p>
+                  </div>
+                  <span className="rounded-full bg-red-500/30 px-1.5 py-0.5 text-[8px] font-bold text-red-300">
+                    {call.count}×
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Chaotic Excel — bottom, full width */}
+        <div className="absolute bottom-0 left-0 right-0 animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: "0.4s", animationFillMode: "both", transform: "rotate(1deg)" }}>
+          <div className="rounded-xl bg-[#1a2010]/60 border border-[#217346]/20 p-3 shadow-xl">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-xs">📋</span>
+              <span className="text-[10px] font-bold text-[#217346]">Kunden_Liste_FINAL_v3_NEU(2).xlsx</span>
+            </div>
+            <div className="overflow-hidden rounded-lg border border-white/[0.06]">
+              <table className="w-full text-[8px]">
+                <thead>
+                  <tr className="bg-white/[0.04]">
+                    <th className="px-2 py-1 text-left text-[#6a6e76] font-medium">Name</th>
+                    <th className="px-2 py-1 text-left text-[#6a6e76] font-medium">Status</th>
+                    <th className="px-2 py-1 text-left text-[#6a6e76] font-medium">Bezahlt?</th>
+                    <th className="px-2 py-1 text-left text-[#6a6e76] font-medium">Notiz</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-t border-white/[0.04]">
+                    <td className="px-2 py-1 text-white/60">Müller GmbH</td>
+                    <td className="px-2 py-1 text-amber-400">offen??</td>
+                    <td className="px-2 py-1 text-red-400">NEIN</td>
+                    <td className="px-2 py-1 text-[#6a6e76]">nochmal anrufen!</td>
+                  </tr>
+                  <tr className="border-t border-white/[0.04]">
+                    <td className="px-2 py-1 text-white/60">Weber</td>
+                    <td className="px-2 py-1 text-[#6a6e76]">???</td>
+                    <td className="px-2 py-1 text-white/60">teil</td>
+                    <td className="px-2 py-1 text-red-400">DRINGEND</td>
+                  </tr>
+                  <tr className="border-t border-white/[0.04]">
+                    <td className="px-2 py-1 text-white/60">Schmidt & Co</td>
+                    <td className="px-2 py-1 text-white/60">fertig glaub</td>
+                    <td className="px-2 py-1 text-emerald-400/60">ja</td>
+                    <td className="px-2 py-1 text-[#6a6e76]">oder doch nicht?</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        {/* Floating stress indicators */}
+        <div className="absolute right-2 bottom-[45%] animate-in fade-in duration-300" style={{ animationDelay: "0.6s", animationFillMode: "both" }}>
+          <div className="rounded-full bg-red-500/10 border border-red-500/20 px-2 py-1">
+            <span className="text-[9px] text-red-400">🤯 Überfordert</span>
+          </div>
+        </div>
+        <div className="absolute left-[30%] top-[42%] animate-in fade-in duration-300" style={{ animationDelay: "0.8s", animationFillMode: "both" }}>
+          <div className="rounded-full bg-amber-500/10 border border-amber-500/20 px-2 py-1">
+            <span className="text-[9px] text-amber-400">⏰ 3 Deadlines heute</span>
+          </div>
+        </div>
       </div>
 
       {/* Transition — swirl effect */}
