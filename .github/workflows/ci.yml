@@ -329,31 +329,85 @@ jobs:
           host: ${{ vars.NONPROD_HOST }}
           username: ${{ vars.NONPROD_USER }}
           key: ${{ secrets.NONPROD_SSH_KEY }}
+          envs: DEV_DATABASE_URL,DEV_ANTHROPIC_API_KEY,DEV_ADMIN_PASSWORD,DEV_SESSION_SECRET,DEV_STRIPE_SECRET_KEY
           script: |
+            set -e
             IMAGE_TAG="${{ needs.docker-build.outputs.image-tag }}"
             REGISTRY="${{ vars.REGISTRY_HOST }}"
+            ENV_DIR="/opt/nanachimidigital-dev"
+            DB_CONTAINER="nanachimidigital-dev-db"
+            DB_USER="nanachimi"
+            DB_PASS="ncd_dev_$(hostname | md5sum | cut -c1-12)"
+            DB_NAME="nanachimi_dev"
 
+            # --- Bootstrap infrastructure (idempotent) ---
             docker network create nanachimi-network 2>/dev/null || true
+            mkdir -p ${ENV_DIR}
 
+            # Start dev PostgreSQL if not running
+            if ! docker ps --format '{{.Names}}' | grep -q "^${DB_CONTAINER}$"; then
+              docker rm -f ${DB_CONTAINER} 2>/dev/null || true
+              docker run -d \
+                --name ${DB_CONTAINER} \
+                --network nanachimi-network \
+                --restart unless-stopped \
+                -e POSTGRES_USER=${DB_USER} \
+                -e POSTGRES_PASSWORD=${DB_PASS} \
+                -e POSTGRES_DB=${DB_NAME} \
+                -v nanachimidigital-dev-pgdata:/var/lib/postgresql/data \
+                postgres:16-alpine
+              echo "✓ Dev database started"
+              sleep 5
+            else
+              echo "✓ Dev database already running"
+              DB_PASS=$(docker exec ${DB_CONTAINER} printenv POSTGRES_PASSWORD)
+            fi
+
+            DATABASE_URL="postgresql://${DB_USER}:${DB_PASS}@${DB_CONTAINER}:5432/${DB_NAME}"
+
+            # Generate .env (always overwrite to pick up secret changes)
+            cat > ${ENV_DIR}/.env << ENVEOF
+            DATABASE_URL="${DATABASE_URL}"
+            NEXT_PUBLIC_SITE_URL="https://dev.nanachimi.digital"
+            ANTHROPIC_API_KEY="${{ secrets.DEV_ANTHROPIC_API_KEY }}"
+            SMTP_HOST=localhost
+            SMTP_PORT=1025
+            SMTP_SECURE=false
+            EMAIL_FROM="nanachimi.digital <info@nanachimi.digital>"
+            ADMIN_USERNAME=admin
+            ADMIN_PASSWORD="${{ secrets.DEV_ADMIN_PASSWORD }}"
+            SESSION_SECRET="${{ secrets.DEV_SESSION_SECRET }}"
+            STRIPE_SECRET_KEY="${{ secrets.DEV_STRIPE_SECRET_KEY }}"
+            NEXT_TELEMETRY_DISABLED=1
+            ENVEOF
+            # Remove leading whitespace from heredoc
+            sed -i 's/^[[:space:]]*//' ${ENV_DIR}/.env
+            echo "✓ .env written"
+
+            # --- Deploy application ---
             docker pull ${REGISTRY}/nanachimi-digital:${IMAGE_TAG}
             docker tag ${REGISTRY}/nanachimi-digital:${IMAGE_TAG} nanachimi-digital:dev
 
             docker stop nanachimi-dev 2>/dev/null || true
             docker rm nanachimi-dev 2>/dev/null || true
 
+            # Run migrations
             docker run --rm \
               --network nanachimi-network \
-              -e DATABASE_URL="${{ secrets.DEV_DATABASE_URL }}" \
+              -e DATABASE_URL="${DATABASE_URL}" \
               nanachimi-digital:dev \
               npx prisma db push
+            echo "✓ Migrations applied"
 
+            # Start app
             docker run -d \
               --name nanachimi-dev \
               --network nanachimi-network \
               --restart unless-stopped \
               -p 3001:3000 \
-              --env-file /opt/nanachimidigital-dev/.env \
+              --env-file ${ENV_DIR}/.env \
               nanachimi-digital:dev
+            echo "✓ App container started"
 
             docker system prune -f
 
@@ -396,10 +450,54 @@ jobs:
           username: ${{ vars.NONPROD_USER }}
           key: ${{ secrets.NONPROD_SSH_KEY }}
           script: |
+            set -e
             IMAGE_TAG="${{ needs.docker-build.outputs.image-tag }}"
             REGISTRY="${{ vars.REGISTRY_HOST }}"
+            ENV_DIR="/opt/nanachimidigital-staging"
+            DB_CONTAINER="nanachimidigital-staging-db"
+            DB_USER="nanachimi"
+            DB_PASS="ncd_staging_$(hostname | md5sum | cut -c1-12)"
+            DB_NAME="nanachimi_staging"
 
             docker network create nanachimi-network 2>/dev/null || true
+            mkdir -p ${ENV_DIR}
+
+            if ! docker ps --format '{{.Names}}' | grep -q "^${DB_CONTAINER}$"; then
+              docker rm -f ${DB_CONTAINER} 2>/dev/null || true
+              docker run -d \
+                --name ${DB_CONTAINER} \
+                --network nanachimi-network \
+                --restart unless-stopped \
+                -e POSTGRES_USER=${DB_USER} \
+                -e POSTGRES_PASSWORD=${DB_PASS} \
+                -e POSTGRES_DB=${DB_NAME} \
+                -v nanachimidigital-staging-pgdata:/var/lib/postgresql/data \
+                postgres:16-alpine
+              echo "✓ Staging database started"
+              sleep 5
+            else
+              echo "✓ Staging database already running"
+              DB_PASS=$(docker exec ${DB_CONTAINER} printenv POSTGRES_PASSWORD)
+            fi
+
+            DATABASE_URL="postgresql://${DB_USER}:${DB_PASS}@${DB_CONTAINER}:5432/${DB_NAME}"
+
+            cat > ${ENV_DIR}/.env << ENVEOF
+            DATABASE_URL="${DATABASE_URL}"
+            NEXT_PUBLIC_SITE_URL="https://staging.nanachimi.digital"
+            ANTHROPIC_API_KEY="${{ secrets.STAGING_ANTHROPIC_API_KEY }}"
+            SMTP_HOST=localhost
+            SMTP_PORT=1025
+            SMTP_SECURE=false
+            EMAIL_FROM="nanachimi.digital <info@nanachimi.digital>"
+            ADMIN_USERNAME=admin
+            ADMIN_PASSWORD="${{ secrets.STAGING_ADMIN_PASSWORD }}"
+            SESSION_SECRET="${{ secrets.STAGING_SESSION_SECRET }}"
+            STRIPE_SECRET_KEY="${{ secrets.STAGING_STRIPE_SECRET_KEY }}"
+            NEXT_TELEMETRY_DISABLED=1
+            ENVEOF
+            sed -i 's/^[[:space:]]*//' ${ENV_DIR}/.env
+            echo "✓ .env written"
 
             docker pull ${REGISTRY}/nanachimi-digital:${IMAGE_TAG}
             docker tag ${REGISTRY}/nanachimi-digital:${IMAGE_TAG} nanachimi-digital:staging
@@ -409,17 +507,19 @@ jobs:
 
             docker run --rm \
               --network nanachimi-network \
-              -e DATABASE_URL="${{ secrets.STAGING_DATABASE_URL }}" \
+              -e DATABASE_URL="${DATABASE_URL}" \
               nanachimi-digital:staging \
               npx prisma db push
+            echo "✓ Migrations applied"
 
             docker run -d \
               --name nanachimi-staging \
               --network nanachimi-network \
               --restart unless-stopped \
               -p 3002:3000 \
-              --env-file /opt/nanachimidigital-staging/.env \
+              --env-file ${ENV_DIR}/.env \
               nanachimi-digital:staging
+            echo "✓ App container started"
 
             docker system prune -f
 
