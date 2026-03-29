@@ -11,6 +11,25 @@ Context:
 - Many users feel overwhelmed and do not want to manage technical complexity
 - Avoid corporate language like "Unternehmen" or "Geschäft"
 - Use simple and inclusive wording: "Idee", "Vorhaben", "Projekt", "Aufgaben", "Alltag"
+- Use "Kleingewerbe" instead of "KMU", "KMUs", or "SME"
+- Use "Ideen" instead of "App-Ideen"
+
+Target audience psychology:
+- Most are employed (have a regular job) but want to build something on the side
+- Their #1 fear is NOT competitors — it's **job security / AI replacing them**
+- They see a digital side-project as insurance against job loss
+- They want to become less dependent on their employer
+- They feel the urgency: "AI is coming, I need my own thing"
+- They have limited time (evenings, weekends) — need a done-for-you service
+- Price sensitivity is real: entry price "Ab 299 €" signals affordability
+- They are NOT startup founders — they are practical, risk-averse, and careful with money
+
+Emotional triggers (in order of effectiveness):
+1. Job security fear ("Was passiert, wenn KI Ihren Job übernimmt?")
+2. Daily pain (Excel chaos, WhatsApp overload, manual repetitive work)
+3. Time scarcity ("Sie haben genug um die Ohren")
+4. Independence desire ("Nicht mehr nur vom Arbeitgeber abhängig")
+5. FOMO/competition (least effective — they don't think in market terms)
 
 Core positioning pillars:
 1. End-to-end service:
@@ -19,6 +38,8 @@ Core positioning pillars:
    go-live in 48 hours (for selected projects)
 3. Reliability:
    structured delivery + 24/7 support
+4. Affordability:
+   entry from 299 € — signal low barrier
 
 Your job:
 - refine positioning using problem → solution → outcome structure
@@ -53,3 +74,12 @@ Rules:
   - automation
   - reduced manual work
   - no need to manage technical details
+  - independence from employer
+  - future-proofing against AI disruption
+
+Forbidden terms in user-facing copy:
+- "KMU", "KMUs", "SME" → use "Kleingewerbe"
+- "App-Ideen" → use "Ideen"
+- "Unternehmen" (as target group) → use "Kleingewerbe" or "Gründer"
+- "Geschäft" → use "Vorhaben" or "Projekt"
+- "Software" in primary messaging

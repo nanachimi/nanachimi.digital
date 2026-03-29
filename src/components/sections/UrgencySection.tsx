@@ -1,6 +1,6 @@
 "use client";
 
-import { TrendingUp, Clock, Zap, Rocket, ArrowRight, CalendarX, BrainCircuit, HandCoins, Timer } from "lucide-react";
+import { TrendingUp, Clock, Zap, Rocket, ArrowRight, CalendarX, BrainCircuit, HandCoins, Timer, ShieldAlert, Bot, Lightbulb, HeartHandshake } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { useEffect, useRef, useState } from "react";
@@ -88,6 +88,47 @@ const PAIN_REASONS = [
   },
 ];
 
+// ─── Variant C: Job Security — "Was, wenn KI Ihren Job übernimmt?" ──
+
+const SECURITY_REASONS = [
+  {
+    icon: Bot,
+    title: "KI verändert gerade alles",
+    description:
+      "Automatisierung ersetzt Routinejobs — in jeder Branche. Wer jetzt ein eigenes digitales Standbein aufbaut, macht sich unabhängiger.",
+    color: "text-purple-400",
+    bgColor: "bg-purple-400/[0.08]",
+    hoverBg: "group-hover:bg-purple-400/[0.15]",
+  },
+  {
+    icon: ShieldAlert,
+    title: "Nur vom Arbeitgeber abhängig?",
+    description:
+      "Ein Gehalt, eine Einnahmequelle, ein Risiko. Ihre eigene digitale Lösung kann Ihnen ein zweites Standbein geben — neben dem Job.",
+    color: "text-amber-400",
+    bgColor: "bg-amber-400/[0.08]",
+    hoverBg: "group-hover:bg-amber-400/[0.15]",
+  },
+  {
+    icon: Lightbulb,
+    title: "Sie haben bereits eine Idee",
+    description:
+      "Die meisten warten Jahre, bevor sie ihre Idee umsetzen. Mit uns geht das in 48 Stunden — abends beschreiben, am Wochenende online.",
+    color: "text-[#FFC62C]",
+    bgColor: "bg-[#FFC62C]/[0.08]",
+    hoverBg: "group-hover:bg-[#FFC62C]/[0.15]",
+  },
+  {
+    icon: HeartHandshake,
+    title: "Wir kümmern uns um die Technik",
+    description:
+      "Sie brauchen keine Vorkenntnisse. Beschreiben Sie Ihr Vorhaben — wir übernehmen alles. Ab 299 €, neben Ihrem Job machbar.",
+    color: "text-emerald-400",
+    bgColor: "bg-emerald-400/[0.08]",
+    hoverBg: "group-hover:bg-emerald-400/[0.15]",
+  },
+];
+
 // ─── Variant Configs ─────────────────────────────────────────────
 
 interface UrgencyVariant {
@@ -120,6 +161,16 @@ const VARIANTS: Record<string, UrgencyVariant> = {
     reasons: PAIN_REASONS,
     cta: "Jetzt Alltag vereinfachen",
     ctaSub: "Beschreiben Sie Ihre Aufgaben — wir zeigen Ihnen, was möglich ist",
+  },
+  security: {
+    badge: "Die Arbeitswelt verändert sich",
+    heading: "Was, wenn KI Ihren Job übernimmt?",
+    headingHighlight: "Bauen Sie Ihr eigenes Standbein.",
+    subtext:
+      "Immer mehr Aufgaben werden automatisiert. Wer jetzt eine eigene digitale Lösung aufbaut, macht sich unabhängiger — neben dem Job, ohne Risiko.",
+    reasons: SECURITY_REASONS,
+    cta: "Jetzt eigenes Projekt starten",
+    ctaSub: "Ab 299 € — neben dem Job machbar, ohne technische Vorkenntnisse",
   },
 };
 
