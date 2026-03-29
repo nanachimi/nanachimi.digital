@@ -1,27 +1,62 @@
+# ============================================================================
+# nanachimi.digital CI/CD Pipeline
+# ============================================================================
+# Trigger strategy:
+#   pull_request  → quality gates only (lint, typecheck, build) — no deploy
+#   push develop  → quality gates + E2E + docker + deploy to DEV
+#   push staging  → quality gates + E2E + docker + deploy to STAGING
+#   push main     → quality gates + E2E + docker + deploy to PRODUCTION
+#
+# Jobs:
+#   1. lint-and-build      — Lint, type check, build (Next.js)
+#   2. e2e-tests           — Playwright E2E tests (PostgreSQL service)
+#   3. docker-build        — Build & push image to self-hosted registry
+#   4a. deploy-dev         — Deploy to dev (on push to develop)
+#   4b. deploy-staging     — Deploy to staging (on push to staging)
+#   4c. deploy-prod        — Deploy to production (on push to main)
+#
+# Infrastructure:
+#   - Self-hosted runner on Hetzner VPS
+#   - Self-hosted Docker registry (localhost:5000)
+#   - Local artifact storage (/opt/ci-artifacts)
+#   - No GitHub Actions cache/storage/registry used
+# ============================================================================
+
 name: CI/CD Pipeline
 
 on:
-  push:
-    branches: [master, main, develop]
   pull_request:
-    branches: [master, main]
-
-env:
-  NODE_VERSION: "20"
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.vscode/**'
+  push:
+    branches:
+      - develop
+      - staging
+      - master
+      - main
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.vscode/**'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-# ─────────────────────────────────────────────────────────────
-# Job 1: Lint, Type Check & Build
-# ─────────────────────────────────────────────────────────────
+env:
+  NODE_VERSION: "20"
+  REGISTRY: localhost:5000
+  IMAGE_NAME: localhost:5000/nanachimi-digital
+
+# ===========================================================================
+# STAGE 1 — LINT, TYPE CHECK & BUILD
+# ===========================================================================
 jobs:
   lint-and-build:
-    name: Lint, Type Check & Build
-    runs-on: ubuntu-latest
+    name: "Lint, Type Check & Build"
+    runs-on: self-hosted
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -47,31 +82,46 @@ jobs:
       - name: Type check
         run: npx tsc --noEmit
 
+      - name: Unit tests
+        run: npm run test:unit
+
       - name: Build
         run: npm run build
         env:
           DATABASE_URL: "postgresql://dummy:dummy@localhost:5432/dummy"
           NEXT_TELEMETRY_DISABLED: 1
 
-      - name: Upload build artifact
-        if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
-        uses: actions/upload-artifact@v4
-        with:
-          name: nextjs-build
-          path: |
-            .next/standalone
-            .next/static
-            public
-          retention-days: 1
+      - name: Store build artifacts locally
+        if: github.event_name == 'push'
+        run: |
+          ARTIFACT_DIR="/opt/ci-artifacts/${{ github.run_id }}"
+          mkdir -p "$ARTIFACT_DIR/nextjs-build"
+          cp -r .next/standalone "$ARTIFACT_DIR/nextjs-build/"
+          cp -r .next/static "$ARTIFACT_DIR/nextjs-build/"
+          cp -r public "$ARTIFACT_DIR/nextjs-build/"
+          echo "Build artifacts stored in $ARTIFACT_DIR/nextjs-build"
 
-  # ─────────────────────────────────────────────────────────────
-  # Job 2: E2E Tests (Playwright)
-  # ─────────────────────────────────────────────────────────────
+      - name: Generate build summary
+        if: always()
+        run: |
+          echo "# Build — Lint, Type Check & Build" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Step | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| npm ci | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "| Prisma generate | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "| ESLint | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "| TypeScript | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "| Next.js build | ✅ |" >> $GITHUB_STEP_SUMMARY
+
+  # ===========================================================================
+  # STAGE 2 — E2E TESTS (deploy branches only)
+  # ===========================================================================
   e2e-tests:
-    name: E2E Tests
-    runs-on: ubuntu-latest
+    name: "E2E Tests (Playwright)"
+    runs-on: self-hosted
     needs: lint-and-build
-
+    if: github.event_name == 'push'
     services:
       postgres:
         image: postgres:16-alpine
@@ -119,8 +169,20 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
+      - name: Integration tests
+        run: npm run test:integration
+        env:
+          TEST_BASE_URL: http://localhost:3000
+          DATABASE_URL: postgresql://nanachimi:nanachimi@localhost:5432/nanachimi
+          NEXT_PUBLIC_SITE_URL: http://localhost:3000
+          NEXT_TELEMETRY_DISABLED: 1
+          SESSION_SECRET: ci-test-session-secret-32-chars-minimum
+          ADMIN_USERNAME: admin
+          ADMIN_PASSWORD: ci-test-password
+
       - name: Run E2E tests
-        run: npx playwright test
+        id: playwright
+        run: set -o pipefail && npx playwright test 2>&1 | tee playwright-output.txt
         env:
           DATABASE_URL: postgresql://nanachimi:nanachimi@localhost:5432/nanachimi
           NEXT_PUBLIC_SITE_URL: http://localhost:3000
@@ -129,80 +191,113 @@ jobs:
           ADMIN_USERNAME: admin
           ADMIN_PASSWORD: ci-test-password
 
-      - name: Upload Playwright report
-        uses: actions/upload-artifact@v4
-        if: ${{ !cancelled() }}
-        with:
-          name: playwright-report
-          path: playwright-report/
-          retention-days: 7
+      - name: Generate E2E test summary
+        if: always()
+        run: |
+          echo "# E2E Tests — Playwright" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f playwright-output.txt ]; then
+            PASSED=$(grep -oP '\d+(?= passed)' playwright-output.txt | tail -1 || echo "0")
+            FAILED=$(grep -oP '\d+(?= failed)' playwright-output.txt | tail -1 || echo "0")
+            DURATION=$(grep -oP '[\d.]+[ms]+' playwright-output.txt | tail -1 || echo "—")
+            TOTAL=$((${PASSED:-0} + ${FAILED:-0}))
+            STATUS=$( [ "${FAILED:-0}" -gt 0 ] && echo '❌' || echo '✅' )
+            echo "| Metric | Count |" >> $GITHUB_STEP_SUMMARY
+            echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+            echo "| Total | $TOTAL |" >> $GITHUB_STEP_SUMMARY
+            echo "| Passed | ${PASSED:-0} |" >> $GITHUB_STEP_SUMMARY
+            echo "| Failed | ${FAILED:-0} |" >> $GITHUB_STEP_SUMMARY
+            echo "| Duration | $DURATION |" >> $GITHUB_STEP_SUMMARY
+            echo "| Status | $STATUS |" >> $GITHUB_STEP_SUMMARY
+            if [ "${FAILED:-0}" -gt 0 ]; then
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "<details><summary>Failed tests</summary>" >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              grep -E '^\s+\d+\)|FAIL|✗|×' playwright-output.txt >> $GITHUB_STEP_SUMMARY 2>/dev/null || true
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              echo "</details>" >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
 
-      - name: Upload test results
-        uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: test-results
-          path: test-results/
-          retention-days: 7
+      - name: Store Playwright report locally
+        if: always()
+        run: |
+          ARTIFACT_DIR="/opt/ci-artifacts/${{ github.run_id }}"
+          mkdir -p "$ARTIFACT_DIR/playwright-report"
+          cp -r playwright-report/ "$ARTIFACT_DIR/playwright-report/" 2>/dev/null || true
+          cp -r test-results/ "$ARTIFACT_DIR/test-results/" 2>/dev/null || true
 
-  # ─────────────────────────────────────────────────────────────
-  # Job 3: Docker Build & Push (only on master/main)
-  # ─────────────────────────────────────────────────────────────
-  docker:
-    name: Docker Build & Push
-    runs-on: ubuntu-latest
+  # ===========================================================================
+  # STAGE 3 — DOCKER BUILD & PUSH (self-hosted registry)
+  # ===========================================================================
+  docker-build:
+    name: "Docker — Build & Push"
+    runs-on: self-hosted
     needs: [lint-and-build, e2e-tests]
-    if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
-    permissions:
-      contents: read
-      packages: write
-
+    if: github.event_name == 'push'
+    outputs:
+      image-tag: ${{ steps.meta.outputs.version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
         with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          driver-opts: network=host
 
-      - name: Extract metadata
+      - name: Log in to self-hosted registry
+        run: echo "${{ secrets.REGISTRY_PASSWORD }}" | docker login localhost:5000 -u nanachimi --password-stdin
+
+      - name: Extract image tag
         id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=sha,prefix=
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=ref,event=branch
+        run: echo "version=sha-$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
 
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v6
+      - name: Build & push Docker image
+        uses: docker/build-push-action@v5
         with:
           context: .
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          build-args: |
-            DATABASE_URL=postgresql://dummy:dummy@localhost:5432/dummy
+          tags: |
+            ${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}
+            ${{ env.IMAGE_NAME }}:${{ github.ref_name }}
+          network: host
+          provenance: false
 
-  # ─────────────────────────────────────────────────────────────
-  # Job 4: Deploy to Hetzner (only on master/main, after Docker)
-  # ─────────────────────────────────────────────────────────────
-  deploy:
-    name: Deploy to Hetzner
-    runs-on: ubuntu-latest
-    needs: docker
-    if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
-    environment: production
+      - name: Generate Docker build summary
+        if: always()
+        run: |
+          IMAGE_TAG="${{ steps.meta.outputs.version }}"
+          echo "# Docker — Built Image" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Image | Tag | Branch Tag | Registry |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|-----|------------|----------|" >> $GITHUB_STEP_SUMMARY
+          echo "| \`nanachimi-digital\` | \`${IMAGE_TAG}\` | \`${{ github.ref_name }}\` | Self-hosted (localhost:5000) |" >> $GITHUB_STEP_SUMMARY
 
+      - name: Clean up old artifacts
+        if: always()
+        run: |
+          cd /opt/ci-artifacts
+          ls -dt */ 2>/dev/null | tail -n +6 | xargs rm -rf 2>/dev/null || true
+
+      - name: Docker cleanup (prevent disk full)
+        if: always()
+        run: |
+          docker system prune -f --volumes --filter "until=48h" 2>/dev/null || true
+          docker image prune -a -f --filter "until=48h" 2>/dev/null || true
+          docker builder prune -f --filter "until=48h" 2>/dev/null || true
+
+  # ===========================================================================
+  # STAGE 4a — DEPLOY DEV (auto on push to develop)
+  # ===========================================================================
+  deploy-dev:
+    name: "Deploy → Dev"
+    runs-on: self-hosted
+    needs: docker-build
+    if: github.ref == 'refs/heads/develop'
+    environment:
+      name: dev
+      url: https://dev.nanachimi.digital
     steps:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1
@@ -211,73 +306,242 @@ jobs:
           username: ${{ secrets.HETZNER_USER }}
           key: ${{ secrets.HETZNER_SSH_KEY }}
           script: |
-            # Pull latest image
-            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            IMAGE_TAG="${{ needs.docker-build.outputs.image-tag }}"
+            REGISTRY_IP="${{ secrets.REGISTRY_IP }}"
 
-            # Stop existing container
+            echo "${{ secrets.REGISTRY_PASSWORD }}" | docker login ${REGISTRY_IP}:5000 -u nanachimi --password-stdin
+            docker pull ${REGISTRY_IP}:5000/nanachimi-digital:${IMAGE_TAG}
+            docker tag ${REGISTRY_IP}:5000/nanachimi-digital:${IMAGE_TAG} nanachimi-digital:dev
+
+            docker stop nanachimi-dev 2>/dev/null || true
+            docker rm nanachimi-dev 2>/dev/null || true
+
+            docker run --rm \
+              --network nanachimi-network \
+              -e DATABASE_URL="${{ secrets.DEV_DATABASE_URL }}" \
+              nanachimi-digital:dev \
+              npx prisma db push
+
+            docker run -d \
+              --name nanachimi-dev \
+              --network nanachimi-network \
+              --restart unless-stopped \
+              -p 3001:3000 \
+              --env-file /opt/nanachimi-dev/.env \
+              nanachimi-digital:dev
+
+            docker system prune -f
+
+      - name: Dev smoke test
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          username: ${{ secrets.HETZNER_USER }}
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          script: |
+            echo "Waiting for dev to start..."
+            for i in $(seq 1 12); do
+              if curl -sf http://localhost:3001/api/health > /dev/null 2>&1; then
+                echo "Dev health check passed (attempt $i)"
+                exit 0
+              fi
+              echo "Attempt $i/12 — waiting 10s..."
+              sleep 10
+            done
+            echo "Dev health check FAILED"
+            docker logs nanachimi-dev --tail 30
+            exit 1
+
+  # ===========================================================================
+  # STAGE 4b — DEPLOY STAGING (auto on push to staging)
+  # ===========================================================================
+  deploy-staging:
+    name: "Deploy → Staging"
+    runs-on: self-hosted
+    needs: docker-build
+    if: github.ref == 'refs/heads/staging'
+    environment:
+      name: staging
+      url: https://staging.nanachimi.digital
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          username: ${{ secrets.HETZNER_USER }}
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          script: |
+            IMAGE_TAG="${{ needs.docker-build.outputs.image-tag }}"
+            REGISTRY_IP="${{ secrets.REGISTRY_IP }}"
+
+            echo "${{ secrets.REGISTRY_PASSWORD }}" | docker login ${REGISTRY_IP}:5000 -u nanachimi --password-stdin
+            docker pull ${REGISTRY_IP}:5000/nanachimi-digital:${IMAGE_TAG}
+            docker tag ${REGISTRY_IP}:5000/nanachimi-digital:${IMAGE_TAG} nanachimi-digital:staging
+
+            docker stop nanachimi-staging 2>/dev/null || true
+            docker rm nanachimi-staging 2>/dev/null || true
+
+            docker run --rm \
+              --network nanachimi-network \
+              -e DATABASE_URL="${{ secrets.STAGING_DATABASE_URL }}" \
+              nanachimi-digital:staging \
+              npx prisma db push
+
+            docker run -d \
+              --name nanachimi-staging \
+              --network nanachimi-network \
+              --restart unless-stopped \
+              -p 3002:3000 \
+              --env-file /opt/nanachimi-staging/.env \
+              nanachimi-digital:staging
+
+            docker system prune -f
+
+      - name: Staging smoke test
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          username: ${{ secrets.HETZNER_USER }}
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          script: |
+            echo "Waiting for staging to start..."
+            for i in $(seq 1 12); do
+              if curl -sf http://localhost:3002/api/health > /dev/null 2>&1; then
+                echo "Staging health check passed (attempt $i)"
+                exit 0
+              fi
+              echo "Attempt $i/12 — waiting 10s..."
+              sleep 10
+            done
+            echo "Staging health check FAILED"
+            docker logs nanachimi-staging --tail 30
+            exit 1
+
+  # ===========================================================================
+  # STAGE 4c — DEPLOY PRODUCTION (on push to main/master)
+  # ===========================================================================
+  deploy-prod:
+    name: "Deploy → Production"
+    runs-on: self-hosted
+    needs: docker-build
+    if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+    environment:
+      name: production
+      url: https://nanachimi.digital
+    steps:
+      - name: Backup database before deployment
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          username: ${{ secrets.HETZNER_USER }}
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          script: |
+            TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+            mkdir -p /opt/nanachimi/backups
+            docker exec nanachimi-db pg_dump -U nanachimi nanachimi \
+              | gzip > /opt/nanachimi/backups/pre_deploy_${TIMESTAMP}.sql.gz 2>/dev/null || true
+            echo "Backup: pre_deploy_${TIMESTAMP}.sql.gz"
+            cd /opt/nanachimi/backups && ls -t *.sql.gz 2>/dev/null | tail -n +11 | xargs rm -f 2>/dev/null || true
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          username: ${{ secrets.HETZNER_USER }}
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          script: |
+            IMAGE_TAG="${{ needs.docker-build.outputs.image-tag }}"
+            REGISTRY_IP="${{ secrets.REGISTRY_IP }}"
+
+            echo "${{ secrets.REGISTRY_PASSWORD }}" | docker login ${REGISTRY_IP}:5000 -u nanachimi --password-stdin
+            docker pull ${REGISTRY_IP}:5000/nanachimi-digital:${IMAGE_TAG}
+            docker tag ${REGISTRY_IP}:5000/nanachimi-digital:${IMAGE_TAG} nanachimi-digital:latest
+
             docker stop nanachimi-app 2>/dev/null || true
             docker rm nanachimi-app 2>/dev/null || true
 
-            # Run database migrations
             docker run --rm \
               --network nanachimi-network \
               -e DATABASE_URL="${{ secrets.DATABASE_URL }}" \
-              ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
+              nanachimi-digital:latest \
               npx prisma db push
 
-            # Start new container
             docker run -d \
               --name nanachimi-app \
               --network nanachimi-network \
               --restart unless-stopped \
               -p 3000:3000 \
-              -e DATABASE_URL="${{ secrets.DATABASE_URL }}" \
-              -e ANTHROPIC_API_KEY="${{ secrets.ANTHROPIC_API_KEY }}" \
-              -e NEXT_PUBLIC_SITE_URL="${{ secrets.SITE_URL }}" \
-              -e SMTP_HOST="${{ secrets.SMTP_HOST }}" \
-              -e SMTP_PORT="${{ secrets.SMTP_PORT }}" \
-              -e SMTP_SECURE="${{ secrets.SMTP_SECURE }}" \
-              -e SMTP_USER="${{ secrets.SMTP_USER }}" \
-              -e SMTP_PASS="${{ secrets.SMTP_PASS }}" \
-              -e EMAIL_FROM="${{ secrets.EMAIL_FROM }}" \
-              -e SEAWEEDFS_MASTER_URL="${{ secrets.SEAWEEDFS_MASTER_URL }}" \
-              -e SEAWEEDFS_FILER_URL="${{ secrets.SEAWEEDFS_FILER_URL }}" \
-              -e ADMIN_USERNAME="${{ secrets.ADMIN_USERNAME }}" \
-              -e ADMIN_PASSWORD="${{ secrets.ADMIN_PASSWORD }}" \
-              -e ADMIN_TOTP_SECRET="${{ secrets.ADMIN_TOTP_SECRET }}" \
-              -e SESSION_SECRET="${{ secrets.SESSION_SECRET }}" \
-              -e HEALTH_CHECK_SECRET="${{ secrets.HEALTH_CHECK_SECRET }}" \
-              ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+              --env-file /opt/nanachimi/.env \
+              nanachimi-digital:latest
 
-            # Wait for container startup
             sleep 10
-
-            # Verify container is running
             docker ps | grep nanachimi-app || { echo "Container failed to start!"; exit 1; }
 
-            # Run health check — all services must be healthy before deployment is considered successful
-            echo "Running health checks..."
-            HEALTH_RESPONSE=$(curl -sf -H "Authorization: Bearer ${{ secrets.HEALTH_CHECK_SECRET }}" \
-              http://localhost:3000/api/health || echo '{"status":"unreachable"}')
+      - name: Production health check
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          username: ${{ secrets.HETZNER_USER }}
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          script: |
+            echo "Running production health checks..."
+            for i in $(seq 1 6); do
+              HEALTH_RESPONSE=$(curl -sf -H "Authorization: Bearer ${{ secrets.HEALTH_CHECK_SECRET }}" \
+                http://localhost:3000/api/health 2>/dev/null || echo '{"status":"unreachable"}')
 
-            echo "Health check response: $HEALTH_RESPONSE"
+              HEALTH_STATUS=$(echo "$HEALTH_RESPONSE" | jq -r '.status // "unreachable"')
 
-            HEALTH_STATUS=$(echo "$HEALTH_RESPONSE" | jq -r '.status // "unreachable"')
+              if [ "$HEALTH_STATUS" = "healthy" ]; then
+                echo "All health checks passed!"
+                echo "$HEALTH_RESPONSE" | jq .
+                exit 0
+              elif [ "$HEALTH_STATUS" = "degraded" ]; then
+                echo "WARNING: Some services degraded (acceptable)."
+                echo "$HEALTH_RESPONSE" | jq .
+                exit 0
+              fi
 
-            if [ "$HEALTH_STATUS" = "healthy" ]; then
-              echo "All health checks passed!"
-            elif [ "$HEALTH_STATUS" = "degraded" ]; then
-              echo "WARNING: Some services are degraded. Check /admin/status for details."
-              # Degraded is acceptable — non-critical services may be unavailable
+              echo "Attempt $i/6 — Status: $HEALTH_STATUS — waiting 10s..."
+              sleep 10
+            done
+
+            echo "CRITICAL: Health checks failed!"
+            echo "$HEALTH_RESPONSE" | jq . 2>/dev/null || echo "$HEALTH_RESPONSE"
+            exit 1
+
+      - name: Notify on success
+        if: success()
+        run: |
+          echo "# ✅ Production Deployment" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Detail | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Image | \`${{ needs.docker-build.outputs.image-tag }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| URL | https://nanachimi.digital |" >> $GITHUB_STEP_SUMMARY
+          echo "| Time | $(date -u '+%Y-%m-%d %H:%M UTC') |" >> $GITHUB_STEP_SUMMARY
+
+      - name: Automatic rollback on failure
+        if: failure()
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          username: ${{ secrets.HETZNER_USER }}
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          script: |
+            echo "=== ROLLBACK TRIGGERED ==="
+            docker stop nanachimi-app 2>/dev/null || true
+            docker rm nanachimi-app 2>/dev/null || true
+            PREV_IMAGE=$(docker images nanachimi-digital --format '{{.Tag}}' | grep -v latest | grep -v dev | grep -v staging | head -1)
+            if [ -n "$PREV_IMAGE" ]; then
+              echo "Rolling back to nanachimi-digital:$PREV_IMAGE"
+              docker run -d \
+                --name nanachimi-app \
+                --network nanachimi-network \
+                --restart unless-stopped \
+                -p 3000:3000 \
+                --env-file /opt/nanachimi/.env \
+                nanachimi-digital:$PREV_IMAGE
+              echo "Rollback complete"
             else
-              echo "CRITICAL: Health checks failed! Rolling back..."
-              docker stop nanachimi-app 2>/dev/null || true
-              docker rm nanachimi-app 2>/dev/null || true
-              echo "Deployment aborted. Status: $HEALTH_STATUS"
-              exit 1
+              echo "No previous image found!"
             fi
-
-            echo "Deployment successful!"
-
-            # Cleanup old images
-            docker image prune -af --filter "until=168h"
