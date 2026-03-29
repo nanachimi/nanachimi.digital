@@ -197,10 +197,6 @@ jobs:
           ADMIN_USERNAME: admin
           ADMIN_PASSWORD: ci-test-password
 
-      - name: Stop dev server
-        if: always()
-        run: kill $(lsof -t -i:3000) 2>/dev/null || true
-
       - name: Run E2E tests
         id: playwright
         run: set -o pipefail && npx playwright test 2>&1 | tee playwright-output.txt
