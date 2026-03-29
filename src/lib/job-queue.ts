@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db";
 
-// Exponential backoff: 1m, 5m, 15m, 60m, 240m
-const BACKOFF_MINUTES = [1, 5, 15, 60, 240];
+// Backoff schedule: 1m → 3m → 10m → 30m → 60m (max ~1h total)
+const BACKOFF_MINUTES = [1, 3, 10, 30, 60];
 
 const JOB_TITLES: Record<string, string> = {
   angebot_accepted_email: "Angebot-Bestätigung mit PDF per E-Mail",
