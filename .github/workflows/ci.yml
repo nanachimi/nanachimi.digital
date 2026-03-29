@@ -267,11 +267,15 @@ jobs:
         run: |
           if curl -sf http://localhost:5000/v2/ > /dev/null 2>&1; then
             echo "✓ Registry already running at localhost:5000"
-          else
-            echo "Starting local Docker registry..."
-            docker start registry 2>/dev/null || docker run -d --name registry --restart unless-stopped -p 5000:5000 registry:2
+          elif docker start registry 2>/dev/null; then
+            echo "✓ Registry container restarted"
             sleep 2
-            echo "✓ Registry started"
+          else
+            echo "Creating new registry container..."
+            docker rm -f registry 2>/dev/null || true
+            docker run -d --name registry --restart unless-stopped -p 5000:5000 registry:2
+            sleep 2
+            echo "✓ Registry created and started"
           fi
 
       - name: Extract image tag
