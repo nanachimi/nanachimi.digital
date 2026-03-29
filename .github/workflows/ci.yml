@@ -1,0 +1,251 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [master, main, develop]
+  pull_request:
+    branches: [master, main]
+
+env:
+  NODE_VERSION: "20"
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# ─────────────────────────────────────────────────────────────
+# Job 1: Lint, Type Check & Build
+# ─────────────────────────────────────────────────────────────
+jobs:
+  lint-and-build:
+    name: Lint, Type Check & Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Build
+        run: npm run build
+        env:
+          DATABASE_URL: "postgresql://dummy:dummy@localhost:5432/dummy"
+          NEXT_TELEMETRY_DISABLED: 1
+
+      - name: Upload build artifact
+        if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: nextjs-build
+          path: |
+            .next/standalone
+            .next/static
+            public
+          retention-days: 1
+
+  # ─────────────────────────────────────────────────────────────
+  # Job 2: E2E Tests (Playwright)
+  # ─────────────────────────────────────────────────────────────
+  e2e-tests:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    needs: lint-and-build
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: nanachimi
+          POSTGRES_PASSWORD: nanachimi
+          POSTGRES_DB: nanachimi
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nanachimi"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Push database schema
+        run: npx prisma db push --skip-generate
+        env:
+          DATABASE_URL: postgresql://nanachimi:nanachimi@localhost:5432/nanachimi
+
+      - name: Seed database
+        run: npx prisma db seed
+        env:
+          DATABASE_URL: postgresql://nanachimi:nanachimi@localhost:5432/nanachimi
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run E2E tests
+        run: npx playwright test
+        env:
+          DATABASE_URL: postgresql://nanachimi:nanachimi@localhost:5432/nanachimi
+          NEXT_PUBLIC_SITE_URL: http://localhost:3000
+          NEXT_TELEMETRY_DISABLED: 1
+          SESSION_SECRET: ci-test-session-secret-32-chars-minimum
+          ADMIN_USERNAME: admin
+          ADMIN_PASSWORD: ci-test-password
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: test-results
+          path: test-results/
+          retention-days: 7
+
+  # ─────────────────────────────────────────────────────────────
+  # Job 3: Docker Build & Push (only on master/main)
+  # ─────────────────────────────────────────────────────────────
+  docker:
+    name: Docker Build & Push
+    runs-on: ubuntu-latest
+    needs: [lint-and-build, e2e-tests]
+    if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,prefix=
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=ref,event=branch
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            DATABASE_URL=postgresql://dummy:dummy@localhost:5432/dummy
+
+  # ─────────────────────────────────────────────────────────────
+  # Job 4: Deploy to Hetzner (only on master/main, after Docker)
+  # ─────────────────────────────────────────────────────────────
+  deploy:
+    name: Deploy to Hetzner
+    runs-on: ubuntu-latest
+    needs: docker
+    if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+    environment: production
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          username: ${{ secrets.HETZNER_USER }}
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          script: |
+            # Pull latest image
+            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+
+            # Stop existing container
+            docker stop nanachimi-app 2>/dev/null || true
+            docker rm nanachimi-app 2>/dev/null || true
+
+            # Run database migrations
+            docker run --rm \
+              --network nanachimi-network \
+              -e DATABASE_URL="${{ secrets.DATABASE_URL }}" \
+              ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
+              npx prisma db push --skip-generate
+
+            # Start new container
+            docker run -d \
+              --name nanachimi-app \
+              --network nanachimi-network \
+              --restart unless-stopped \
+              -p 3000:3000 \
+              -e DATABASE_URL="${{ secrets.DATABASE_URL }}" \
+              -e ANTHROPIC_API_KEY="${{ secrets.ANTHROPIC_API_KEY }}" \
+              -e NEXT_PUBLIC_SITE_URL="${{ secrets.SITE_URL }}" \
+              -e SMTP_HOST="${{ secrets.SMTP_HOST }}" \
+              -e SMTP_PORT="${{ secrets.SMTP_PORT }}" \
+              -e SMTP_SECURE="${{ secrets.SMTP_SECURE }}" \
+              -e SMTP_USER="${{ secrets.SMTP_USER }}" \
+              -e SMTP_PASS="${{ secrets.SMTP_PASS }}" \
+              -e EMAIL_FROM="${{ secrets.EMAIL_FROM }}" \
+              -e SEAWEEDFS_MASTER_URL="${{ secrets.SEAWEEDFS_MASTER_URL }}" \
+              -e SEAWEEDFS_FILER_URL="${{ secrets.SEAWEEDFS_FILER_URL }}" \
+              -e ADMIN_USERNAME="${{ secrets.ADMIN_USERNAME }}" \
+              -e ADMIN_PASSWORD="${{ secrets.ADMIN_PASSWORD }}" \
+              -e ADMIN_TOTP_SECRET="${{ secrets.ADMIN_TOTP_SECRET }}" \
+              -e SESSION_SECRET="${{ secrets.SESSION_SECRET }}" \
+              ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+
+            # Verify container is running
+            sleep 5
+            docker ps | grep nanachimi-app
+            echo "Deployment successful!"
+
+            # Cleanup old images
+            docker image prune -af --filter "until=168h"
