@@ -367,17 +367,17 @@ jobs:
 
             # Generate .env (always overwrite to pick up secret changes)
             cat > ${ENV_DIR}/.env << ENVEOF
-            DATABASE_URL="${DATABASE_URL}"
-            NEXT_PUBLIC_SITE_URL="https://dev.nanachimi.digital"
-            ANTHROPIC_API_KEY="${{ secrets.DEV_ANTHROPIC_API_KEY }}"
+            DATABASE_URL=${DATABASE_URL}
+            NEXT_PUBLIC_SITE_URL=https://dev.nanachimi.digital
+            ANTHROPIC_API_KEY=${{ secrets.DEV_ANTHROPIC_API_KEY }}
             SMTP_HOST=localhost
             SMTP_PORT=1025
             SMTP_SECURE=false
-            EMAIL_FROM="nanachimi.digital <info@nanachimi.digital>"
+            EMAIL_FROM=nanachimi.digital <info@nanachimi.digital>
             ADMIN_USERNAME=admin
-            ADMIN_PASSWORD="${{ secrets.DEV_ADMIN_PASSWORD }}"
-            SESSION_SECRET="${{ secrets.DEV_SESSION_SECRET }}"
-            STRIPE_SECRET_KEY="${{ secrets.DEV_STRIPE_SECRET_KEY }}"
+            ADMIN_PASSWORD=${{ secrets.DEV_ADMIN_PASSWORD }}
+            SESSION_SECRET=${{ secrets.DEV_SESSION_SECRET }}
+            STRIPE_SECRET_KEY=${{ secrets.DEV_STRIPE_SECRET_KEY }}
             NEXT_TELEMETRY_DISABLED=1
             ENVEOF
             # Remove leading whitespace from heredoc
@@ -484,17 +484,17 @@ jobs:
             DATABASE_URL="postgresql://${DB_USER}:${DB_PASS}@${DB_CONTAINER}:5432/${DB_NAME}"
 
             cat > ${ENV_DIR}/.env << ENVEOF
-            DATABASE_URL="${DATABASE_URL}"
-            NEXT_PUBLIC_SITE_URL="https://staging.nanachimi.digital"
-            ANTHROPIC_API_KEY="${{ secrets.STAGING_ANTHROPIC_API_KEY }}"
+            DATABASE_URL=${DATABASE_URL}
+            NEXT_PUBLIC_SITE_URL=https://staging.nanachimi.digital
+            ANTHROPIC_API_KEY=${{ secrets.STAGING_ANTHROPIC_API_KEY }}
             SMTP_HOST=localhost
             SMTP_PORT=1025
             SMTP_SECURE=false
-            EMAIL_FROM="nanachimi.digital <info@nanachimi.digital>"
+            EMAIL_FROM=nanachimi.digital <info@nanachimi.digital>
             ADMIN_USERNAME=admin
-            ADMIN_PASSWORD="${{ secrets.STAGING_ADMIN_PASSWORD }}"
-            SESSION_SECRET="${{ secrets.STAGING_SESSION_SECRET }}"
-            STRIPE_SECRET_KEY="${{ secrets.STAGING_STRIPE_SECRET_KEY }}"
+            ADMIN_PASSWORD=${{ secrets.STAGING_ADMIN_PASSWORD }}
+            SESSION_SECRET=${{ secrets.STAGING_SESSION_SECRET }}
+            STRIPE_SECRET_KEY=${{ secrets.STAGING_STRIPE_SECRET_KEY }}
             NEXT_TELEMETRY_DISABLED=1
             ENVEOF
             sed -i 's/^[[:space:]]*//' ${ENV_DIR}/.env
