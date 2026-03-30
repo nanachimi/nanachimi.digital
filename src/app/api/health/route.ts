@@ -105,7 +105,16 @@ async function checkDatabase(): Promise<HealthCheck> {
 }
 
 async function checkSeaweedFS(): Promise<HealthCheck> {
-  const masterUrl = process.env.SEAWEEDFS_MASTER_URL || "http://localhost:9333";
+  const masterUrl = process.env.SEAWEEDFS_MASTER_URL;
+
+  if (!masterUrl) {
+    return {
+      service: "seaweedfs",
+      status: "degraded",
+      message: "SEAWEEDFS_MASTER_URL nicht konfiguriert — Datei-Upload deaktiviert",
+    };
+  }
+
   const start = Date.now();
   try {
     const res = await fetch(`${masterUrl}/dir/status`, {
@@ -172,9 +181,13 @@ async function checkSMTP(): Promise<HealthCheck> {
       message: `SMTP ${host}:${port} erreichbar`,
     };
   } catch (err) {
+    // In dev/staging, SMTP not running is degraded, not a hard failure
+    const isDev = process.env.NODE_ENV !== "production" ||
+      process.env.NEXT_PUBLIC_SITE_URL?.includes("dev.") ||
+      process.env.NEXT_PUBLIC_SITE_URL?.includes("staging.");
     return {
       service: "smtp",
-      status: "unhealthy",
+      status: isDev ? "degraded" : "unhealthy",
       latencyMs: Date.now() - start,
       message: err instanceof Error ? err.message : "Nicht erreichbar",
     };
