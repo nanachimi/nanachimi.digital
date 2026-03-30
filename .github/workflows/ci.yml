@@ -122,22 +122,26 @@ jobs:
     runs-on: self-hosted
     needs: lint-and-build
     if: github.event_name == 'push'
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_USER: nanachimi
-          POSTGRES_PASSWORD: nanachimi
-          POSTGRES_DB: nanachimi
-        ports:
-          - 15432:5432
-        options: >-
-          --health-cmd "pg_isready -U nanachimi"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
     steps:
+      - name: Start PostgreSQL container
+        run: |
+          docker rm -f nanachimi-ci-postgres 2>/dev/null || true
+          docker run -d \
+            --name nanachimi-ci-postgres \
+            -p 15432:5432 \
+            -e POSTGRES_USER=nanachimi \
+            -e POSTGRES_PASSWORD=nanachimi \
+            -e POSTGRES_DB=nanachimi \
+            postgres:16-alpine
+          echo "Waiting for PostgreSQL..."
+          for i in $(seq 1 15); do
+            if docker exec nanachimi-ci-postgres pg_isready -U nanachimi > /dev/null 2>&1; then
+              echo "✓ PostgreSQL ready (attempt $i)"
+              break
+            fi
+            sleep 2
+          done
+
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -243,6 +247,13 @@ jobs:
           mkdir -p "$ARTIFACT_DIR/playwright-report"
           cp -r playwright-report/ "$ARTIFACT_DIR/playwright-report/" 2>/dev/null || true
           cp -r test-results/ "$ARTIFACT_DIR/test-results/" 2>/dev/null || true
+
+      - name: Cleanup PostgreSQL container
+        if: always()
+        run: |
+          docker rm -f nanachimi-ci-postgres 2>/dev/null || true
+          # Kill dev server
+          pkill -f "next dev" 2>/dev/null || true
 
   # ===========================================================================
   # STAGE 3 — DOCKER BUILD & PUSH (self-hosted registry)
