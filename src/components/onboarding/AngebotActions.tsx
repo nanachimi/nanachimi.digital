@@ -51,6 +51,7 @@ interface Props {
   id: string;
   initialStatus?: "idle" | "accepted";
   festpreis?: number;
+  betreuungMonate?: number;
 }
 
 function formatEuro(amount: number): string {
@@ -89,7 +90,7 @@ function CopyButton({ text, label }: { text: string; label: string }) {
   );
 }
 
-export function AngebotActions({ id, initialStatus, festpreis }: Props) {
+export function AngebotActions({ id, initialStatus, festpreis, betreuungMonate }: Props) {
   const [status, setStatus] = useState<
     "idle" | "rejecting" | "accepted" | "rejected" | "loading"
   >(initialStatus || "idle");
@@ -165,6 +166,7 @@ export function AngebotActions({ id, initialStatus, festpreis }: Props) {
         body: JSON.stringify({
           action,
           ...(action === "reject" && feedback ? { feedback } : {}),
+          ...(action === "accept" && betreuungMonate ? { betreuungMonate } : {}),
         }),
       });
       if (res.ok) {
@@ -186,7 +188,7 @@ export function AngebotActions({ id, initialStatus, festpreis }: Props) {
       const res = await fetch(`/api/angebot/${id}/payment`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type }),
+        body: JSON.stringify({ type, ...(betreuungMonate ? { betreuungMonate } : {}) }),
       });
 
       const data = await res.json();

@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Check, X, Clock, FileText, CalendarDays, Package, Headphones } from "lucide-react";
-import { BETRIEB_UND_WARTUNG } from "@/lib/constants";
+import { Check, X, Clock, FileText, CalendarDays, Package } from "lucide-react";
 import { getSubmissionById } from "@/lib/submissions";
 import { getAngebotById } from "@/lib/angebote";
-import { AngebotActions } from "@/components/onboarding/AngebotActions";
+import { AngebotPricing } from "@/components/onboarding/AngebotPricing";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -131,12 +130,6 @@ export default async function AngebotPage({ params }: PageProps) {
   // Accepted — show full Angebot + payment + project download (falls through to the main render below)
 
   // Sent — show the full Angebot for accept/reject
-  const formatter = new Intl.NumberFormat("de-DE", {
-    style: "currency",
-    currency: "EUR",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  });
 
   const { plan } = angebot;
 
@@ -167,22 +160,13 @@ export default async function AngebotPage({ params }: PageProps) {
             )}
           </div>
 
-          {/* Festpreis */}
-          <div className="rounded-2xl border border-[#FFC62C]/20 bg-[#FFC62C]/[0.05] p-8 text-center mb-8">
-            <p className="text-sm text-[#8B8F97] mb-2">Festpreis</p>
-            <p className="text-4xl font-black text-white md:text-5xl">
-              {formatter.format(angebot.festpreis)}
-            </p>
-            <p className="mt-2 text-sm text-[#8B8F97]">
-              Aufwand: {angebot.aufwand} Personentage
-            </p>
-          </div>
-
-          {/* Accept / Reject / Payment */}
-          <AngebotActions
+          {/* Festpreis + Betreuung Picker + Accept/Reject/Payment */}
+          <AngebotPricing
             id={id}
-            initialStatus={angebot.status === "accepted" ? "accepted" : "idle"}
             festpreis={angebot.festpreis}
+            aufwand={angebot.aufwand}
+            initialStatus={angebot.status === "accepted" ? "accepted" : "idle"}
+            betriebUndWartung={submission.betriebUndWartung}
           />
 
           {/* Was Sie bekommen */}
@@ -266,30 +250,7 @@ export default async function AngebotPage({ params }: PageProps) {
             </div>
           )}
 
-          {/* Betreuung nach dem Start */}
-          <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-6 mb-6">
-            <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-              <Headphones className="h-5 w-5 text-[#FFC62C]" />
-              Betreuung nach dem Start
-            </h2>
-            <div className="rounded-lg bg-[#FFC62C]/[0.03] border border-[#FFC62C]/10 p-3 mb-4">
-              <p className="text-sm text-[#FFC62C] font-medium">
-                {BETRIEB_UND_WARTUNG.hinweis}
-              </p>
-            </div>
-            {plan?.betriebUndWartung && (
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="rounded-lg bg-white/[0.03] border border-white/[0.06] p-3">
-                  <p className="text-xs text-[#8B8F97] mb-1">Im Festpreis enthalten</p>
-                  <p className="text-sm text-white font-medium">{plan.betriebUndWartung.vertragslaufzeit}</p>
-                </div>
-                <div className="rounded-lg bg-white/[0.03] border border-white/[0.06] p-3">
-                  <p className="text-xs text-[#8B8F97] mb-1">Danach optional</p>
-                  <p className="text-sm text-[#c0c3c9]">Ab 29 €/Monat</p>
-                </div>
-              </div>
-            )}
-          </div>
+          {/* Betreuung nach dem Start — now handled by AngebotPricing above */}
 
           {/* Nächste Schritte — nur bei "sent" (nicht angenommen) */}
           {angebot.status === "sent" && (
