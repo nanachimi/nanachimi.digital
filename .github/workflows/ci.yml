@@ -384,6 +384,8 @@ jobs:
             # --- Bootstrap infrastructure (idempotent) ---
             docker network create nanachimidigital-network 2>/dev/null || true
             mkdir -p ${ENV_DIR}
+            SEAWEED_CONTAINER="nanachimidigital-dev-seaweedfs"
+            MAILHOG_CONTAINER="nanachimidigital-dev-mailhog"
 
             # Start dev PostgreSQL if not running
             if ! docker ps --format '{{.Names}}' | grep -q "^${DB_CONTAINER}$"; then
@@ -404,6 +406,35 @@ jobs:
               DB_PASS=$(docker exec ${DB_CONTAINER} printenv POSTGRES_PASSWORD)
             fi
 
+            # Start SeaweedFS if not running
+            if ! docker ps --format '{{.Names}}' | grep -q "^${SEAWEED_CONTAINER}$"; then
+              docker rm -f ${SEAWEED_CONTAINER} 2>/dev/null || true
+              docker run -d \
+                --name ${SEAWEED_CONTAINER} \
+                --network nanachimidigital-network \
+                --restart unless-stopped \
+                -v nanachimidigital-dev-seaweed:/data \
+                chrislusf/seaweedfs:latest \
+                server -master -volume -filer -dir=/data
+              echo "✓ SeaweedFS started"
+            else
+              echo "✓ SeaweedFS already running"
+            fi
+
+            # Start MailHog if not running
+            if ! docker ps --format '{{.Names}}' | grep -q "^${MAILHOG_CONTAINER}$"; then
+              docker rm -f ${MAILHOG_CONTAINER} 2>/dev/null || true
+              docker run -d \
+                --name ${MAILHOG_CONTAINER} \
+                --network nanachimidigital-network \
+                --restart unless-stopped \
+                -p 8025:8025 \
+                mailhog/mailhog:latest
+              echo "✓ MailHog started (UI: http://$(hostname -I | awk '{print $1}'):8025)"
+            else
+              echo "✓ MailHog already running"
+            fi
+
             DATABASE_URL="postgresql://${DB_USER}:${DB_PASS}@${DB_CONTAINER}:5432/${DB_NAME}"
 
             # Generate .env (always overwrite to pick up secret changes)
@@ -411,7 +442,9 @@ jobs:
             DATABASE_URL=${DATABASE_URL}
             NEXT_PUBLIC_SITE_URL=https://dev.nanachimi.digital
             ANTHROPIC_API_KEY=${{ secrets.DEV_ANTHROPIC_API_KEY }}
-            SMTP_HOST=localhost
+            SEAWEEDFS_MASTER_URL=http://${SEAWEED_CONTAINER}:9333
+            SEAWEEDFS_FILER_URL=http://${SEAWEED_CONTAINER}:8888
+            SMTP_HOST=${MAILHOG_CONTAINER}
             SMTP_PORT=1025
             SMTP_SECURE=false
             EMAIL_FROM=nanachimi.digital <info@nanachimi.digital>
