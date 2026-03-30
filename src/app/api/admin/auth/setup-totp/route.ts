@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getIronSession } from "iron-session";
 import { SessionData, sessionOptions } from "@/lib/auth/session";
-import { generateEnrollment, verifyTOTPWithSecret, isTOTPConfigured } from "@/lib/auth/totp";
+import { generateEnrollment, verifyTOTPWithSecret, isTOTPConfigured, saveTOTPSecret } from "@/lib/auth/totp";
 
 // GET: Generate new TOTP secret + QR code for enrollment
 export async function GET() {
@@ -13,7 +13,7 @@ export async function GET() {
     return NextResponse.json({ error: "Nicht autorisiert" }, { status: 401 });
   }
 
-  if (isTOTPConfigured()) {
+  if (await isTOTPConfigured()) {
     return NextResponse.json(
       { error: "2FA ist bereits konfiguriert" },
       { status: 400 }
@@ -54,6 +54,9 @@ export async function POST(request: Request) {
     );
   }
 
+  // Save the TOTP secret to the database
+  await saveTOTPSecret(secret);
+
   // Mark session as fully authenticated for this setup session
   session.is2FAVerified = true;
   session.lastActivity = Date.now();
@@ -61,7 +64,6 @@ export async function POST(request: Request) {
 
   return NextResponse.json({
     success: true,
-    message: "2FA erfolgreich eingerichtet. Bitte ADMIN_TOTP_SECRET in .env speichern.",
-    secret,
+    message: "2FA erfolgreich eingerichtet.",
   });
 }

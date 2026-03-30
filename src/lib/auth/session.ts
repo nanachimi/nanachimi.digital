@@ -8,6 +8,7 @@ import { SessionOptions } from "iron-session";
 export interface SessionData {
   isLoggedIn: boolean;
   is2FAVerified: boolean;
+  totpConfigured: boolean; // cached from DB at login time
   username: string;
   loginAt: number;       // epoch ms — absolute expiry anchor
   lastActivity: number;  // epoch ms — inactivity expiry anchor
@@ -16,6 +17,7 @@ export interface SessionData {
 export const defaultSession: SessionData = {
   isLoggedIn: false,
   is2FAVerified: false,
+  totpConfigured: false,
   username: "",
   loginAt: 0,
   lastActivity: 0,

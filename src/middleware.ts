@@ -52,7 +52,8 @@ export async function middleware(request: NextRequest) {
     if (isAdminApi) {
       return NextResponse.json({ error: "2FA erforderlich" }, { status: 403 });
     }
-    const hasSecret = !!process.env.ADMIN_TOTP_SECRET;
+    // Check if TOTP is configured (env var or DB flag in session)
+    const hasSecret = !!process.env.ADMIN_TOTP_SECRET || session.totpConfigured;
     const redirect = hasSecret ? "/admin/login/totp" : "/admin/setup-2fa";
     return NextResponse.redirect(new URL(redirect, request.url));
   }

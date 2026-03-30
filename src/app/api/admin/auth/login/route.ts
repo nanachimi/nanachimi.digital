@@ -42,15 +42,16 @@ export async function POST(request: Request) {
   const cookieStore = await cookies();
   const session = await getIronSession<SessionData>(cookieStore, sessionOptions);
 
+  // Determine next step — check DB for TOTP secret
+  const totpConfigured = await isTOTPConfigured();
+
   session.isLoggedIn = true;
   session.is2FAVerified = false;
+  session.totpConfigured = totpConfigured;
   session.username = username;
   session.loginAt = Date.now();
   session.lastActivity = Date.now();
   await session.save();
-
-  // Determine next step
-  const totpConfigured = isTOTPConfigured();
 
   return NextResponse.json({
     success: true,

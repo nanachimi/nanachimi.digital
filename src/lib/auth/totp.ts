@@ -1,12 +1,17 @@
 /**
  * TOTP (Time-based One-Time Password) handling.
  * Compatible with Google Authenticator, Authy, etc.
+ *
+ * The TOTP secret is stored in the database (AdminSetting table)
+ * with fallback to ADMIN_TOTP_SECRET env var for backwards compatibility.
  */
 
 import * as OTPAuth from "otpauth";
 import QRCode from "qrcode";
+import { prisma } from "@/lib/db";
 
 const ISSUER = "NanaChimi Digital";
+const TOTP_SETTING_KEY = "admin_totp_secret";
 
 function createTOTP(secret: string): OTPAuth.TOTP {
   return new OTPAuth.TOTP({
@@ -20,12 +25,41 @@ function createTOTP(secret: string): OTPAuth.TOTP {
 }
 
 /**
+ * Get the stored TOTP secret (DB first, then env fallback).
+ */
+async function getStoredSecret(): Promise<string | null> {
+  // 1. Try database
+  try {
+    const setting = await prisma.adminSetting.findUnique({
+      where: { key: TOTP_SETTING_KEY },
+    });
+    if (setting?.value) return setting.value;
+  } catch {
+    // Table might not exist yet during migration
+  }
+
+  // 2. Fallback to env var
+  return process.env.ADMIN_TOTP_SECRET || null;
+}
+
+/**
+ * Save the TOTP secret to the database.
+ */
+export async function saveTOTPSecret(secret: string): Promise<void> {
+  await prisma.adminSetting.upsert({
+    where: { key: TOTP_SETTING_KEY },
+    update: { value: secret },
+    create: { key: TOTP_SETTING_KEY, value: secret },
+  });
+}
+
+/**
  * Verify a TOTP code against the stored secret.
  */
-export function verifyTOTP(code: string): boolean {
-  const secret = process.env.ADMIN_TOTP_SECRET;
+export async function verifyTOTP(code: string): Promise<boolean> {
+  const secret = await getStoredSecret();
   if (!secret) {
-    console.error("[Auth] ADMIN_TOTP_SECRET not set");
+    console.error("[Auth] No TOTP secret configured");
     return false;
   }
   const totp = createTOTP(secret);
@@ -34,10 +68,11 @@ export function verifyTOTP(code: string): boolean {
 }
 
 /**
- * Check if TOTP is already configured (secret exists in env).
+ * Check if TOTP is already configured (secret exists in DB or env).
  */
-export function isTOTPConfigured(): boolean {
-  return !!process.env.ADMIN_TOTP_SECRET;
+export async function isTOTPConfigured(): Promise<boolean> {
+  const secret = await getStoredSecret();
+  return !!secret;
 }
 
 /**

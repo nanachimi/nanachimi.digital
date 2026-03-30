@@ -26,7 +26,7 @@ export async function POST(request: Request) {
     );
   }
 
-  if (!verifyTOTP(code)) {
+  if (!(await verifyTOTP(code))) {
     return NextResponse.json(
       { error: "Ungültiger Code. Bitte erneut versuchen." },
       { status: 401 }
