@@ -124,8 +124,16 @@ jobs:
     if: github.event_name == 'push'
     steps:
       - name: Start PostgreSQL container
+        id: postgres
         run: |
+          # Clean up any leftover container
           docker rm -f nanachimi-ci-postgres 2>/dev/null || true
+
+          # Kill anything on our port
+          fuser -k 15432/tcp 2>/dev/null || true
+          sleep 1
+
+          # Start PostgreSQL
           docker run -d \
             --name nanachimi-ci-postgres \
             -p 15432:5432 \
@@ -133,23 +141,32 @@ jobs:
             -e POSTGRES_PASSWORD=nanachimi \
             -e POSTGRES_DB=nanachimi \
             postgres:16-alpine
-          echo "Waiting for PostgreSQL to accept connections on port 15432..."
-          for i in $(seq 1 30); do
-            if pg_isready -h localhost -p 15432 -U nanachimi 2>/dev/null; then
-              echo "✓ PostgreSQL ready via host (attempt $i)"
-              break
-            elif docker exec nanachimi-ci-postgres pg_isready -U nanachimi 2>/dev/null; then
-              # Container ready internally, check host port
-              if nc -z localhost 15432 2>/dev/null || bash -c 'echo > /dev/tcp/localhost/15432' 2>/dev/null; then
-                echo "✓ PostgreSQL ready via TCP (attempt $i)"
-                break
-              fi
+
+          # Check container is actually running
+          sleep 2
+          if ! docker ps | grep -q nanachimi-ci-postgres; then
+            echo "=== Container failed to start ==="
+            docker logs nanachimi-ci-postgres 2>&1 || true
+            docker ps -a | grep nanachimi || true
+            echo "=== Port check ==="
+            ss -tlnp | grep 15432 || true
+            exit 1
+          fi
+
+          # Wait for PostgreSQL to be ready
+          echo "Waiting for PostgreSQL..."
+          for i in $(seq 1 20); do
+            if docker exec nanachimi-ci-postgres pg_isready -U nanachimi 2>/dev/null; then
+              echo "✓ PostgreSQL ready (attempt $i)"
+              # Verify from host
+              docker exec nanachimi-ci-postgres psql -U nanachimi -c "SELECT 1" nanachimi
+              exit 0
             fi
-            echo "  Attempt $i/30 — waiting..."
             sleep 2
           done
-          # Final verification
-          docker exec nanachimi-ci-postgres psql -U nanachimi -c "SELECT 1" nanachimi
+          echo "PostgreSQL failed to become ready"
+          docker logs nanachimi-ci-postgres
+          exit 1
 
       - name: Checkout
         uses: actions/checkout@v4
