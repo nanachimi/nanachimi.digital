@@ -30,7 +30,6 @@ export function AngebotPricing({
   festpreis,
   aufwand,
   initialStatus,
-  betriebUndWartung,
 }: Props) {
   const [selectedPackage, setSelectedPackage] = useState<number | null>(null);
 
