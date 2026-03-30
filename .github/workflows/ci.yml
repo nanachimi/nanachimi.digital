@@ -130,7 +130,7 @@ jobs:
           POSTGRES_PASSWORD: nanachimi
           POSTGRES_DB: nanachimi
         ports:
-          - 5432:5432
+          - 5433:5432
         options: >-
           --health-cmd "pg_isready -U nanachimi"
           --health-interval 10s
@@ -159,12 +159,12 @@ jobs:
       - name: Push database schema
         run: npx prisma db push
         env:
-          DATABASE_URL: postgresql://nanachimi:nanachimi@localhost:5432/nanachimi
+          DATABASE_URL: postgresql://nanachimi:nanachimi@localhost:5433/nanachimi
 
       - name: Seed database
         run: npx prisma db seed
         env:
-          DATABASE_URL: postgresql://nanachimi:nanachimi@localhost:5432/nanachimi
+          DATABASE_URL: postgresql://nanachimi:nanachimi@localhost:5433/nanachimi
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
@@ -181,7 +181,7 @@ jobs:
             sleep 2
           done
         env:
-          DATABASE_URL: postgresql://nanachimi:nanachimi@localhost:5432/nanachimi
+          DATABASE_URL: postgresql://nanachimi:nanachimi@localhost:5433/nanachimi
           NEXT_PUBLIC_SITE_URL: http://localhost:3000
           NEXT_TELEMETRY_DISABLED: 1
           SESSION_SECRET: ci-test-session-secret-32-chars-minimum
@@ -192,7 +192,7 @@ jobs:
         run: npm run test:integration
         env:
           TEST_BASE_URL: http://localhost:3000
-          DATABASE_URL: postgresql://nanachimi:nanachimi@localhost:5432/nanachimi
+          DATABASE_URL: postgresql://nanachimi:nanachimi@localhost:5433/nanachimi
           SESSION_SECRET: ci-test-session-secret-32-chars-minimum
           ADMIN_USERNAME: admin
           ADMIN_PASSWORD: ci-test-password
@@ -201,7 +201,7 @@ jobs:
         id: playwright
         run: set -o pipefail && npx playwright test 2>&1 | tee playwright-output.txt
         env:
-          DATABASE_URL: postgresql://nanachimi:nanachimi@localhost:5432/nanachimi
+          DATABASE_URL: postgresql://nanachimi:nanachimi@localhost:5433/nanachimi
           NEXT_PUBLIC_SITE_URL: http://localhost:3000
           NEXT_TELEMETRY_DISABLED: 1
           SESSION_SECRET: ci-test-session-secret-32-chars-minimum
@@ -380,8 +380,9 @@ jobs:
             STRIPE_SECRET_KEY=${{ secrets.DEV_STRIPE_SECRET_KEY }}
             NEXT_TELEMETRY_DISABLED=1
             ENVEOF
-            # Remove leading whitespace from heredoc
+            # Remove leading whitespace and quotes from heredoc values
             sed -i 's/^[[:space:]]*//' ${ENV_DIR}/.env
+            sed -i 's/="\(.*\)"$/=\1/' ${ENV_DIR}/.env
             echo "✓ .env written"
 
             # --- Deploy application ---
@@ -498,6 +499,7 @@ jobs:
             NEXT_TELEMETRY_DISABLED=1
             ENVEOF
             sed -i 's/^[[:space:]]*//' ${ENV_DIR}/.env
+            sed -i 's/="\(.*\)"$/=\1/' ${ENV_DIR}/.env
             echo "✓ .env written"
 
             docker pull ${REGISTRY}/nanachimi-digital:${IMAGE_TAG}
