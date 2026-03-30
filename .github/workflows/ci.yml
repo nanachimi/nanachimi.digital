@@ -133,14 +133,23 @@ jobs:
             -e POSTGRES_PASSWORD=nanachimi \
             -e POSTGRES_DB=nanachimi \
             postgres:16-alpine
-          echo "Waiting for PostgreSQL..."
-          for i in $(seq 1 15); do
-            if docker exec nanachimi-ci-postgres pg_isready -U nanachimi > /dev/null 2>&1; then
-              echo "✓ PostgreSQL ready (attempt $i)"
+          echo "Waiting for PostgreSQL to accept connections on port 15432..."
+          for i in $(seq 1 30); do
+            if pg_isready -h localhost -p 15432 -U nanachimi 2>/dev/null; then
+              echo "✓ PostgreSQL ready via host (attempt $i)"
               break
+            elif docker exec nanachimi-ci-postgres pg_isready -U nanachimi 2>/dev/null; then
+              # Container ready internally, check host port
+              if nc -z localhost 15432 2>/dev/null || bash -c 'echo > /dev/tcp/localhost/15432' 2>/dev/null; then
+                echo "✓ PostgreSQL ready via TCP (attempt $i)"
+                break
+              fi
             fi
+            echo "  Attempt $i/30 — waiting..."
             sleep 2
           done
+          # Final verification
+          docker exec nanachimi-ci-postgres psql -U nanachimi -c "SELECT 1" nanachimi
 
       - name: Checkout
         uses: actions/checkout@v4
