@@ -183,6 +183,11 @@ function SubmissionCard({
             <div className="flex items-center gap-3 flex-wrap">
               <p className="font-semibold text-white truncate">{submission.name}</p>
               <StatusBadge status={submission.status} />
+              {submission.slaBreachedAt && submission.status !== "sla_breached" && (
+                <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold bg-red-400/10 text-red-400">
+                  <XCircle className="h-3 w-3" /> SLA überschritten
+                </span>
+              )}
               <PreferenceBadge pref={submission.naechsterSchritt} />
             </div>
             <div className="flex items-center gap-3 mt-0.5 text-sm text-[#6a6e76]">

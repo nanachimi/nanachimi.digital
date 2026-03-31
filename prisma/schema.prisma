@@ -58,9 +58,10 @@ model Submission {
   range        Json?
   riskLevel    String?
   slaMinutes   Int?
-  slaDeadline  DateTime?
-  slaStartedAt DateTime?
-  demandFactor Float?
+  slaDeadline   DateTime?
+  slaStartedAt  DateTime?
+  slaBreachedAt DateTime?
+  demandFactor  Float?
 
   // Admin amendment
   amendment Json?

@@ -116,7 +116,15 @@ docker build -t nanachimi-digital:latest . --quiet
 echo "  ✓ Image built: nanachimi-digital:latest"
 
 # ─── 8. Run database migrations ───────────────────────────────────
-echo "▶ Running database migrations..."
+echo "▶ Clearing job queue & running migrations..."
+docker run --rm \
+  --network "$NETWORK" \
+  --env-file "$APP_DIR/.env" \
+  nanachimi-digital:latest \
+  sh -c 'npx prisma db execute --stdin <<SQL
+DELETE FROM "Job";
+SQL
+' 2>/dev/null || true
 docker run --rm \
   --network "$NETWORK" \
   --env-file "$APP_DIR/.env" \

@@ -466,7 +466,15 @@ jobs:
             docker stop nanachimi-dev 2>/dev/null || true
             docker rm nanachimi-dev 2>/dev/null || true
 
-            # Run migrations
+            # Clear job queue (allows idempotencyKey unique constraint) + run migrations
+            docker run --rm \
+              --network nanachimidigital-network \
+              -e DATABASE_URL="${DATABASE_URL}" \
+              nanachimi-digital:dev \
+              sh -c 'npx prisma db execute --stdin <<SQL
+DELETE FROM "Job";
+SQL
+' 2>/dev/null || true
             docker run --rm \
               --network nanachimidigital-network \
               -e DATABASE_URL="${DATABASE_URL}" \
@@ -586,6 +594,14 @@ jobs:
               --network nanachimidigital-network \
               -e DATABASE_URL="${DATABASE_URL}" \
               nanachimi-digital:staging \
+              sh -c 'npx prisma db execute --stdin <<SQL
+DELETE FROM "Job";
+SQL
+' 2>/dev/null || true
+            docker run --rm \
+              --network nanachimidigital-network \
+              -e DATABASE_URL="${DATABASE_URL}" \
+              nanachimi-digital:staging \
               npx prisma db push
             echo "✓ Migrations applied"
 
@@ -665,6 +681,14 @@ jobs:
             docker stop nanachimi-app 2>/dev/null || true
             docker rm nanachimi-app 2>/dev/null || true
 
+            docker run --rm \
+              --network nanachimidigital-network \
+              -e DATABASE_URL="${{ secrets.DATABASE_URL }}" \
+              nanachimi-digital:latest \
+              sh -c 'npx prisma db execute --stdin <<SQL
+DELETE FROM "Job";
+SQL
+' 2>/dev/null || true
             docker run --rm \
               --network nanachimidigital-network \
               -e DATABASE_URL="${{ secrets.DATABASE_URL }}" \

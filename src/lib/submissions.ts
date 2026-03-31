@@ -116,6 +116,7 @@ export interface Submission {
   slaMinutes?: number;
   slaDeadline?: string; // ISO timestamp
   slaStartedAt?: string; // ISO timestamp
+  slaBreachedAt?: string; // ISO timestamp — set once, never cleared
 
   // Demand factor at time of submission
   demandFactor?: number;
@@ -163,6 +164,7 @@ function dbToSubmission(row: Record<string, unknown>): Submission {
     slaMinutes: (row.slaMinutes as number) ?? undefined,
     slaDeadline: row.slaDeadline ? (row.slaDeadline as Date).toISOString() : undefined,
     slaStartedAt: row.slaStartedAt ? (row.slaStartedAt as Date).toISOString() : undefined,
+    slaBreachedAt: row.slaBreachedAt ? (row.slaBreachedAt as Date).toISOString() : undefined,
     demandFactor: (row.demandFactor as number) ?? undefined,
   };
 }
@@ -238,6 +240,7 @@ export async function updateSubmissionStatus(
       data: {
         status,
         ...(feedback ? { clientFeedback: feedback } : {}),
+        ...(status === "sla_breached" ? { slaBreachedAt: new Date() } : {}),
       },
     });
     return dbToSubmission(row as unknown as Record<string, unknown>);

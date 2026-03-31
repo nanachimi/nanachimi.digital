@@ -101,61 +101,60 @@ export function AngebotActions({ id, initialStatus, festpreis, betreuungMonate }
   const [paidInfo, setPaidInfo] = useState<PaidInfo | null>(null);
   const isLoading = status === "loading";
 
-  // If already accepted, load payment options + check payment status
+  // Recalculate payment options whenever festpreis changes (e.g. Betreuung selection)
   useEffect(() => {
-    if (initialStatus === "accepted" && festpreis) {
-      // Load payment options
-      if (!paymentData) {
-        import("@/lib/constants").then(({ calculatePaymentOptions, BANKVERBINDUNG }) => {
-          setPaymentData({
-            festpreis,
-            options: calculatePaymentOptions(festpreis),
-            bank: { ...BANKVERBINDUNG, verwendungszweck: `Angebot ${id}` },
-          });
+    if ((status === "accepted" || initialStatus === "accepted") && festpreis) {
+      import("@/lib/constants").then(({ calculatePaymentOptions, BANKVERBINDUNG }) => {
+        setPaymentData({
+          festpreis,
+          options: calculatePaymentOptions(festpreis),
+          bank: { ...BANKVERBINDUNG, verwendungszweck: `Angebot ${id}` },
         });
-      }
-
-      // Check if already paid
-      fetch(`/api/angebot/${id}/payment`)
-        .then((r) => r.json())
-        .then((data) => {
-          if (data.paid) {
-            setPaidInfo({
-              amount: data.amount,
-              type: data.type,
-              paidAt: data.paidAt,
-            });
-          }
-        })
-        .catch(() => {});
-
-      // Check URL for payment=success (Stripe redirect)
-      const params = new URLSearchParams(window.location.search);
-      if (params.get("payment") === "success") {
-        // Poll for payment confirmation (webhook may take a moment)
-        const poll = setInterval(() => {
-          fetch(`/api/angebot/${id}/payment`)
-            .then((r) => r.json())
-            .then((data) => {
-              if (data.paid) {
-                setPaidInfo({
-                  amount: data.amount,
-                  type: data.type,
-                  paidAt: data.paidAt,
-                });
-                clearInterval(poll);
-              }
-            })
-            .catch(() => {});
-        }, 3000);
-
-        // Stop polling after 30s
-        setTimeout(() => clearInterval(poll), 30000);
-
-        return () => clearInterval(poll);
-      }
+      });
     }
-  }, [initialStatus, festpreis, id, paymentData]);
+  }, [status, initialStatus, festpreis, id]);
+
+  // Check payment status on mount (accepted state)
+  useEffect(() => {
+    if (initialStatus !== "accepted") return;
+
+    // Check if already paid
+    fetch(`/api/angebot/${id}/payment`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.paid) {
+          setPaidInfo({
+            amount: data.amount,
+            type: data.type,
+            paidAt: data.paidAt,
+          });
+        }
+      })
+      .catch(() => {});
+
+    // Check URL for payment=success (Stripe redirect)
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("payment") === "success") {
+      const poll = setInterval(() => {
+        fetch(`/api/angebot/${id}/payment`)
+          .then((r) => r.json())
+          .then((data) => {
+            if (data.paid) {
+              setPaidInfo({
+                amount: data.amount,
+                type: data.type,
+                paidAt: data.paidAt,
+              });
+              clearInterval(poll);
+            }
+          })
+          .catch(() => {});
+      }, 3000);
+
+      setTimeout(() => clearInterval(poll), 30000);
+      return () => clearInterval(poll);
+    }
+  }, [initialStatus, id]);
 
   async function handleAction(action: "accept" | "reject") {
     setStatus("loading");
@@ -291,16 +290,11 @@ export function AngebotActions({ id, initialStatus, festpreis, betreuungMonate }
   if (status === "accepted") {
     return (
       <div className="space-y-6 mb-8">
-        {/* Success Banner */}
-        <div className="rounded-2xl border border-emerald-400/30 bg-emerald-400/[0.08] p-6 text-center">
-          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-400/20">
-            <Check className="h-7 w-7 text-emerald-400" />
-          </div>
-          <h3 className="text-xl font-bold text-white">
-            Angebot angenommen!
-          </h3>
-          <p className="mt-2 text-sm text-[#8B8F97]">
-            Wählen Sie Ihre bevorzugte Zahlungsart, um das Projekt zu starten.
+        {/* Accepted confirmation inline */}
+        <div className="flex items-center justify-center gap-2 rounded-xl border border-emerald-400/20 bg-emerald-400/[0.06] py-3 px-4">
+          <Check className="h-5 w-5 text-emerald-400 shrink-0" />
+          <p className="text-sm font-semibold text-emerald-300">
+            Angebot angenommen — wählen Sie Ihre Zahlungsart
           </p>
         </div>
 

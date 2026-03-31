@@ -86,7 +86,12 @@ docker build -t nanachimi-digital:staging . --quiet
 echo "  ✓ Image built: nanachimi-digital:staging"
 
 # ─── Migrate + Seed ───────────────────────────────────────────────
-echo "▶ Running migrations..."
+echo "▶ Clearing job queue & running migrations..."
+docker run --rm --network "$NETWORK" --env-file "$APP_DIR/.env" \
+  nanachimi-digital:staging sh -c 'npx prisma db execute --stdin <<SQL
+DELETE FROM "Job";
+SQL
+' 2>/dev/null || true
 docker run --rm --network "$NETWORK" --env-file "$APP_DIR/.env" \
   nanachimi-digital:staging npx prisma db push
 docker run --rm --network "$NETWORK" --env-file "$APP_DIR/.env" \
