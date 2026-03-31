@@ -116,15 +116,12 @@ docker build -t nanachimi-digital:latest . --quiet
 echo "  ✓ Image built: nanachimi-digital:latest"
 
 # ─── 8. Run database migrations ───────────────────────────────────
-echo "▶ Clearing job queue & running migrations..."
+echo "▶ Running database migrations..."
 docker run --rm \
   --network "$NETWORK" \
   --env-file "$APP_DIR/.env" \
   nanachimi-digital:latest \
-  sh -c 'npx prisma db execute --stdin <<SQL
-DELETE FROM "Job";
-SQL
-' 2>/dev/null || true
+  npx prisma db execute --file prisma/migrations/001_backfill_idempotency_key.sql 2>/dev/null || true
 docker run --rm \
   --network "$NETWORK" \
   --env-file "$APP_DIR/.env" \

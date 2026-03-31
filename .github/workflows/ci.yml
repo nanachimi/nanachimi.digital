@@ -466,15 +466,12 @@ jobs:
             docker stop nanachimi-dev 2>/dev/null || true
             docker rm nanachimi-dev 2>/dev/null || true
 
-            # Clear job queue (allows idempotencyKey unique constraint) + run migrations
+            # Backfill NULL idempotency keys + run migrations
             docker run --rm \
               --network nanachimidigital-network \
               -e DATABASE_URL="${DATABASE_URL}" \
               nanachimi-digital:dev \
-              sh -c 'npx prisma db execute --stdin <<SQL
-DELETE FROM "Job";
-SQL
-' 2>/dev/null || true
+              npx prisma db execute --file prisma/migrations/001_backfill_idempotency_key.sql 2>/dev/null || true
             docker run --rm \
               --network nanachimidigital-network \
               -e DATABASE_URL="${DATABASE_URL}" \
@@ -594,10 +591,7 @@ SQL
               --network nanachimidigital-network \
               -e DATABASE_URL="${DATABASE_URL}" \
               nanachimi-digital:staging \
-              sh -c 'npx prisma db execute --stdin <<SQL
-DELETE FROM "Job";
-SQL
-' 2>/dev/null || true
+              npx prisma db execute --file prisma/migrations/001_backfill_idempotency_key.sql 2>/dev/null || true
             docker run --rm \
               --network nanachimidigital-network \
               -e DATABASE_URL="${DATABASE_URL}" \
@@ -685,10 +679,7 @@ SQL
               --network nanachimidigital-network \
               -e DATABASE_URL="${{ secrets.DATABASE_URL }}" \
               nanachimi-digital:latest \
-              sh -c 'npx prisma db execute --stdin <<SQL
-DELETE FROM "Job";
-SQL
-' 2>/dev/null || true
+              npx prisma db execute --file prisma/migrations/001_backfill_idempotency_key.sql 2>/dev/null || true
             docker run --rm \
               --network nanachimidigital-network \
               -e DATABASE_URL="${{ secrets.DATABASE_URL }}" \

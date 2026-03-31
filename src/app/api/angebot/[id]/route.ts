@@ -90,18 +90,23 @@ export async function PATCH(request: Request, { params }: RouteParams) {
 
     // Enqueue PDF+Email as a reliable job (retries on failure, creates incident if exhausted)
     if (submission) {
-      await enqueueJob("angebot_accepted_email", {
-        angebotId: angebot.id,
-        to: submission.email,
-        kundenName: submission.name,
-        firma: submission.firma,
-        email: submission.email,
-        festpreis: angebot.festpreis,
-        aufwand: angebot.aufwand,
-        projektBeschreibung: submission.beschreibung,
-        plan: angebot.plan,
-        createdAt: angebot.createdAt,
-      });
+      await enqueueJob(
+        "angebot_accepted_email",
+        {
+          angebotId: angebot.id,
+          to: submission.email,
+          kundenName: submission.name,
+          firma: submission.firma,
+          email: submission.email,
+          festpreis: angebot.festpreis,
+          aufwand: angebot.aufwand,
+          projektBeschreibung: submission.beschreibung,
+          plan: angebot.plan,
+          createdAt: angebot.createdAt,
+        },
+        5,
+        `angebot_accepted_email:${angebot.id}`
+      );
 
       // Try to process immediately (fire-and-forget — retry handled by cron if this fails)
       processJobs().catch((err) =>
