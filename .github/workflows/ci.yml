@@ -187,7 +187,7 @@ jobs:
         run: npx prisma generate
 
       - name: Push database schema
-        run: npx prisma db push
+        run: npx prisma db push --accept-data-loss
         env:
           DATABASE_URL: postgresql://nanachimi:nanachimi@localhost:15432/nanachimi
 
@@ -476,7 +476,7 @@ jobs:
               --network nanachimidigital-network \
               -e DATABASE_URL="${DATABASE_URL}" \
               nanachimi-digital:dev \
-              sh -c "npx prisma db push && npx prisma db seed"
+              sh -c "npx prisma db push --accept-data-loss && npx prisma db seed"
             echo "✓ Migrations + seed applied"
 
             # Start app
@@ -596,7 +596,7 @@ jobs:
               --network nanachimidigital-network \
               -e DATABASE_URL="${DATABASE_URL}" \
               nanachimi-digital:staging \
-              npx prisma db push
+              npx prisma db push --accept-data-loss
             echo "✓ Migrations applied"
 
             docker run -d \
@@ -684,7 +684,7 @@ jobs:
               --network nanachimidigital-network \
               -e DATABASE_URL="${{ secrets.DATABASE_URL }}" \
               nanachimi-digital:latest \
-              npx prisma db push
+              npx prisma db push --accept-data-loss
 
             docker run -d \
               --name nanachimi-app \

@@ -126,7 +126,7 @@ docker run --rm \
   --network "$NETWORK" \
   --env-file "$APP_DIR/.env" \
   nanachimi-digital:latest \
-  npx prisma db push
+  npx prisma db push --accept-data-loss
 echo "  ✓ Database schema up to date"
 
 # ─── 9. Seed database (only if empty) ─────────────────────────────

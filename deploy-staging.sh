@@ -90,7 +90,7 @@ echo "▶ Running migrations..."
 docker run --rm --network "$NETWORK" --env-file "$APP_DIR/.env" \
   nanachimi-digital:staging npx prisma db execute --file prisma/migrations/001_backfill_idempotency_key.sql 2>/dev/null || true
 docker run --rm --network "$NETWORK" --env-file "$APP_DIR/.env" \
-  nanachimi-digital:staging npx prisma db push
+  nanachimi-digital:staging npx prisma db push --accept-data-loss
 docker run --rm --network "$NETWORK" --env-file "$APP_DIR/.env" \
   nanachimi-digital:staging npx prisma db seed 2>/dev/null || true
 echo "  ✓ Database ready"
