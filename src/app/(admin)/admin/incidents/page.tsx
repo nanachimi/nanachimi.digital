@@ -13,6 +13,13 @@ import {
   XCircle,
   Loader2,
   RotateCcw,
+  FileText,
+  ExternalLink,
+  User,
+  Mail,
+  Building2,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -98,7 +105,111 @@ const JOB_STATUS_CONFIG = {
 
 const JOB_TYPE_LABELS: Record<string, string> = {
   angebot_accepted_email: "Angebot-Bestätigung mit PDF",
+  whatsapp_customer_confirmation: "WhatsApp-Bestätigung an Kunden",
+  whatsapp_internal_notification: "Interne WhatsApp-Benachrichtigung",
 };
+
+const formatter = new Intl.NumberFormat("de-DE", {
+  style: "currency",
+  currency: "EUR",
+  minimumFractionDigits: 0,
+});
+
+/** Render job payload details depending on job type */
+function JobDetails({ job }: { job: Job }) {
+  const p = job.payload;
+  const str = (key: string) => (typeof p[key] === "string" ? (p[key] as string) : undefined);
+  const num = (key: string) => (typeof p[key] === "number" ? (p[key] as number) : undefined);
+
+  if (job.type === "angebot_accepted_email") {
+    const angebotId = str("angebotId");
+    const kundenName = str("kundenName");
+    const firma = str("firma");
+    const to = str("to");
+    const festpreis = num("festpreis");
+    const aufwand = num("aufwand");
+
+    return (
+      <div className="mt-3 rounded-lg bg-zinc-800/50 border border-zinc-700/50 p-3 space-y-2 text-sm">
+        {angebotId && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <FileText className="h-3.5 w-3.5 text-[#FFC62C] shrink-0" />
+            <span className="text-zinc-400">Angebot:</span>
+            <a
+              href={`/angebot/${angebotId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[#FFC62C] hover:underline font-mono text-xs flex items-center gap-1"
+            >
+              {angebotId} <ExternalLink className="h-3 w-3" />
+            </a>
+            <span className="text-zinc-600">|</span>
+            <a
+              href={`/api/angebot/${angebotId}/pdf`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-emerald-400 hover:underline text-xs flex items-center gap-1"
+            >
+              PDF herunterladen <ExternalLink className="h-3 w-3" />
+            </a>
+          </div>
+        )}
+        {kundenName && (
+          <div className="flex items-center gap-2">
+            <User className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
+            <span className="text-zinc-400">Kunde:</span>
+            <span className="text-white">{kundenName}</span>
+            {firma && (
+              <>
+                <Building2 className="h-3.5 w-3.5 text-zinc-500 shrink-0 ml-2" />
+                <span className="text-zinc-300">{firma}</span>
+              </>
+            )}
+          </div>
+        )}
+        {to && (
+          <div className="flex items-center gap-2">
+            <Mail className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
+            <span className="text-zinc-400">E-Mail:</span>
+            <span className="text-zinc-300 font-mono text-xs">{to}</span>
+          </div>
+        )}
+        {festpreis != null && (
+          <div className="flex items-center gap-4 text-xs text-zinc-400">
+            <span>Festpreis: <span className="text-white font-medium">{formatter.format(festpreis)}</span></span>
+            {aufwand != null && (
+              <span>Aufwand: <span className="text-white font-medium">{aufwand} PT</span></span>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (job.type === "whatsapp_customer_confirmation" || job.type === "whatsapp_internal_notification") {
+    const submissionId = str("submissionId");
+    return (
+      <div className="mt-3 rounded-lg bg-zinc-800/50 border border-zinc-700/50 p-3 text-sm">
+        {submissionId && (
+          <div className="flex items-center gap-2">
+            <FileText className="h-3.5 w-3.5 text-[#FFC62C] shrink-0" />
+            <span className="text-zinc-400">Anfrage:</span>
+            <span className="text-white font-mono text-xs">{submissionId}</span>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Fallback: show raw payload
+  return (
+    <div className="mt-3 rounded-lg bg-zinc-800/50 border border-zinc-700/50 p-3">
+      <pre className="text-xs text-zinc-400 font-mono whitespace-pre-wrap break-all">
+        {JSON.stringify(p, null, 2)}
+      </pre>
+    </div>
+  );
+}
 
 const STATUS_LABELS: Record<string, string> = {
   open: "Offen",
@@ -115,6 +226,16 @@ export default function IncidentsPage() {
   const [incidentFilter, setIncidentFilter] = useState<"all" | "open" | "resolved">("open");
   const [jobFilter, setJobFilter] = useState<"all" | "active" | "completed" | "failed">("active");
   const [tab, setTab] = useState<"incidents" | "jobs">("jobs");
+  const [expandedJobs, setExpandedJobs] = useState<Set<string>>(new Set());
+
+  function toggleJobExpanded(id: string) {
+    setExpandedJobs((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -280,6 +401,7 @@ export default function IncidentsPage() {
                 const StatusIcon = config.icon;
                 const typeLabel = JOB_TYPE_LABELS[job.type] || job.type;
                 const isOverdue = job.status === "pending" && new Date(job.nextRunAt) < new Date();
+                const isExpanded = expandedJobs.has(job.id);
 
                 return (
                   <div
@@ -287,17 +409,24 @@ export default function IncidentsPage() {
                     className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-5"
                   >
                     <div className="flex items-start justify-between gap-4">
-                      <div className="flex items-start gap-3 min-w-0">
+                      <div className="flex items-start gap-3 min-w-0 flex-1">
                         <StatusIcon
                           className={`h-5 w-5 mt-0.5 shrink-0 ${config.color} ${
                             job.status === "processing" ? "animate-spin" : ""
                           }`}
                         />
-                        <div className="min-w-0">
+                        <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <h3 className="font-semibold text-white">
+                            <button
+                              type="button"
+                              onClick={() => toggleJobExpanded(job.id)}
+                              className="font-semibold text-white hover:text-[#FFC62C] transition-colors flex items-center gap-1.5"
+                            >
                               {typeLabel}
-                            </h3>
+                              {isExpanded
+                                ? <ChevronUp className="h-3.5 w-3.5 text-zinc-500" />
+                                : <ChevronDown className="h-3.5 w-3.5 text-zinc-500" />}
+                            </button>
                             <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${config.badge}`}>
                               {config.label}
                             </span>
@@ -336,6 +465,9 @@ export default function IncidentsPage() {
                             </p>
                           )}
 
+                          {/* Expandable job details */}
+                          {isExpanded && <JobDetails job={job} />}
+
                           {/* Metadata */}
                           <div className="flex items-center gap-4 mt-2 text-xs text-zinc-500 flex-wrap">
                             <span className="flex items-center gap-1">
@@ -362,17 +494,27 @@ export default function IncidentsPage() {
                       </div>
 
                       {/* Actions */}
-                      {(job.status === "pending" || job.status === "failed") && (
+                      <div className="flex gap-2 shrink-0">
                         <Button
-                          onClick={() => retryJob()}
+                          onClick={() => toggleJobExpanded(job.id)}
                           size="sm"
-                          variant="outline"
-                          className="border-zinc-600 text-zinc-300 hover:bg-zinc-800 text-xs shrink-0"
+                          variant="ghost"
+                          className="text-zinc-400 hover:text-white hover:bg-zinc-800 text-xs"
                         >
-                          <RotateCcw className="h-3 w-3 mr-1" />
-                          Jetzt ausführen
+                          {isExpanded ? "Weniger" : "Details"}
                         </Button>
-                      )}
+                        {(job.status === "pending" || job.status === "failed") && (
+                          <Button
+                            onClick={() => retryJob()}
+                            size="sm"
+                            variant="outline"
+                            className="border-zinc-600 text-zinc-300 hover:bg-zinc-800 text-xs"
+                          >
+                            <RotateCcw className="h-3 w-3 mr-1" />
+                            Jetzt ausführen
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );
