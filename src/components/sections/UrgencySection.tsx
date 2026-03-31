@@ -241,8 +241,8 @@ export function UrgencySection() {
 
       {/* Animated ring behind heading */}
       <div className="absolute top-20 left-1/2 -translate-x-1/2 pointer-events-none">
-        <div className={`h-[300px] w-[300px] rounded-full border border-[#FFC62C]/10 transition-all duration-[2000ms] ${visible ? "scale-100 opacity-100" : "scale-0 opacity-0"}`} />
-        <div className={`absolute inset-0 h-[300px] w-[300px] rounded-full border border-[#FFC62C]/5 transition-all duration-[2500ms] delay-500 ${visible ? "scale-150 opacity-100" : "scale-0 opacity-0"}`} />
+        <div className={`h-[300px] w-[300px] rounded-full border border-[#FFC62C]/10 transition-all [transition-duration:2000ms] ${visible ? "scale-100 opacity-100" : "scale-0 opacity-0"}`} />
+        <div className={`absolute inset-0 h-[300px] w-[300px] rounded-full border border-[#FFC62C]/5 transition-all [transition-duration:2500ms] delay-500 ${visible ? "scale-150 opacity-100" : "scale-0 opacity-0"}`} />
       </div>
 
       <div className="container relative mx-auto px-4 md:px-6">

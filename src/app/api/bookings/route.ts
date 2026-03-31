@@ -1,22 +1,30 @@
 import { NextResponse } from "next/server";
 import {
   addBooking,
-  getAllBookings,
   getAvailableSlots,
   type Booking,
 } from "@/lib/bookings";
 import { getSubmissionById } from "@/lib/submissions";
+import { formLimiter } from "@/lib/auth/rate-limit";
 export const dynamic = "force-dynamic";
 
 /**
  * POST /api/bookings
  *
- * Create a new booking.
+ * Public: Create a new booking.
  * Either provide { submissionId, date, startTime } (from onboarding)
  * or { name, email, date, startTime } (from kontakt page).
  */
 export async function POST(request: Request) {
   try {
+    const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    if (!formLimiter.check(ip)) {
+      return NextResponse.json(
+        { error: "Zu viele Anfragen. Bitte versuchen Sie es später erneut." },
+        { status: 429 }
+      );
+    }
+
     const body = await request.json();
     const { submissionId, date, startTime, name, email, firma, telefon } = body;
 
@@ -25,6 +33,22 @@ export async function POST(request: Request) {
         { error: "Missing required fields: date, startTime" },
         { status: 400 }
       );
+    }
+
+    // Validate date format and bounds
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return NextResponse.json({ error: "Ungültiges Datumsformat" }, { status: 400 });
+    }
+    const bookingDate = new Date(date + "T00:00:00");
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const maxDate = new Date(today); maxDate.setDate(maxDate.getDate() + 90);
+    if (bookingDate < today || bookingDate > maxDate) {
+      return NextResponse.json({ error: "Termin muss innerhalb der nächsten 90 Tage liegen" }, { status: 400 });
+    }
+
+    // Validate time format
+    if (!/^\d{2}:\d{2}$/.test(startTime)) {
+      return NextResponse.json({ error: "Ungültiges Zeitformat" }, { status: 400 });
     }
 
     let contactName: string;
@@ -99,12 +123,13 @@ export async function POST(request: Request) {
 
     await addBooking(booking);
 
-    // Link booking to submission if applicable
+    // Persist booking link on submission
     if (submissionId) {
-      const submission = await getSubmissionById(submissionId);
-      if (submission) {
-        submission.bookingId = booking.id;
-      }
+      const { prisma } = await import("@/lib/db");
+      await prisma.submission.update({
+        where: { id: submissionId },
+        data: { bookingId: booking.id },
+      }).catch(() => {/* submission might not exist */});
     }
 
     return NextResponse.json({ success: true, booking });
@@ -116,13 +141,3 @@ export async function POST(request: Request) {
   }
 }
 
-/**
- * GET /api/bookings
- *
- * Admin: list all bookings.
- * TODO: Add authentication check.
- */
-export async function GET() {
-  const bookings = await getAllBookings();
-  return NextResponse.json({ bookings });
-}

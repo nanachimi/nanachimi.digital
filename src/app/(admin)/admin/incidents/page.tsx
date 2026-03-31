@@ -155,12 +155,14 @@ export default function IncidentsPage() {
 
   // ─── Computed ────────────────────────────────────────────────
 
+  const openIncidents = incidents.filter((i) => i.status !== "resolved").length;
   const openCritical = incidents.filter(
     (i) => i.severity === "critical" && i.status === "open"
   ).length;
 
-  const pendingJobs = jobs.filter((j) => j.status === "pending" || j.status === "processing").length;
+  const activeJobs = jobs.filter((j) => j.status === "pending" || j.status === "processing").length;
   const failedJobs = jobs.filter((j) => j.status === "failed").length;
+  const openJobs = activeJobs + failedJobs;
 
   const filteredIncidents = incidents.filter((i) => {
     if (incidentFilter === "open") return i.status !== "resolved";
@@ -178,7 +180,7 @@ export default function IncidentsPage() {
   // ─── Render ──────────────────────────────────────────────────
 
   return (
-    <div className="space-y-6">
+    <div className="p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -193,9 +195,9 @@ export default function IncidentsPage() {
         <Button
           onClick={fetchData}
           disabled={loading}
-          variant="outline"
+          variant="ghost"
           size="sm"
-          className="border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+          className="border border-white/20 text-white/80 hover:text-white hover:bg-white/10"
         >
           <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
           Aktualisieren
@@ -209,7 +211,7 @@ export default function IncidentsPage() {
           <p className="text-xs text-zinc-500 mt-1">Jobs gesamt</p>
         </div>
         <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 text-center">
-          <p className="text-2xl font-bold text-amber-400">{pendingJobs}</p>
+          <p className="text-2xl font-bold text-amber-400">{activeJobs}</p>
           <p className="text-xs text-zinc-500 mt-1">Ausstehend</p>
         </div>
         <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4 text-center">
@@ -232,17 +234,7 @@ export default function IncidentsPage() {
               : "text-zinc-400 hover:text-zinc-300"
           }`}
         >
-          Jobs
-          {pendingJobs > 0 && (
-            <span className="ml-2 rounded-full bg-amber-500/20 px-1.5 py-0.5 text-[10px] text-amber-400">
-              {pendingJobs}
-            </span>
-          )}
-          {failedJobs > 0 && (
-            <span className="ml-1 rounded-full bg-red-500/20 px-1.5 py-0.5 text-[10px] text-red-400">
-              {failedJobs}
-            </span>
-          )}
+          Jobs ({openJobs})
         </button>
         <button
           onClick={() => setTab("incidents")}
@@ -252,12 +244,7 @@ export default function IncidentsPage() {
               : "text-zinc-400 hover:text-zinc-300"
           }`}
         >
-          Vorfälle
-          {openCritical > 0 && (
-            <span className="ml-2 rounded-full bg-red-500/20 px-1.5 py-0.5 text-[10px] text-red-400">
-              {openCritical}
-            </span>
-          )}
+          Vorfälle ({openIncidents})
         </button>
       </div>
 

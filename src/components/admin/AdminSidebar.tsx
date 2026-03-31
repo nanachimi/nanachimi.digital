@@ -24,12 +24,23 @@ import { LogoIcon } from "@/components/layout/LogoIcon";
 // Navigation items
 // ---------------------------------------------------------------------------
 
-const NAV_ITEMS = [
+type BadgeKey = "dashboard" | "bookings" | "incidents" | "status";
+
+interface NavItem {
+  label: string;
+  href: string;
+  icon: typeof LayoutDashboard;
+  exact: boolean;
+  badgeKey?: BadgeKey;
+}
+
+const NAV_ITEMS: NavItem[] = [
   {
     label: "Dashboard",
     href: "/admin",
     icon: LayoutDashboard,
     exact: true,
+    badgeKey: "dashboard",
   },
   {
     label: "A/B Tests",
@@ -48,12 +59,14 @@ const NAV_ITEMS = [
     href: "/admin/bookings",
     icon: Calendar,
     exact: false,
+    badgeKey: "bookings",
   },
   {
     label: "Vorfälle",
     href: "/admin/incidents",
     icon: AlertTriangle,
     exact: false,
+    badgeKey: "incidents",
   },
   {
     label: "Einstellungen",
@@ -66,6 +79,7 @@ const NAV_ITEMS = [
     href: "/admin/status",
     icon: Activity,
     exact: false,
+    badgeKey: "status",
   },
 ];
 
@@ -75,11 +89,19 @@ const LS_KEY = "ncd-admin-sidebar-collapsed";
 // Sidebar Component
 // ---------------------------------------------------------------------------
 
+interface BadgeCounts {
+  dashboard: number;
+  bookings: number;
+  incidents: number;
+  status: number;
+}
+
 export function AdminSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [badges, setBadges] = useState<BadgeCounts | null>(null);
 
   // Restore collapsed state from localStorage
   useEffect(() => {
@@ -87,6 +109,19 @@ export function AdminSidebar() {
       const saved = localStorage.getItem(LS_KEY);
       if (saved === "true") setCollapsed(true);
     } catch {}
+  }, []);
+
+  // Poll badge counts every 30s
+  useEffect(() => {
+    const fetchBadges = async () => {
+      try {
+        const res = await fetch("/api/admin/notifications");
+        if (res.ok) setBadges(await res.json());
+      } catch { /* ignore */ }
+    };
+    fetchBadges();
+    const interval = setInterval(fetchBadges, 30_000);
+    return () => clearInterval(interval);
   }, []);
 
   const toggleCollapsed = () => {
@@ -137,6 +172,7 @@ export function AdminSidebar() {
         {NAV_ITEMS.map((item) => {
           const active = isActive(item.href, item.exact);
           const Icon = item.icon;
+          const count = item.badgeKey && badges ? badges[item.badgeKey] : 0;
 
           return (
             <Link
@@ -152,7 +188,14 @@ export function AdminSidebar() {
               )}
               title={collapsed && !isMobile ? item.label : undefined}
             >
-              <Icon className="h-5 w-5 shrink-0" />
+              <span className="relative shrink-0">
+                <Icon className="h-5 w-5" />
+                {count > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white px-0.5">
+                    {count > 99 ? "99+" : count}
+                  </span>
+                )}
+              </span>
               {(!collapsed || isMobile) && (
                 <span className="truncate">{item.label}</span>
               )}

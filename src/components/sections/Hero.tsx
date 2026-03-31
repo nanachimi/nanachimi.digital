@@ -242,7 +242,7 @@ function ChaosToOrderAnimation() {
                   </div>
                   <div className="h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-gradient-to-r from-[#FFC62C] to-emerald-400 rounded-full transition-all duration-[2000ms] ease-out"
+                      className="h-full bg-gradient-to-r from-[#FFC62C] to-emerald-400 rounded-full transition-all ease-out [transition-duration:2000ms]"
                       style={{ width: phase === "order" ? `${item.progress}%` : "0%" }}
                     />
                   </div>

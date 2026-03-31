@@ -218,7 +218,7 @@ export default function BookingsPage() {
   }
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-6 lg:p-8 max-w-7xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-white flex items-center gap-2">
@@ -230,10 +230,10 @@ export default function BookingsPage() {
           </p>
         </div>
         <Button
-          variant="outline"
+          variant="ghost"
           size="sm"
           onClick={fetchData}
-          className="border-white/10 text-[#c8cad0] hover:bg-white/5"
+          className="border border-white/20 text-white/80 hover:text-white hover:bg-white/10"
         >
           <RefreshCw className="h-4 w-4 mr-1" />
           Aktualisieren
@@ -375,7 +375,7 @@ export default function BookingsPage() {
                 variant="outline"
                 size="sm"
                 onClick={addSlot}
-                className="border-white/10 text-[#c8cad0] hover:bg-white/5"
+                className="border-white/20 text-white/80 hover:text-white hover:bg-white/10"
               >
                 <Plus className="h-4 w-4 mr-1" />
                 Zeitfenster

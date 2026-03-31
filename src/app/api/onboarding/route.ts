@@ -4,10 +4,20 @@ import { calculateEstimate } from "@/lib/estimation";
 import { addSubmission } from "@/lib/submissions";
 import { sendOnboardingConfirmationEmail } from "@/lib/email";
 import { prisma } from "@/lib/db";
+import { WHATSAPP_CONSENT_VERSION, normalizePhoneNumber } from "@/lib/whatsapp";
+import { formLimiter } from "@/lib/auth/rate-limit";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   try {
+    const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    if (!formLimiter.check(ip)) {
+      return NextResponse.json(
+        { error: "Zu viele Anfragen. Bitte versuchen Sie es später erneut." },
+        { status: 429 }
+      );
+    }
+
     const body = await request.json();
     const parsed = fullOnboardingSchema.safeParse(body);
 
@@ -51,6 +61,13 @@ export async function POST(request: Request) {
       ).toISOString();
     }
 
+    // WhatsApp consent — compute DSGVO fields
+    const normalizedPhone = normalizePhoneNumber(data.telefon ?? "");
+    const whatsappConsentAt =
+      data.whatsappConsent && normalizedPhone ? now.toISOString() : undefined;
+    const whatsappConsentVersion =
+      whatsappConsentAt ? WHATSAPP_CONSENT_VERSION : undefined;
+
     // Store submission
     await addSubmission({
       id,
@@ -60,6 +77,9 @@ export async function POST(request: Request) {
       email: data.email,
       firma: data.firma,
       telefon: data.telefon,
+      whatsappConsent: data.whatsappConsent ?? false,
+      whatsappConsentAt,
+      whatsappConsentVersion,
       projekttyp: data.projekttyp,
       beschreibung: data.beschreibung,
       zielgruppe: data.zielgruppe,
@@ -114,9 +134,39 @@ export async function POST(request: Request) {
       naechsterSchritt: data.naechsterSchritt,
       betriebUndWartung: data.betriebUndWartung,
       bwInfo: estimate.bwInfo,
-    }).catch((err) => {
+    }).catch(async (err) => {
       console.error("[Onboarding] Confirmation email failed:", err);
+      try {
+        const { createIncident } = await import("@/lib/job-queue");
+        await createIncident({
+          severity: "warning",
+          title: "Bestätigungs-E-Mail fehlgeschlagen",
+          message: `E-Mail an ${data.email} konnte nicht gesendet werden.\n\nFehler: ${err instanceof Error ? err.message : String(err)}\nSubmission: ${id}`,
+          source: "email",
+          referenceId: id,
+        });
+      } catch { /* incident creation best-effort */ }
     });
+
+    // Enqueue WhatsApp jobs (fire-and-forget)
+    import("@/lib/whatsapp-jobs")
+      .then(({ enqueueWhatsAppJobs }) => enqueueWhatsAppJobs(id))
+      .catch((err) => {
+        console.error("[Onboarding] WhatsApp enqueue failed:", err);
+      });
+
+    // Admin notification (fire-and-forget)
+    import("@/lib/notifications")
+      .then(({ notifyNewSubmission }) =>
+        notifyNewSubmission({
+          submissionId: id,
+          name: data.name,
+          projekttyp: data.projekttyp,
+          naechsterSchritt: data.naechsterSchritt,
+          range: estimate.range,
+        })
+      )
+      .catch(() => {/* notification best-effort */});
 
     return NextResponse.json({
       success: true,

@@ -191,7 +191,7 @@ export default function ABTestDetailPage() {
   const controlStats = test.stats[0];
 
   return (
-    <div className="p-6 lg:p-8 max-w-5xl">
+    <div className="p-6 lg:p-8 max-w-7xl mx-auto">
       {/* Back link */}
       <Link
         href="/admin/ab-tests"

@@ -14,6 +14,8 @@ export interface PageView {
   id: string;
   visitorId: string;
   ip?: string;
+  country?: string; // ISO 3166-1 alpha-2
+  city?: string;
   path: string;
   referrer: string;
   utmSource?: string;
@@ -59,6 +61,7 @@ export interface AggregatedStats {
     topPages: { path: string; views: number; avgTime: number }[];
   };
   trafficSources: { source: string; count: number }[];
+  visitorLocations: { country: string; count: number; uniqueVisitors: number }[];
   onboardingFunnel: {
     stepName: string;
     step: number;
@@ -84,6 +87,8 @@ export async function addPageView(pv: PageView): Promise<void> {
       id: pv.id,
       visitorId: pv.visitorId,
       ip: pv.ip ?? null,
+      country: pv.country ?? null,
+      city: pv.city ?? null,
       path: pv.path,
       referrer: pv.referrer,
       utmSource: pv.utmSource ?? null,
@@ -203,6 +208,20 @@ export async function getAggregatedStats(): Promise<AggregatedStats> {
     .sort((a, b) => b.count - a.count)
     .slice(0, 20);
 
+  // --- Visitor locations ---
+  const locationMap = new Map<string, { count: number; visitors: Set<string> }>();
+  for (const pv of allPVs) {
+    const country = pv.country || "Unbekannt";
+    const entry = locationMap.get(country) ?? { count: 0, visitors: new Set<string>() };
+    entry.count++;
+    entry.visitors.add(pv.visitorId);
+    locationMap.set(country, entry);
+  }
+  const visitorLocations = Array.from(locationMap.entries())
+    .map(([country, d]) => ({ country, count: d.count, uniqueVisitors: d.visitors.size }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 30);
+
   // --- Onboarding funnel ---
   const allEvents = await prisma.onboardingAnalyticsEvent.findMany({ where: ipFilter });
   const stepMap = new Map<
@@ -249,6 +268,7 @@ export async function getAggregatedStats(): Promise<AggregatedStats> {
   return {
     pageViews: { total: totalPV, uniqueVisitors, avgTimeOnPage, topPages },
     trafficSources,
+    visitorLocations,
     onboardingFunnel,
     conversions: {
       totalCtaClicks,

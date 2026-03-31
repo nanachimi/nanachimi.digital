@@ -56,6 +56,11 @@ export interface Submission {
   firma?: string;
   telefon?: string;
 
+  // WhatsApp consent (DSGVO)
+  whatsappConsent: boolean;
+  whatsappConsentAt?: string;
+  whatsappConsentVersion?: string;
+
   // Project
   projekttyp: string;
   beschreibung: string;
@@ -127,6 +132,9 @@ function dbToSubmission(row: Record<string, unknown>): Submission {
     email: row.email as string,
     firma: (row.firma as string) || undefined,
     telefon: (row.telefon as string) || undefined,
+    whatsappConsent: (row.whatsappConsent as boolean) ?? false,
+    whatsappConsentAt: row.whatsappConsentAt ? (row.whatsappConsentAt as Date).toISOString() : undefined,
+    whatsappConsentVersion: (row.whatsappConsentVersion as string) || undefined,
     projekttyp: row.projekttyp as string,
     beschreibung: row.beschreibung as string,
     zielgruppe: row.zielgruppe as string,
@@ -170,6 +178,9 @@ export async function addSubmission(submission: Submission): Promise<void> {
       email: submission.email,
       firma: submission.firma ?? null,
       telefon: submission.telefon ?? null,
+      whatsappConsent: submission.whatsappConsent,
+      whatsappConsentAt: submission.whatsappConsentAt ? new Date(submission.whatsappConsentAt) : null,
+      whatsappConsentVersion: submission.whatsappConsentVersion ?? null,
       projekttyp: submission.projekttyp,
       beschreibung: submission.beschreibung,
       zielgruppe: submission.zielgruppe,
@@ -254,15 +265,19 @@ export async function updateSubmissionAmendment(
 }
 
 /**
- * Get all submissions with active SLA that have breached their deadline.
+ * Get submissions approaching or past their SLA deadline.
+ * Triggers 5 minutes BEFORE deadline so the auto-Angebot arrives on time.
  */
-export async function getBreachedSlaSubmissions(): Promise<Submission[]> {
-  const now = new Date();
+export async function getDueSlaSubmissions(): Promise<Submission[]> {
+  const buffer = new Date(Date.now() + 5 * 60 * 1000); // 5 min ahead
   const rows = await prisma.submission.findMany({
     where: {
       status: "sla_active",
-      slaDeadline: { lt: now },
+      slaDeadline: { lt: buffer },
     },
   });
   return rows.map((r) => dbToSubmission(r as unknown as Record<string, unknown>));
 }
+
+/** @deprecated Use getDueSlaSubmissions instead */
+export const getBreachedSlaSubmissions = getDueSlaSubmissions;

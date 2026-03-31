@@ -5,6 +5,8 @@ const BACKOFF_MINUTES = [1, 3, 10, 30, 60];
 
 const JOB_TITLES: Record<string, string> = {
   angebot_accepted_email: "Angebot-Bestätigung mit PDF per E-Mail",
+  whatsapp_customer_confirmation: "WhatsApp-Bestätigung an Kunden",
+  whatsapp_internal_notification: "Interne WhatsApp-Benachrichtigung",
 };
 
 /**
@@ -36,19 +38,34 @@ export async function createIncident(data: {
 export async function enqueueJob(
   type: string,
   payload: Record<string, unknown>,
-  maxAttempts = 5
+  maxAttempts = 5,
+  idempotencyKey?: string
 ) {
-  const job = await prisma.job.create({
-    data: {
-      type,
-      payload: JSON.parse(JSON.stringify(payload)),
-      maxAttempts,
-      status: "pending",
-      nextRunAt: new Date(),
-    },
-  });
-  console.log(`[JobQueue] Enqueued job ${job.id} (type=${type})`);
-  return job;
+  try {
+    const job = await prisma.job.create({
+      data: {
+        type,
+        payload: JSON.parse(JSON.stringify(payload)),
+        maxAttempts,
+        status: "pending",
+        nextRunAt: new Date(),
+        idempotencyKey: idempotencyKey ?? null,
+      },
+    });
+    console.log(`[JobQueue] Enqueued job ${job.id} (type=${type})`);
+    return job;
+  } catch (err: unknown) {
+    // Unique violation on idempotencyKey — job already exists, not an error
+    if (
+      idempotencyKey &&
+      err instanceof Error &&
+      err.message.includes("Unique constraint failed")
+    ) {
+      console.log(`[JobQueue] Job already exists (idempotencyKey=${idempotencyKey}), skipping`);
+      return null;
+    }
+    throw err;
+  }
 }
 
 /**
@@ -70,10 +87,9 @@ export async function processJobs(): Promise<{
     where: {
       status: { in: ["pending", "failed"] },
       nextRunAt: { lte: now },
-      attempts: { lt: prisma.job.fields.maxAttempts ? undefined : 100 },
     },
     orderBy: { nextRunAt: "asc" },
-    take: 10, // Process max 10 jobs per run
+    take: 10,
   });
 
   // Filter out jobs that have exhausted retries
@@ -82,11 +98,12 @@ export async function processJobs(): Promise<{
   for (const job of eligibleJobs) {
     processed++;
 
-    // Mark as processing
-    await prisma.job.update({
-      where: { id: job.id },
+    // Atomic claim: only proceed if status hasn't changed (prevents double-processing)
+    const claimed = await prisma.job.updateMany({
+      where: { id: job.id, status: { in: ["pending", "failed"] } },
       data: { status: "processing", attempts: job.attempts + 1 },
     });
+    if (claimed.count === 0) continue; // Already claimed by another worker
 
     try {
       const handler = JOB_HANDLERS[job.type];
@@ -225,8 +242,147 @@ async function handleAngebotAcceptedEmail(
 }
 
 /**
+ * whatsapp_customer_confirmation: Send WhatsApp confirmation to the customer.
+ */
+async function handleWhatsAppCustomerConfirmation(
+  payload: Record<string, unknown>
+): Promise<void> {
+  const { getSubmissionById } = await import("@/lib/submissions");
+  const { normalizePhoneNumber, getProvider, isWhatsAppMockMode } = await import("@/lib/whatsapp");
+  const { buildCustomerAngebotTemplate, buildCustomerCallTemplate } = await import("@/lib/whatsapp-templates");
+
+  const submissionId = payload.submissionId as string;
+  const submission = await getSubmissionById(submissionId);
+  if (!submission) throw new Error(`Submission ${submissionId} not found`);
+
+  const phone = normalizePhoneNumber(submission.telefon ?? "");
+  if (!phone) {
+    console.warn("[WhatsApp] Invalid phone number, skipping", { submissionId });
+    return; // Permanent — no retry
+  }
+
+  const provider = getProvider();
+  if (!provider) throw new Error("No WhatsApp provider available");
+
+  const template =
+    submission.naechsterSchritt === "angebot"
+      ? buildCustomerAngebotTemplate(
+          submission.name,
+          submission.range
+            ? `${submission.range.untergrenze}–${submission.range.obergrenze} €`
+            : "wird berechnet"
+        )
+      : buildCustomerCallTemplate(submission.name);
+
+  const result = await provider.sendTemplate(phone, template);
+
+  if (result.success) {
+    console.log("[WhatsApp] Customer message sent", {
+      submissionId,
+      messageId: result.messageId,
+      provider: isWhatsAppMockMode() ? "mock" : "meta_cloud_api",
+    });
+    return;
+  }
+
+  // Permanent errors — no retry
+  if (!result.retryable) {
+    if (result.code === "131021" || result.code === "INVALID_PHONE") {
+      console.warn("[WhatsApp] Permanent error (expected)", {
+        submissionId,
+        code: result.code,
+        error: result.error,
+      });
+      return;
+    }
+    if (result.code === "131026") {
+      await createIncident({
+        severity: "warning",
+        title: "WhatsApp-Template nicht gefunden",
+        message: `Template fehlt: ${result.error}\nSubmission: ${submissionId}`,
+        source: "whatsapp",
+        referenceId: submissionId,
+      });
+      return;
+    }
+    // Unknown permanent error
+    console.error("[WhatsApp] Unknown permanent error", {
+      submissionId,
+      code: result.code,
+      error: result.error,
+      provider: isWhatsAppMockMode() ? "mock" : "meta_cloud_api",
+      retryable: false,
+    });
+    await createIncident({
+      severity: "warning",
+      title: "WhatsApp-Fehler (permanent)",
+      message: `${result.error}\nCode: ${result.code ?? "none"}\nSubmission: ${submissionId}`,
+      source: "whatsapp",
+      referenceId: submissionId,
+    });
+    return;
+  }
+
+  // Retryable — throw to trigger job-queue retry
+  throw new Error(`[WhatsApp] Retryable error: ${result.error}`);
+}
+
+/**
+ * whatsapp_internal_notification: Notify the team about a new submission.
+ */
+async function handleWhatsAppInternalNotification(
+  payload: Record<string, unknown>
+): Promise<void> {
+  const { getSubmissionById } = await import("@/lib/submissions");
+  const { getProvider, isWhatsAppMockMode } = await import("@/lib/whatsapp");
+  const { buildInternalTemplate } = await import("@/lib/whatsapp-templates");
+
+  const submissionId = payload.submissionId as string;
+  const submission = await getSubmissionById(submissionId);
+  if (!submission) throw new Error(`Submission ${submissionId} not found`);
+
+  const adminPhone = process.env.WHATSAPP_ADMIN_PHONE;
+  if (!adminPhone) throw new Error("WHATSAPP_ADMIN_PHONE not set");
+
+  const provider = getProvider();
+  if (!provider) throw new Error("No WhatsApp provider available");
+
+  const template = buildInternalTemplate(submission);
+  const result = await provider.sendTemplate(adminPhone, template);
+
+  if (result.success) {
+    console.log("[WhatsApp] Internal notification sent", {
+      submissionId,
+      messageId: result.messageId,
+      provider: isWhatsAppMockMode() ? "mock" : "meta_cloud_api",
+    });
+    return;
+  }
+
+  if (!result.retryable) {
+    console.error("[WhatsApp] Internal notification permanent error", {
+      submissionId,
+      code: result.code,
+      error: result.error,
+    });
+    await createIncident({
+      severity: "warning",
+      title: "Interne WhatsApp-Benachrichtigung fehlgeschlagen",
+      message: `${result.error}\nCode: ${result.code ?? "none"}\nSubmission: ${submissionId}`,
+      source: "whatsapp",
+      referenceId: submissionId,
+    });
+    return;
+  }
+
+  throw new Error(`[WhatsApp] Retryable error: ${result.error}`);
+}
+
+/**
  * Registry of all job handlers.
  */
 const JOB_HANDLERS: Record<string, JobHandler> = {
   angebot_accepted_email: handleAngebotAcceptedEmail,
+  whatsapp_customer_confirmation: handleWhatsAppCustomerConfirmation,
+  whatsapp_internal_notification: handleWhatsAppInternalNotification,
 };

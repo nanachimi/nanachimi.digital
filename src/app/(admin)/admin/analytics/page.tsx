@@ -24,6 +24,7 @@ interface Stats {
     topPages: { path: string; views: number; avgTime: number }[];
   };
   trafficSources: { source: string; count: number }[];
+  visitorLocations: { country: string; count: number; uniqueVisitors: number }[];
   onboardingFunnel: {
     step: number;
     stepName: string;
@@ -153,7 +154,7 @@ export default function AnalyticsPage() {
   const pathTotal = callTotal + angebotTotal;
 
   return (
-    <div className="p-8 space-y-8">
+    <div className="p-6 lg:p-8 max-w-7xl mx-auto space-y-8">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-white">Analytics</h1>
         <div className="flex items-center gap-3">
@@ -165,9 +166,9 @@ export default function AnalyticsPage() {
           <Button
             onClick={fetchStats}
             disabled={loading}
-            variant="outline"
+            variant="ghost"
             size="sm"
-            className="border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+            className="border border-white/20 text-white/80 hover:text-white hover:bg-white/10"
           >
             <RefreshCw
               className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`}
@@ -266,6 +267,38 @@ export default function AnalyticsPage() {
           )}
         </div>
       </div>
+
+      {/* ── Visitor Locations ────────────────────────────── */}
+      {stats.visitorLocations && stats.visitorLocations.length > 0 && (
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6">
+          <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+            <Globe className="h-4 w-4 text-[#FFC62C]" />
+            Besucher nach Land
+          </h2>
+          <div className="space-y-2">
+            {stats.visitorLocations.map((loc) => {
+              const maxCount = stats.visitorLocations[0]?.count ?? 1;
+              const pct = Math.round((loc.count / maxCount) * 100);
+              return (
+                <div key={loc.country} className="space-y-1">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-zinc-300">{loc.country}</span>
+                    <span className="text-zinc-500">
+                      {loc.count.toLocaleString("de-DE")} Aufrufe · {loc.uniqueVisitors.toLocaleString("de-DE")} Besucher
+                    </span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-zinc-800">
+                    <div
+                      className="h-full rounded-full bg-[#FFC62C]/60"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* ── Detail Panel (IP-Ansicht) ──────────────────── */}
       {detailPath && (

@@ -1,6 +1,5 @@
 /**
- * Simple in-memory rate limiter for login attempts.
- * 5 attempts per IP per 15 minutes.
+ * In-memory rate limiter — configurable per use case.
  */
 
 interface AttemptRecord {
@@ -8,59 +7,83 @@ interface AttemptRecord {
   firstAttempt: number;
 }
 
-const attempts = new Map<string, AttemptRecord>();
-
-const MAX_ATTEMPTS = 5;
-const WINDOW_MS = 15 * 60 * 1000; // 15 minutes
-
-/**
- * Check if a login attempt is allowed for the given IP.
- * Returns true if allowed, false if rate-limited.
- */
-export function checkRateLimit(ip: string): boolean {
-  const now = Date.now();
-  const record = attempts.get(ip);
-
-  if (!record) {
-    attempts.set(ip, { count: 1, firstAttempt: now });
-    return true;
-  }
-
-  // Window expired — reset
-  if (now - record.firstAttempt > WINDOW_MS) {
-    attempts.set(ip, { count: 1, firstAttempt: now });
-    return true;
-  }
-
-  // Within window — check count
-  if (record.count >= MAX_ATTEMPTS) {
-    return false;
-  }
-
-  record.count++;
-  return true;
+interface RateLimiterConfig {
+  maxAttempts: number;
+  windowMs: number;
 }
 
-/**
- * Get remaining seconds until rate limit resets for the given IP.
- */
-export function getRateLimitResetSeconds(ip: string): number {
-  const record = attempts.get(ip);
-  if (!record) return 0;
+class RateLimiter {
+  private attempts = new Map<string, AttemptRecord>();
+  private readonly maxAttempts: number;
+  private readonly windowMs: number;
 
-  const elapsed = Date.now() - record.firstAttempt;
-  const remaining = Math.max(0, WINDOW_MS - elapsed);
-  return Math.ceil(remaining / 1000);
-}
+  constructor(config: RateLimiterConfig) {
+    this.maxAttempts = config.maxAttempts;
+    this.windowMs = config.windowMs;
+  }
 
-// Cleanup old entries every 30 minutes
-if (typeof setInterval !== "undefined") {
-  setInterval(() => {
+  check(key: string): boolean {
     const now = Date.now();
-    attempts.forEach((record, ip) => {
-      if (now - record.firstAttempt > WINDOW_MS) {
-        attempts.delete(ip);
+    const record = this.attempts.get(key);
+
+    if (!record || now - record.firstAttempt > this.windowMs) {
+      this.attempts.set(key, { count: 1, firstAttempt: now });
+      return true;
+    }
+
+    if (record.count >= this.maxAttempts) {
+      return false;
+    }
+
+    record.count++;
+    return true;
+  }
+
+  getResetSeconds(key: string): number {
+    const record = this.attempts.get(key);
+    if (!record) return 0;
+    const remaining = Math.max(0, this.windowMs - (Date.now() - record.firstAttempt));
+    return Math.ceil(remaining / 1000);
+  }
+
+  cleanup() {
+    const now = Date.now();
+    this.attempts.forEach((record, key) => {
+      if (now - record.firstAttempt > this.windowMs) {
+        this.attempts.delete(key);
       }
     });
+  }
+}
+
+// ─── Pre-configured limiters ─────────────────────────────────────
+
+/** Login: 5 attempts per IP per 15 minutes */
+const loginLimiter = new RateLimiter({ maxAttempts: 5, windowMs: 15 * 60 * 1000 });
+
+/** Public API: 20 requests per IP per minute */
+const publicApiLimiter = new RateLimiter({ maxAttempts: 20, windowMs: 60 * 1000 });
+
+/** Form submissions (onboarding, contact): 5 per IP per 10 minutes */
+const formLimiter = new RateLimiter({ maxAttempts: 5, windowMs: 10 * 60 * 1000 });
+
+// Legacy API — used by login route
+export function checkRateLimit(ip: string): boolean {
+  return loginLimiter.check(ip);
+}
+
+export function getRateLimitResetSeconds(ip: string): number {
+  return loginLimiter.getResetSeconds(ip);
+}
+
+// New API — use directly
+export { loginLimiter, publicApiLimiter, formLimiter };
+
+// Cleanup all limiters every 30 minutes
+if (typeof setInterval !== "undefined") {
+  setInterval(() => {
+    loginLimiter.cleanup();
+    publicApiLimiter.cleanup();
+    formLimiter.cleanup();
   }, 30 * 60 * 1000);
 }

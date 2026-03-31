@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { calculateEstimate } from "@/lib/estimation";
+import { publicApiLimiter } from "@/lib/auth/rate-limit";
 
 /**
  * POST /api/estimate — Public endpoint for client-side estimate preview.
@@ -12,6 +13,14 @@ import { calculateEstimate } from "@/lib/estimation";
  */
 export async function POST(request: Request) {
   try {
+    const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    if (!publicApiLimiter.check(ip)) {
+      return NextResponse.json(
+        { error: "Zu viele Anfragen. Bitte versuchen Sie es später erneut." },
+        { status: 429 }
+      );
+    }
+
     const body = await request.json();
 
     const estimate = await calculateEstimate({

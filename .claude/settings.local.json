@@ -72,7 +72,19 @@
       "Bash(rm -rf admin)",
       "Bash(npx tsc:*)",
       "Bash(find /c/Workspace/nanachimi.digital/src/components/admin -type f -name *.tsx -o -name *.ts)",
-      "Bash(taskkill //F //IM node.exe)"
+      "Bash(taskkill //F //IM node.exe)",
+      "Bash(npx prisma:*)",
+      "Bash(curl -s -b \"ncd-admin-session=test\" http://localhost:3000/api/admin/analytics)",
+      "Bash(npx tsx -e \":*)",
+      "Bash(node -e \":*)",
+      "Bash(npx vitest:*)",
+      "Bash(ls C:/Workspace/nanachimi.digital/src/app/\\\\\\(public\\\\\\)/leistungen/*/)",
+      "Bash(rm -rf .next)",
+      "Bash(cmd /c \"rmdir /s /q .next\")",
+      "Bash(curl -s -X POST http://localhost:3000/api/angebot/ang_1774785951799_6t306f/payment -H \"Content-Type: application/json\" -d '{\"\"type\"\":\"\"tranche_1\"\"}')",
+      "Bash(gh run:*)",
+      "Bash(ls -la \"/c/Workspace/nanachimi.digital/src/app/\\(admin\\)/\")",
+      "Bash(node -e \"require\\(''libphonenumber-js''\\)\")"
     ]
   }
 }

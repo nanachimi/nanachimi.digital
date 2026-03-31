@@ -43,6 +43,11 @@ model Submission {
   domain       String?
   brandingInfo String?
 
+  // WhatsApp consent (DSGVO)
+  whatsappConsent        Boolean   @default(false)
+  whatsappConsentAt      DateTime?
+  whatsappConsentVersion String?
+
   // Flow
   naechsterSchritt String
   clientFeedback   String?
@@ -206,6 +211,8 @@ model PageView {
   id          String   @id @default(cuid())
   visitorId   String
   ip          String?  // Client IP for retroactive exclusion
+  country     String?  // ISO 3166-1 alpha-2 (e.g., "DE", "AT", "CH")
+  city        String?
   path        String
   referrer    String   @default("")
   utmSource   String?
@@ -218,6 +225,7 @@ model PageView {
   @@index([visitorId])
   @@index([timestamp])
   @@index([ip])
+  @@index([country])
 }
 
 // ---------------------------------------------------------------------------
@@ -338,17 +346,18 @@ model ExcludedIp {
 // ---------------------------------------------------------------------------
 
 model Job {
-  id          String    @id @default(cuid())
-  type        String    // "angebot_accepted_email"
-  payload     Json      // Aufgaben-spezifische Daten
-  status      String    @default("pending") // pending | processing | completed | failed
-  attempts    Int       @default(0)
-  maxAttempts Int       @default(5)
-  lastError   String?
-  nextRunAt   DateTime  @default(now())
-  completedAt DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id             String    @id @default(cuid())
+  type           String    // "angebot_accepted_email" | "whatsapp_customer_confirmation" | "whatsapp_internal_notification"
+  payload        Json      // Aufgaben-spezifische Daten
+  status         String    @default("pending") // pending | processing | completed | failed
+  attempts       Int       @default(0)
+  maxAttempts    Int       @default(5)
+  lastError      String?
+  idempotencyKey String?   @unique
+  nextRunAt      DateTime  @default(now())
+  completedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   @@index([status, nextRunAt])
   @@index([type])

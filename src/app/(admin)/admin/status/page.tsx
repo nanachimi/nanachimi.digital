@@ -102,7 +102,7 @@ export default function StatusPage() {
   }, [fetchHealth]);
 
   return (
-    <div className="space-y-6">
+    <div className="p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -123,9 +123,9 @@ export default function StatusPage() {
           <Button
             onClick={fetchHealth}
             disabled={loading}
-            variant="outline"
+            variant="ghost"
             size="sm"
-            className="border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+            className="border border-white/20 text-white/80 hover:text-white hover:bg-white/10"
           >
             <RefreshCw
               className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`}

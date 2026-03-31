@@ -19,6 +19,30 @@ function getClientIp(request: Request): string {
   );
 }
 
+/** Extract geo info from proxy/CDN headers or Accept-Language */
+function getGeoInfo(request: Request): { country?: string; city?: string } {
+  const headers = new Headers(request.headers);
+  // Cloudflare headers (if behind CF)
+  const cfCountry = headers.get("cf-ipcountry");
+  const cfCity = headers.get("cf-ipcity"); // CF Enterprise only
+  if (cfCountry && cfCountry !== "XX") {
+    return { country: cfCountry.toUpperCase(), city: cfCity || undefined };
+  }
+  // Vercel / generic headers
+  const xCountry = headers.get("x-vercel-ip-country") || headers.get("x-country-code");
+  const xCity = headers.get("x-vercel-ip-city") || headers.get("x-city");
+  if (xCountry) {
+    return { country: xCountry.toUpperCase(), city: xCity || undefined };
+  }
+  // Fallback: infer from Accept-Language (rough approximation)
+  const lang = headers.get("accept-language")?.split(",")[0]?.trim();
+  if (lang) {
+    const region = lang.match(/-([A-Z]{2})$/)?.[1];
+    if (region) return { country: region };
+  }
+  return {};
+}
+
 export async function POST(request: Request) {
   try {
     // Skip tracking for excluded IPs (admin-managed via DB)
@@ -31,6 +55,7 @@ export async function POST(request: Request) {
     }
 
     const clientIp = getClientIp(request);
+    const geo = getGeoInfo(request);
     const body = await request.json();
     const { type, ...data } = body;
 
@@ -40,6 +65,8 @@ export async function POST(request: Request) {
           id: data.id ?? crypto.randomUUID(),
           visitorId: data.visitorId ?? "",
           ip: clientIp || undefined,
+          country: geo.country,
+          city: geo.city,
           path: data.path ?? "/",
           referrer: data.referrer ?? "",
           utmSource: data.utmSource,

@@ -5,9 +5,8 @@ export const dynamic = "force-dynamic";
 /**
  * PATCH /api/bookings/[id]
  *
- * Admin: cancel a booking.
+ * Public: cancel a booking (e.g. customer cancellation link).
  * Body: { status: "cancelled" }
- * TODO: Add authentication check.
  */
 export async function PATCH(
   request: Request,

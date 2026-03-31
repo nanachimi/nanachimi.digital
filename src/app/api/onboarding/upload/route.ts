@@ -1,7 +1,25 @@
 import { NextResponse } from "next/server";
 import { uploadFile } from "@/lib/seaweedfs";
 import { prisma } from "@/lib/db";
+import { formLimiter } from "@/lib/auth/rate-limit";
 export const dynamic = "force-dynamic";
+
+/** Sanitize filename: remove path traversal, special chars, limit length */
+function sanitizeFilename(name: string): string {
+  // Extract basename (remove any directory components)
+  const basename = name.replace(/^.*[\\/]/, "");
+  // Remove null bytes and control characters
+  const clean = basename.replace(/[\x00-\x1f\x7f]/g, "");
+  // Replace unsafe characters but keep dots, hyphens, underscores
+  const safe = clean.replace(/[^a-zA-Z0-9._\-äöüÄÖÜß ]/g, "_");
+  // Collapse multiple underscores/spaces
+  const collapsed = safe.replace(/[_ ]{2,}/g, "_").trim();
+  // Limit length (keep extension intact)
+  const ext = collapsed.includes(".") ? "." + collapsed.split(".").pop()! : "";
+  const stem = collapsed.slice(0, collapsed.length - ext.length);
+  const maxStem = 200 - ext.length;
+  return (stem.length > maxStem ? stem.slice(0, maxStem) : stem) + ext || "upload";
+}
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 const MAX_FILES = 5;
@@ -69,15 +87,25 @@ export async function POST(request: Request) {
       );
     }
 
+    // Rate limit
+    const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    if (!formLimiter.check(ip)) {
+      return NextResponse.json(
+        { error: "Zu viele Anfragen. Bitte versuchen Sie es später erneut." },
+        { status: 429 }
+      );
+    }
+
     // Upload to SeaweedFS
+    const safeName = sanitizeFilename(file.name);
     const buffer = Buffer.from(await file.arrayBuffer());
-    const seaweedFid = await uploadFile(buffer, file.name, file.type);
+    const seaweedFid = await uploadFile(buffer, safeName, file.type);
 
     // Create SubmissionFile record
     const record = await prisma.submissionFile.create({
       data: {
         tempToken,
-        filename: file.name,
+        filename: safeName,
         fileSize: file.size,
         contentType: file.type,
         seaweedFid,

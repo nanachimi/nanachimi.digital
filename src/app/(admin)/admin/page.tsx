@@ -455,7 +455,7 @@ function SubmissionCard({
                   <Button
                     onClick={() => setShowAmendment(true)}
                     variant="ghost"
-                    className="text-[#8B8F97] hover:text-white hover:bg-white/5 rounded-xl"
+                    className="border border-white/20 text-white/80 hover:text-white hover:bg-white/10 rounded-xl"
                   >
                     <FileEdit className="mr-2 h-4 w-4" />
                     Bearbeiten
@@ -514,7 +514,7 @@ function BookingsPanel() {
   const fetchBookings = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/bookings");
+      const res = await fetch("/api/admin/bookings");
       const data = await res.json();
       setBookings(data.bookings || []);
     } catch {
@@ -531,7 +531,7 @@ function BookingsPanel() {
   async function handleCancel(id: string) {
     setCancelling(id);
     try {
-      await fetch(`/api/bookings/${id}`, {
+      await fetch(`/api/admin/bookings/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json; charset=utf-8" },
         body: JSON.stringify({ status: "cancelled" }),
@@ -917,7 +917,7 @@ export default function AdminPage() {
 
   return (
     <section className="min-h-screen bg-[#111318]">
-      <div className="container mx-auto px-4 py-8 md:px-6 md:py-12">
+      <div className="p-6 lg:p-8 max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
@@ -932,7 +932,7 @@ export default function AdminPage() {
             <Button
               onClick={activeTab === "anfragen" ? fetchSubmissions : undefined}
               variant="ghost"
-              className="text-[#8B8F97] hover:text-white hover:bg-white/5 rounded-xl"
+              className="border border-white/20 text-white/80 hover:text-white hover:bg-white/10 rounded-xl"
             >
               <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
               Aktualisieren
