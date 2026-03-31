@@ -28,9 +28,9 @@ export async function middleware(request: NextRequest) {
 
   // Only protect admin routes (excluding login & auth endpoints)
   const isAdminPage =
-    pathname.startsWith("/admin") &&
-    !pathname.startsWith("/admin/login") &&
-    !pathname.startsWith("/admin/setup-2fa");
+    pathname.startsWith("/backoffice") &&
+    !pathname.startsWith("/backoffice/login") &&
+    !pathname.startsWith("/backoffice/setup-2fa");
   const isAdminApi =
     pathname.startsWith("/api/admin") &&
     !pathname.startsWith("/api/admin/auth");
@@ -56,7 +56,7 @@ export async function middleware(request: NextRequest) {
     if (isAdminApi) {
       return NextResponse.json({ error: "Nicht autorisiert" }, { status: 401 });
     }
-    return NextResponse.redirect(new URL("/admin/login", request.url));
+    return NextResponse.redirect(new URL("/backoffice/login", request.url));
   }
 
   // Check expiry (absolute + inactivity)
@@ -69,7 +69,7 @@ export async function middleware(request: NextRequest) {
     if (isAdminApi) {
       return NextResponse.json({ error: "Sitzung abgelaufen" }, { status: 401 });
     }
-    return NextResponse.redirect(new URL("/admin/login", request.url));
+    return NextResponse.redirect(new URL("/backoffice/login", request.url));
   }
 
   // Password OK but 2FA not verified yet — redirect to TOTP
@@ -79,7 +79,7 @@ export async function middleware(request: NextRequest) {
     }
     // Check if TOTP is configured (env var or DB flag in session)
     const hasSecret = !!process.env.ADMIN_TOTP_SECRET || session.totpConfigured;
-    const redirect = hasSecret ? "/admin/login/totp" : "/admin/setup-2fa";
+    const redirect = hasSecret ? "/backoffice/login/totp" : "/backoffice/setup-2fa";
     return NextResponse.redirect(new URL(redirect, request.url));
   }
 

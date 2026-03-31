@@ -123,7 +123,7 @@ export default function NewABTestPage() {
       }
 
       const test = await res.json();
-      router.push(`/admin/ab-tests/${test.id}`);
+      router.push(`/backoffice/ab-tests/${test.id}`);
     } catch {
       setError("Netzwerkfehler");
     } finally {
@@ -136,7 +136,7 @@ export default function NewABTestPage() {
       {/* Header */}
       <div className="mb-8">
         <Link
-          href="/admin/ab-tests"
+          href="/backoffice/ab-tests"
           className="inline-flex items-center gap-1.5 text-sm text-zinc-500 hover:text-zinc-300 transition-colors mb-4"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -343,7 +343,7 @@ export default function NewABTestPage() {
             variant="outline"
             className="border-zinc-700 text-zinc-400 hover:text-white hover:bg-zinc-800"
           >
-            <Link href="/admin/ab-tests">Abbrechen</Link>
+            <Link href="/backoffice/ab-tests">Abbrechen</Link>
           </Button>
         </div>
       </div>

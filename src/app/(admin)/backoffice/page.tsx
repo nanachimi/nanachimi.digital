@@ -868,7 +868,7 @@ export default function AdminPage() {
 
   async function handleLogout() {
     await fetch("/api/admin/auth/logout", { method: "POST" });
-    router.push("/admin/login");
+    router.push("/backoffice/login");
   }
 
   const fetchSubmissions = useCallback(async () => {
@@ -927,7 +927,7 @@ export default function AdminPage() {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-2xl font-black tracking-tight text-white md:text-3xl">
-              Backoffice
+              Dashboard
             </h1>
             <p className="mt-1 text-sm text-[#8B8F97]">
               Anfragen bearbeiten und Angebote erstellen

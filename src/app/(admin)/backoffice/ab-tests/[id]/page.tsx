@@ -133,7 +133,7 @@ export default function ABTestDetailPage() {
         return res.json();
       })
       .then(setTest)
-      .catch(() => router.push("/admin/ab-tests"))
+      .catch(() => router.push("/backoffice/ab-tests"))
       .finally(() => setLoading(false));
   }, [testId, router]);
 
@@ -164,7 +164,7 @@ export default function ABTestDetailPage() {
     setActionLoading(true);
     try {
       await fetch(`/api/admin/ab-tests/${testId}`, { method: "DELETE" });
-      router.push("/admin/ab-tests");
+      router.push("/backoffice/ab-tests");
     } catch {
       setActionLoading(false);
     }
@@ -194,7 +194,7 @@ export default function ABTestDetailPage() {
     <div className="p-6 lg:p-8 max-w-7xl mx-auto">
       {/* Back link */}
       <Link
-        href="/admin/ab-tests"
+        href="/backoffice/ab-tests"
         className="inline-flex items-center gap-1.5 text-sm text-zinc-500 hover:text-zinc-300 transition-colors mb-4"
       >
         <ArrowLeft className="h-4 w-4" />

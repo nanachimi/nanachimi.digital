@@ -39,7 +39,7 @@ export default function TOTPVerifyPage() {
         return;
       }
 
-      router.push("/admin");
+      router.push("/backoffice");
     } catch {
       setError("Verbindungsfehler. Bitte erneut versuchen.");
     } finally {
@@ -106,7 +106,7 @@ export default function TOTPVerifyPage() {
 
           <button
             type="button"
-            onClick={() => router.push("/admin/login")}
+            onClick={() => router.push("/backoffice/login")}
             className="w-full flex items-center justify-center gap-2 text-zinc-400 hover:text-zinc-300 text-sm mt-4"
           >
             <ArrowLeft className="w-4 h-4" />

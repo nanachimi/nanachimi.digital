@@ -74,7 +74,7 @@ export default function ABTestsListPage() {
           </p>
         </div>
         <Button asChild className="bg-[#FFC62C] text-zinc-900 hover:bg-[#FFD54F] font-semibold">
-          <Link href="/admin/ab-tests/new">
+          <Link href="/backoffice/ab-tests/new">
             <Plus className="mr-2 h-4 w-4" />
             Neuer Test
           </Link>
@@ -97,7 +97,7 @@ export default function ABTestsListPage() {
             Erstellen Sie Ihren ersten Test, um UI-Varianten zu vergleichen.
           </p>
           <Button asChild className="bg-[#FFC62C] text-zinc-900 hover:bg-[#FFD54F]">
-            <Link href="/admin/ab-tests/new">
+            <Link href="/backoffice/ab-tests/new">
               <Plus className="mr-2 h-4 w-4" />
               Ersten Test erstellen
             </Link>
@@ -145,7 +145,7 @@ export default function ABTestsListPage() {
                   >
                     <td className="px-5 py-4">
                       <Link
-                        href={`/admin/ab-tests/${test.id}`}
+                        href={`/backoffice/ab-tests/${test.id}`}
                         className="text-white font-medium hover:text-[#FFC62C] transition-colors"
                       >
                         {test.name}

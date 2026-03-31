@@ -124,7 +124,7 @@ export default function Setup2FAPage() {
               )}
             </Button>
             <Button
-              onClick={() => router.push("/admin")}
+              onClick={() => router.push("/backoffice")}
               className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white"
             >
               Zum Dashboard

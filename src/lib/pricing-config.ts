@@ -1,5 +1,5 @@
 /**
- * Pricing Configuration Store — admin-editable via /admin/settings.
+ * Pricing Configuration Store — admin-editable via /backoffice/settings.
  *
  * Persisted in PostgreSQL via Prisma (PricingConfig table).
  * Falls back to DEFAULT_PRICING_CONFIG if no DB record exists.

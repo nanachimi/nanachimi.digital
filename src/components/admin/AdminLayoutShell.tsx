@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation";
 import { AdminSidebar } from "./AdminSidebar";
 
-const AUTH_PATHS = ["/admin/login", "/admin/setup-2fa"];
+const AUTH_PATHS = ["/backoffice/login", "/backoffice/setup-2fa"];
 
 export function AdminLayoutShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();

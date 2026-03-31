@@ -34,9 +34,9 @@ export default function AdminLoginPage() {
       }
 
       if (data.next === "totp") {
-        router.push("/admin/login/totp");
+        router.push("/backoffice/login/totp");
       } else if (data.next === "setup-2fa") {
-        router.push("/admin/setup-2fa");
+        router.push("/backoffice/setup-2fa");
       }
     } catch {
       setError("Verbindungsfehler. Bitte erneut versuchen.");

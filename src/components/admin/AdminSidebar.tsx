@@ -37,46 +37,46 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   {
     label: "Dashboard",
-    href: "/admin",
+    href: "/backoffice",
     icon: LayoutDashboard,
     exact: true,
     badgeKey: "dashboard",
   },
   {
     label: "A/B Tests",
-    href: "/admin/ab-tests",
+    href: "/backoffice/ab-tests",
     icon: FlaskConical,
     exact: false,
   },
   {
     label: "Analytics",
-    href: "/admin/analytics",
+    href: "/backoffice/analytics",
     icon: BarChart3,
     exact: false,
   },
   {
     label: "Termine",
-    href: "/admin/bookings",
+    href: "/backoffice/bookings",
     icon: Calendar,
     exact: false,
     badgeKey: "bookings",
   },
   {
     label: "Vorfälle",
-    href: "/admin/incidents",
+    href: "/backoffice/incidents",
     icon: AlertTriangle,
     exact: false,
     badgeKey: "incidents",
   },
   {
     label: "Einstellungen",
-    href: "/admin/settings",
+    href: "/backoffice/settings",
     icon: Settings,
     exact: false,
   },
   {
     label: "Systemstatus",
-    href: "/admin/status",
+    href: "/backoffice/status",
     icon: Activity,
     exact: false,
     badgeKey: "status",
@@ -135,9 +135,9 @@ export function AdminSidebar() {
   const handleLogout = async () => {
     try {
       await fetch("/api/admin/auth/logout", { method: "POST" });
-      router.push("/admin/login");
+      router.push("/backoffice/login");
     } catch {
-      router.push("/admin/login");
+      router.push("/backoffice/login");
     }
   };
 
