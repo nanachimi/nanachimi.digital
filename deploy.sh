@@ -143,7 +143,11 @@ cd "$APP_DIR"
 
 read_env() {
   local key="$1"
-  grep -E "^${key}=" "$APP_DIR/.env" | head -n1 | cut -d'=' -f2- | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//"
+  # Tolerant of missing keys under set -euo pipefail
+  local line
+  line=$(grep -E "^${key}=" "$APP_DIR/.env" 2>/dev/null | head -n1 || true)
+  [ -z "$line" ] && return 0
+  echo "${line#*=}" | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//"
 }
 
 NEXT_PUBLIC_SITE_URL_VAL=$(read_env NEXT_PUBLIC_SITE_URL)
