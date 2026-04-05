@@ -51,6 +51,9 @@
 }
 
 @layer base {
+  html {
+    zoom: 1.25;
+  }
   * {
     @apply border-border;
   }

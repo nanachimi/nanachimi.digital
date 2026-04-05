@@ -281,7 +281,7 @@ export function Hero() {
   }, [trackImpression]);
 
   return (
-    <section className="relative min-h-screen flex items-center overflow-hidden bg-[#111318]">
+    <section className="relative min-h-screen flex items-start pt-24 md:pt-28 lg:pt-20 overflow-hidden bg-[#111318]">
       {/* Background layers */}
       <div className="absolute inset-0">
         {/* Radial gold glow - top right */}
