@@ -36,20 +36,24 @@ cd nanachimi.digital
 # 2. Install dependencies
 npm install
 
-# 3. Environment variables
+# 3. Start prerequisite containers
+docker compose up -d db
+# Starts PostgreSQL 16 on port 5432 (nanachimi:nanachimi)
+
+# 4. Environment variables
 cp .env.example .env
 # Edit .env with your values (see Environment Variables section below)
 
-# 4. Generate Prisma client
+# 5. Generate Prisma client
 npx prisma generate
 
-# 5. Push schema to database
+# 6. Push schema to database
 npx prisma db push
 
-# 6. Seed default data (pricing config, availability slots)
+# 7. Seed default data (pricing config, availability slots)
 npx prisma db seed
 
-# 7. Start dev server
+# 8. Start dev server
 npm run dev
 ```
 

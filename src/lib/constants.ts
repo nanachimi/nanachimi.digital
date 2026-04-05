@@ -5,7 +5,7 @@ export const SITE_CONFIG = {
     "Wir bauen Web- und Mobile-Apps, die schnell live gehen. Vom Onboarding bis zur ersten Live-Version in 48 Stunden.",
   contactEmail: "info@nanachimi.digital",
   founder: "Achille Nana Chimi",
-  location: "Mannheim, Deutschland",
+  location: "67227 Frankenthal, Deutschland",
 } as const;
 
 export const NAV_ITEMS = [

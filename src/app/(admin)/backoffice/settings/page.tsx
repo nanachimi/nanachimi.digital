@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Save, RotateCcw, AlertTriangle, Check, Plus, X, Shield } from "lucide-react";
+import { Save, RotateCcw, AlertTriangle, Check, Plus, X, Shield, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface PricingConfig {
@@ -80,6 +80,25 @@ function NumberInput({
   );
 }
 
+interface CompanySettings {
+  companyName: string;
+  ownerName: string;
+  street: string;
+  plz: string;
+  city: string;
+  country: string;
+  email: string;
+  phone: string | null;
+  website: string;
+  steuernummer: string;
+  ustIdNr: string | null;
+  vatRate: number;
+  iban: string;
+  bic: string;
+  bankName: string;
+  kontoinhaber: string;
+}
+
 interface ExcludedIp {
   id: string;
   ip: string;
@@ -94,6 +113,11 @@ export default function SettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
+  // Company settings state
+  const [company, setCompany] = useState<CompanySettings | null>(null);
+  const [companySaving, setCompanySaving] = useState(false);
+  const [companySuccess, setCompanySuccess] = useState(false);
+
   // Excluded IPs state
   const [excludedIps, setExcludedIps] = useState<ExcludedIp[]>([]);
   const [newIp, setNewIp] = useState("");
@@ -103,15 +127,19 @@ export default function SettingsPage() {
 
   const fetchConfig = useCallback(async () => {
     try {
-      const [configRes, ipsRes] = await Promise.all([
+      const [configRes, ipsRes, companyRes] = await Promise.all([
         fetch("/api/admin/settings/pricing"),
         fetch("/api/admin/settings/excluded-ips"),
+        fetch("/api/admin/settings/company"),
       ]);
       if (!configRes.ok) throw new Error("Laden fehlgeschlagen");
       const data = await configRes.json();
       setConfig(data);
       if (ipsRes.ok) {
         setExcludedIps(await ipsRes.json());
+      }
+      if (companyRes.ok) {
+        setCompany(await companyRes.json());
       }
     } catch (err) {
       setError("Konfiguration konnte nicht geladen werden");
@@ -189,6 +217,31 @@ export default function SettingsPage() {
     } finally {
       setSaving(false);
     }
+  }
+
+  async function handleCompanySave() {
+    if (!company) return;
+    setCompanySaving(true);
+    try {
+      const res = await fetch("/api/admin/settings/company", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(company),
+      });
+      if (!res.ok) throw new Error("Speichern fehlgeschlagen");
+      const updated = await res.json();
+      setCompany(updated);
+      setCompanySuccess(true);
+      setTimeout(() => setCompanySuccess(false), 3000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Speichern fehlgeschlagen");
+    } finally {
+      setCompanySaving(false);
+    }
+  }
+
+  function updateCompany(partial: Partial<CompanySettings>) {
+    setCompany((prev) => (prev ? { ...prev, ...partial } : prev));
   }
 
   function updateConfig(partial: Partial<PricingConfig>) {
@@ -535,6 +588,133 @@ export default function SettingsPage() {
             Über Höchstpreis: Admin muss manuell Angebot erstellen.
           </p>
         </SectionCard>
+
+        {/* Company Settings (Firmendaten) */}
+        {company && (
+          <SectionCard title="Firmendaten">
+            <div className="flex items-start gap-2 mb-4 text-sm text-[#8B8F97]">
+              <Building2 className="h-4 w-4 mt-0.5 shrink-0 text-[#FFC62C]" />
+              <p>
+                Diese Daten erscheinen auf Angeboten, Rechnungen und E-Mails.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              <div>
+                <label className="text-xs text-[#8B8F97] mb-1 block">Firmenname</label>
+                <input type="text" value={company.companyName} onChange={(e) => updateCompany({ companyName: e.target.value })} className="w-full rounded-lg bg-white/[0.06] border border-white/[0.1] px-3 py-2 text-sm text-white focus:border-[#FFC62C]/50 focus:outline-none" />
+              </div>
+              <div>
+                <label className="text-xs text-[#8B8F97] mb-1 block">Inhaber / Name</label>
+                <input type="text" value={company.ownerName} onChange={(e) => updateCompany({ ownerName: e.target.value })} className="w-full rounded-lg bg-white/[0.06] border border-white/[0.1] px-3 py-2 text-sm text-white focus:border-[#FFC62C]/50 focus:outline-none" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4 mb-4">
+              <div>
+                <label className="text-xs text-[#8B8F97] mb-1 block">Straße</label>
+                <input type="text" value={company.street} onChange={(e) => updateCompany({ street: e.target.value })} className="w-full rounded-lg bg-white/[0.06] border border-white/[0.1] px-3 py-2 text-sm text-white focus:border-[#FFC62C]/50 focus:outline-none" />
+              </div>
+              <div>
+                <label className="text-xs text-[#8B8F97] mb-1 block">PLZ</label>
+                <input type="text" value={company.plz} onChange={(e) => updateCompany({ plz: e.target.value })} className="w-full rounded-lg bg-white/[0.06] border border-white/[0.1] px-3 py-2 text-sm text-white focus:border-[#FFC62C]/50 focus:outline-none" />
+              </div>
+              <div>
+                <label className="text-xs text-[#8B8F97] mb-1 block">Stadt</label>
+                <input type="text" value={company.city} onChange={(e) => updateCompany({ city: e.target.value })} className="w-full rounded-lg bg-white/[0.06] border border-white/[0.1] px-3 py-2 text-sm text-white focus:border-[#FFC62C]/50 focus:outline-none" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              <div>
+                <label className="text-xs text-[#8B8F97] mb-1 block">Land</label>
+                <input type="text" value={company.country} onChange={(e) => updateCompany({ country: e.target.value })} className="w-full rounded-lg bg-white/[0.06] border border-white/[0.1] px-3 py-2 text-sm text-white focus:border-[#FFC62C]/50 focus:outline-none" />
+              </div>
+              <div>
+                <label className="text-xs text-[#8B8F97] mb-1 block">Website</label>
+                <input type="text" value={company.website} onChange={(e) => updateCompany({ website: e.target.value })} className="w-full rounded-lg bg-white/[0.06] border border-white/[0.1] px-3 py-2 text-sm text-white focus:border-[#FFC62C]/50 focus:outline-none" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              <div>
+                <label className="text-xs text-[#8B8F97] mb-1 block">E-Mail</label>
+                <input type="email" value={company.email} onChange={(e) => updateCompany({ email: e.target.value })} className="w-full rounded-lg bg-white/[0.06] border border-white/[0.1] px-3 py-2 text-sm text-white focus:border-[#FFC62C]/50 focus:outline-none" />
+              </div>
+              <div>
+                <label className="text-xs text-[#8B8F97] mb-1 block">Telefon (optional)</label>
+                <input type="text" value={company.phone ?? ""} onChange={(e) => updateCompany({ phone: e.target.value || null })} className="w-full rounded-lg bg-white/[0.06] border border-white/[0.1] px-3 py-2 text-sm text-white focus:border-[#FFC62C]/50 focus:outline-none" />
+              </div>
+            </div>
+
+            <div className="border-t border-white/[0.06] my-4 pt-4">
+              <p className="text-xs text-[#8B8F97] font-bold uppercase tracking-wider mb-3">Steuer</p>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4 mb-4">
+              <div>
+                <label className="text-xs text-[#8B8F97] mb-1 block">Steuernummer</label>
+                <input type="text" value={company.steuernummer} onChange={(e) => updateCompany({ steuernummer: e.target.value })} className="w-full rounded-lg bg-white/[0.06] border border-white/[0.1] px-3 py-2 text-sm text-white focus:border-[#FFC62C]/50 focus:outline-none" />
+              </div>
+              <div>
+                <label className="text-xs text-[#8B8F97] mb-1 block">USt-IdNr. (optional)</label>
+                <input type="text" value={company.ustIdNr ?? ""} onChange={(e) => updateCompany({ ustIdNr: e.target.value || null })} placeholder="DE..." className="w-full rounded-lg bg-white/[0.06] border border-white/[0.1] px-3 py-2 text-sm text-white placeholder:text-[#5a5e66] focus:border-[#FFC62C]/50 focus:outline-none" />
+              </div>
+              <div>
+                <label className="text-xs text-[#8B8F97] mb-1 block">MwSt-Satz (%)</label>
+                <input type="number" value={company.vatRate} onChange={(e) => updateCompany({ vatRate: Number(e.target.value) })} min={0} max={100} className="w-full rounded-lg bg-white/[0.06] border border-white/[0.1] px-3 py-2 text-sm text-white text-right focus:border-[#FFC62C]/50 focus:outline-none" />
+              </div>
+            </div>
+
+            <div className="border-t border-white/[0.06] my-4 pt-4">
+              <p className="text-xs text-[#8B8F97] font-bold uppercase tracking-wider mb-3">Bankverbindung</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              <div>
+                <label className="text-xs text-[#8B8F97] mb-1 block">Kontoinhaber</label>
+                <input type="text" value={company.kontoinhaber} onChange={(e) => updateCompany({ kontoinhaber: e.target.value })} className="w-full rounded-lg bg-white/[0.06] border border-white/[0.1] px-3 py-2 text-sm text-white focus:border-[#FFC62C]/50 focus:outline-none" />
+              </div>
+              <div>
+                <label className="text-xs text-[#8B8F97] mb-1 block">Bank</label>
+                <input type="text" value={company.bankName} onChange={(e) => updateCompany({ bankName: e.target.value })} className="w-full rounded-lg bg-white/[0.06] border border-white/[0.1] px-3 py-2 text-sm text-white focus:border-[#FFC62C]/50 focus:outline-none" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              <div>
+                <label className="text-xs text-[#8B8F97] mb-1 block">IBAN</label>
+                <input type="text" value={company.iban} onChange={(e) => updateCompany({ iban: e.target.value })} className="w-full rounded-lg bg-white/[0.06] border border-white/[0.1] px-3 py-2 text-sm text-white font-mono focus:border-[#FFC62C]/50 focus:outline-none" />
+              </div>
+              <div>
+                <label className="text-xs text-[#8B8F97] mb-1 block">BIC</label>
+                <input type="text" value={company.bic} onChange={(e) => updateCompany({ bic: e.target.value })} className="w-full rounded-lg bg-white/[0.06] border border-white/[0.1] px-3 py-2 text-sm text-white font-mono focus:border-[#FFC62C]/50 focus:outline-none" />
+              </div>
+            </div>
+
+            <div className="flex justify-end mt-4">
+              <Button
+                onClick={handleCompanySave}
+                disabled={companySaving}
+                className="bg-[#FFC62C] text-[#111318] hover:bg-[#e6b228] font-bold"
+              >
+                {companySaving ? (
+                  "Speichern..."
+                ) : companySuccess ? (
+                  <>
+                    <Check className="h-4 w-4 mr-2" />
+                    Gespeichert
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4 mr-2" />
+                    Firmendaten speichern
+                  </>
+                )}
+              </Button>
+            </div>
+          </SectionCard>
+        )}
 
         {/* Excluded IPs */}
         <SectionCard title="Analytics — Ausgeschlossene IPs">
