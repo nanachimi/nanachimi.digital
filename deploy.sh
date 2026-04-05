@@ -7,11 +7,14 @@
 
 set -euo pipefail
 
-APP_DIR="/opt/nanachimi"
+APP_DIR="/opt/nanachimi-digital"
 REPO_URL="https://github.com/nanachimi/nanachimi.digital.git"
-NETWORK="nanachimi-network"
-DB_CONTAINER="nanachimi-db"
-APP_CONTAINER="nanachimi-app"
+NETWORK="nanachimi-digital-network"
+DB_CONTAINER="nanachimi-digital-prod-db"
+APP_CONTAINER="nanachimi-digital-prod-app"
+DB_USER="nanachimi_digital"
+DB_NAME="nanachimi_digital"
+DB_VOLUME="nanachimi-digital-pgdata"
 
 echo "============================================"
 echo "  nanachimi.digital — Production Deployment"
@@ -75,21 +78,21 @@ if ! docker ps --format '{{.Names}}' | grep -q "^${DB_CONTAINER}$"; then
   echo "▶ Starting PostgreSQL..."
 
   # Read DB password from .env
-  DB_PASS=$(grep -oP 'POSTGRES_PASSWORD=\K.*' "$APP_DIR/.env" 2>/dev/null || echo "nanachimi_prod")
+  DB_PASS=$(grep -oP 'POSTGRES_PASSWORD=\K.*' "$APP_DIR/.env" 2>/dev/null || echo "nanachimi_digital_prod")
 
   docker run -d \
     --name "$DB_CONTAINER" \
     --network "$NETWORK" \
     --restart unless-stopped \
-    -e POSTGRES_USER=nanachimi \
+    -e POSTGRES_USER="$DB_USER" \
     -e POSTGRES_PASSWORD="$DB_PASS" \
-    -e POSTGRES_DB=nanachimi \
-    -v nanachimi-pgdata:/var/lib/postgresql/data \
+    -e POSTGRES_DB="$DB_NAME" \
+    -v "$DB_VOLUME":/var/lib/postgresql/data \
     postgres:16-alpine
 
   echo "  Waiting for PostgreSQL to be ready..."
   for i in $(seq 1 15); do
-    if docker exec "$DB_CONTAINER" pg_isready -U nanachimi > /dev/null 2>&1; then
+    if docker exec "$DB_CONTAINER" pg_isready -U "$DB_USER" > /dev/null 2>&1; then
       echo "  ✓ PostgreSQL is ready"
       break
     fi
@@ -103,7 +106,7 @@ fi
 echo "▶ Backing up database..."
 mkdir -p "$APP_DIR/backups"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-docker exec "$DB_CONTAINER" pg_dump -U nanachimi nanachimi \
+docker exec "$DB_CONTAINER" pg_dump -U "$DB_USER" "$DB_NAME" \
   | gzip > "$APP_DIR/backups/pre_deploy_${TIMESTAMP}.sql.gz" 2>/dev/null || true
 # Keep last 10 backups
 cd "$APP_DIR/backups" && ls -t *.sql.gz 2>/dev/null | tail -n +11 | xargs rm -f 2>/dev/null || true
@@ -112,21 +115,21 @@ echo "  ✓ Backup: pre_deploy_${TIMESTAMP}.sql.gz"
 # ─── 7. Build Docker image ────────────────────────────────────────
 echo "▶ Building Docker image (this may take a few minutes)..."
 cd "$APP_DIR"
-docker build -t nanachimi-digital:latest . --quiet
-echo "  ✓ Image built: nanachimi-digital:latest"
+docker build -t nanachimi-digital-prod:latest . --quiet
+echo "  ✓ Image built: nanachimi-digital-prod:latest"
 
 # ─── 8. Run database migrations ───────────────────────────────────
 echo "▶ Running database migrations..."
 docker run --rm \
   --network "$NETWORK" \
   --env-file "$APP_DIR/.env" \
-  nanachimi-digital:latest \
+  nanachimi-digital-prod:latest \
   npx prisma db execute --file prisma/migrations/001_backfill_idempotency_key.sql 2>/dev/null || true
 docker run --rm \
   --network "$NETWORK" \
   --env-file "$APP_DIR/.env" \
-  nanachimi-digital:latest \
-  npx prisma db push --accept-data-loss
+  nanachimi-digital-prod:latest \
+  npx prisma db push
 echo "  ✓ Database schema up to date"
 
 # ─── 9. Seed database (only if empty) ─────────────────────────────
@@ -134,7 +137,7 @@ echo "▶ Seeding database..."
 docker run --rm \
   --network "$NETWORK" \
   --env-file "$APP_DIR/.env" \
-  nanachimi-digital:latest \
+  nanachimi-digital-prod:latest \
   npx prisma db seed 2>/dev/null || true
 echo "  ✓ Database seeded"
 
@@ -229,6 +232,6 @@ echo "  Local:  http://localhost:3000"
 echo "  Public: https://nanachimi.digital"
 echo ""
 echo "  Container: docker logs $APP_CONTAINER"
-echo "  Database:  docker exec -it $DB_CONTAINER psql -U nanachimi nanachimi"
+echo "  Database:  docker exec -it $DB_CONTAINER psql -U $DB_USER $DB_NAME"
 echo "  Backup:    $APP_DIR/backups/"
 echo ""
