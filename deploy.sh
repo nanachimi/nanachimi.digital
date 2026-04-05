@@ -1,11 +1,30 @@
 #!/bin/bash
 # ============================================================================
 # nanachimi.digital — Production Deployment Script
-# Run this on your Hetzner VPS to deploy from master branch
-# Usage: bash deploy.sh
+#
+# Two modes:
+#   1. PULL mode (REGISTRY_IMAGE env var set) — production: only runs
+#      pre-built images from the registry. No source code, no build.
+#      Example: REGISTRY_IMAGE=128.140.33.184:5000/nanachimi-digital:sha-xxxx bash deploy.sh
+#
+#   2. BUILD mode (REGISTRY_IMAGE unset) — dev/manual: clones source,
+#      builds image locally, runs it.
+#
+# Both modes: manage db + seaweedfs + caddy, backup DB, run migrations,
+# and restart app container. Never touch $APP_DIR/data/.
 # ============================================================================
 
 set -euo pipefail
+
+# ── Mode selection ──────────────────────────────────────────────────
+REGISTRY_IMAGE="${REGISTRY_IMAGE:-}"
+if [ -n "$REGISTRY_IMAGE" ]; then
+  DEPLOY_MODE="pull"
+  APP_IMAGE="$REGISTRY_IMAGE"
+else
+  DEPLOY_MODE="build"
+  APP_IMAGE="nanachimi-digital-prod:latest"
+fi
 
 # ── Identifiers — all prefixed with `nanachimi-digital-prod-*` ──────
 APP_DIR="/opt/nanachimi-digital"
@@ -51,9 +70,14 @@ fi
 
 echo "  ✓ Docker $(docker --version | grep -oP '\d+\.\d+\.\d+')"
 echo "  ✓ Git $(git --version | grep -oP '\d+\.\d+\.\d+')"
+echo "  ▸ Mode: $DEPLOY_MODE ($APP_IMAGE)"
 
-# ─── 2. Clone or pull repo ────────────────────────────────────────
-if [ -d "$APP_DIR/.git" ]; then
+# ─── 2. Source code (BUILD mode only) ─────────────────────────────
+mkdir -p "$APP_DIR"
+if [ "$DEPLOY_MODE" = "pull" ]; then
+  echo "▶ PULL mode — skipping source clone/build"
+  cd "$APP_DIR"
+elif [ -d "$APP_DIR/.git" ]; then
   echo "▶ Pulling latest master..."
   cd "$APP_DIR"
   git fetch origin
@@ -91,16 +115,21 @@ if [ -f "$APP_DIR/.env" ]; then
   echo "  ✓ .env file exists (preserving current values)"
 else
   echo ""
-  echo "⚠️  No .env file found!"
-  echo "   Creating from .env.example — you MUST edit it with real values:"
-  echo ""
-  cp "$APP_DIR/.env.example" "$APP_DIR/.env"
-  chmod 600 "$APP_DIR/.env"
-  echo "   nano $APP_DIR/.env"
+  echo "⚠️  No .env file found at $APP_DIR/.env"
+  if [ -f "$APP_DIR/.env.example" ]; then
+    cp "$APP_DIR/.env.example" "$APP_DIR/.env"
+    chmod 600 "$APP_DIR/.env"
+    echo "   Template copied from .env.example."
+  else
+    touch "$APP_DIR/.env"
+    chmod 600 "$APP_DIR/.env"
+    echo "   Empty file created (no template available in PULL mode)."
+  fi
+  echo "   Edit it: sudo nano $APP_DIR/.env"
   echo ""
   echo "   Required: DATABASE_URL, POSTGRES_PASSWORD, SESSION_SECRET,"
   echo "             ADMIN_USERNAME, ADMIN_PASSWORD, NEXT_PUBLIC_SITE_URL"
-  echo "   Then re-run: bash deploy.sh"
+  echo "   Then re-run this script."
   exit 1
 fi
 
@@ -218,34 +247,39 @@ docker exec "$DB_CONTAINER" pg_dump -U "$DB_USER" "$DB_NAME" \
 cd "$APP_DIR/backups" && ls -t *.sql.gz 2>/dev/null | tail -n +11 | xargs rm -f 2>/dev/null || true
 echo "  ✓ Backup: pre_deploy_${TIMESTAMP}.sql.gz"
 
-# ─── 7. Build Docker image ────────────────────────────────────────
-# Read NEXT_PUBLIC_* from .env and pass as --build-arg so they are
-# inlined into the browser bundle. Server-side secrets stay out of
-# the image (they ship via --env-file at runtime).
-echo "▶ Building Docker image (this may take a few minutes)..."
-cd "$APP_DIR"
+# ─── 7. Obtain app image (PULL or BUILD) ──────────────────────────
+if [ "$DEPLOY_MODE" = "pull" ]; then
+  echo "▶ Pulling image from registry: $APP_IMAGE"
+  docker pull "$APP_IMAGE"
+  echo "  ✓ Image pulled: $APP_IMAGE"
+else
+  # Read NEXT_PUBLIC_* from .env and pass as --build-arg so they are
+  # inlined into the browser bundle. Server-side secrets stay out of
+  # the image (they ship via --env-file at runtime).
+  echo "▶ Building Docker image (this may take a few minutes)..."
+  cd "$APP_DIR"
 
-read_env() {
-  local key="$1"
-  # Tolerant of missing keys under set -euo pipefail
-  local line
-  line=$(grep -E "^${key}=" "$APP_DIR/.env" 2>/dev/null | head -n1 || true)
-  [ -z "$line" ] && return 0
-  echo "${line#*=}" | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//"
-}
+  read_env() {
+    local key="$1"
+    local line
+    line=$(grep -E "^${key}=" "$APP_DIR/.env" 2>/dev/null | head -n1 || true)
+    [ -z "$line" ] && return 0
+    echo "${line#*=}" | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//"
+  }
 
-NEXT_PUBLIC_SITE_URL_VAL=$(read_env NEXT_PUBLIC_SITE_URL)
+  NEXT_PUBLIC_SITE_URL_VAL=$(read_env NEXT_PUBLIC_SITE_URL)
 
-if [ -z "$NEXT_PUBLIC_SITE_URL_VAL" ]; then
-  echo "  ❌ NEXT_PUBLIC_SITE_URL is missing from .env — required for build"
-  exit 1
+  if [ -z "$NEXT_PUBLIC_SITE_URL_VAL" ]; then
+    echo "  ❌ NEXT_PUBLIC_SITE_URL is missing from .env — required for build"
+    exit 1
+  fi
+
+  docker build \
+    --build-arg NEXT_PUBLIC_SITE_URL="$NEXT_PUBLIC_SITE_URL_VAL" \
+    -t "$APP_IMAGE" .
+  echo "  ✓ Image built: $APP_IMAGE"
+  echo "    · NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL_VAL"
 fi
-
-docker build \
-  --build-arg NEXT_PUBLIC_SITE_URL="$NEXT_PUBLIC_SITE_URL_VAL" \
-  -t nanachimi-digital-prod:latest .
-echo "  ✓ Image built: nanachimi-digital-prod:latest"
-echo "    · NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL_VAL"
 
 # ─── 8. Run database migrations ───────────────────────────────────
 # Call the local prisma binary baked into the image directly (NOT npx)
@@ -259,7 +293,7 @@ docker run --rm \
   --env-file "$APP_DIR/.env" \
   --workdir /app \
   --entrypoint sh \
-  nanachimi-digital-prod:latest \
+  "$APP_IMAGE" \
   -c "$PRISMA_BIN db execute $SCHEMA_ARG --file /app/prisma/migrations/001_backfill_idempotency_key.sql" \
   2>/dev/null || true
 
@@ -268,7 +302,7 @@ docker run --rm \
   --env-file "$APP_DIR/.env" \
   --workdir /app \
   --entrypoint sh \
-  nanachimi-digital-prod:latest \
+  "$APP_IMAGE" \
   -c "$PRISMA_BIN db push $SCHEMA_ARG"
 echo "  ✓ Database schema up to date"
 
@@ -279,7 +313,7 @@ docker run --rm \
   --env-file "$APP_DIR/.env" \
   --workdir /app \
   --entrypoint sh \
-  nanachimi-digital-prod:latest \
+  "$APP_IMAGE" \
   -c "$PRISMA_BIN db seed $SCHEMA_ARG" \
   2>/dev/null || true
 echo "  ✓ Database seeded"
@@ -297,7 +331,7 @@ docker run -d \
   --restart unless-stopped \
   -p 3000:3000 \
   --env-file "$APP_DIR/.env" \
-  nanachimi-digital-prod:latest
+  "$APP_IMAGE"
 
 # ─── 12. Health check ─────────────────────────────────────────────
 echo "▶ Running health check..."
