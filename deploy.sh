@@ -46,28 +46,41 @@ if [ -d "$APP_DIR/.git" ]; then
   git fetch origin
   git checkout master
   git reset --hard origin/master
+elif [ -d "$APP_DIR" ] && [ -n "$(ls -A "$APP_DIR" 2>/dev/null)" ]; then
+  # Directory exists and is non-empty but no .git (e.g. half-finished prior run).
+  # Init git in place so we DO NOT destroy any existing .env or backups.
+  echo "▶ Directory $APP_DIR exists without .git — initializing in place..."
+  cd "$APP_DIR"
+  git init -q
+  git remote add origin "$REPO_URL" 2>/dev/null || git remote set-url origin "$REPO_URL"
+  git fetch origin master
+  git checkout -f -B master origin/master
 else
   echo "▶ Cloning repository..."
+  mkdir -p "$(dirname "$APP_DIR")"
   git clone "$REPO_URL" "$APP_DIR"
   cd "$APP_DIR"
   git checkout master
 fi
 
 # ─── 3. Check .env ────────────────────────────────────────────────
-if [ ! -f "$APP_DIR/.env" ]; then
+# IMPORTANT: never overwrite an existing .env — production secrets must survive deploys.
+if [ -f "$APP_DIR/.env" ]; then
+  echo "  ✓ .env file exists (preserving current values)"
+else
   echo ""
   echo "⚠️  No .env file found!"
   echo "   Creating from .env.example — you MUST edit it with real values:"
   echo ""
   cp "$APP_DIR/.env.example" "$APP_DIR/.env"
+  chmod 600 "$APP_DIR/.env"
   echo "   nano $APP_DIR/.env"
   echo ""
-  echo "   Required: DATABASE_URL, SESSION_SECRET, ADMIN_USERNAME, ADMIN_PASSWORD"
+  echo "   Required: DATABASE_URL, POSTGRES_PASSWORD, SESSION_SECRET,"
+  echo "             ADMIN_USERNAME, ADMIN_PASSWORD, NEXT_PUBLIC_SITE_URL"
   echo "   Then re-run: bash deploy.sh"
   exit 1
 fi
-
-echo "  ✓ .env file exists"
 
 # ─── 4. Docker network ────────────────────────────────────────────
 echo "▶ Creating Docker network..."
@@ -173,49 +186,41 @@ for i in $(seq 1 6); do
   sleep 5
 done
 
-# ─── 13. Nginx reverse proxy check ────────────────────────────────
-if command -v nginx &> /dev/null; then
-  if [ ! -f /etc/nginx/sites-available/nanachimi.digital ]; then
-    echo ""
-    echo "▶ Setting up Nginx reverse proxy..."
-    cat > /etc/nginx/sites-available/nanachimi.digital <<'NGINX'
-server {
-    listen 80;
-    server_name nanachimi.digital www.nanachimi.digital;
+# ─── 13. Caddy reverse proxy (auto-HTTPS via Let's Encrypt) ───────
+CADDYFILE="/etc/caddy/Caddyfile"
+if ! command -v caddy &> /dev/null; then
+  echo "▶ Installing Caddy..."
+  apt-get install -y debian-keyring debian-archive-keyring apt-transport-https curl >/dev/null 2>&1
+  curl -1sSLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' \
+    | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg 2>/dev/null
+  curl -1sSLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' \
+    > /etc/apt/sources.list.d/caddy-stable.list 2>/dev/null
+  apt-get update -qq
+  apt-get install -y caddy >/dev/null
+  echo "  ✓ Caddy installed"
+fi
 
-    location / {
-        proxy_pass http://localhost:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_cache_bypass $http_upgrade;
-    }
+# Write Caddyfile only if missing or if reverse_proxy target changed
+DESIRED_CADDYFILE=$(cat <<'CADDY'
+nanachimi.digital, www.nanachimi.digital {
+    encode zstd gzip
+    reverse_proxy localhost:3000
 }
-NGINX
-    ln -sf /etc/nginx/sites-available/nanachimi.digital /etc/nginx/sites-enabled/
-    nginx -t && systemctl reload nginx
-    echo "  ✓ Nginx configured"
+CADDY
+)
 
-    # SSL with Certbot
-    if command -v certbot &> /dev/null; then
-      echo "▶ Setting up SSL certificate..."
-      certbot --nginx -d nanachimi.digital -d www.nanachimi.digital --non-interactive --agree-tos --email info@nanachimi.digital 2>/dev/null || true
-      echo "  ✓ SSL configured"
-    else
-      echo "  ⚠️  Install certbot for HTTPS: apt install certbot python3-certbot-nginx"
-    fi
-  else
-    echo "  ✓ Nginx already configured"
-  fi
+if [ ! -f "$CADDYFILE" ] || ! diff -q <(echo "$DESIRED_CADDYFILE") "$CADDYFILE" > /dev/null 2>&1; then
+  echo "▶ Configuring Caddy..."
+  echo "$DESIRED_CADDYFILE" > "$CADDYFILE"
+  caddy validate --config "$CADDYFILE" --adapter caddyfile > /dev/null 2>&1 || {
+    echo "  ❌ Caddyfile validation failed"
+    exit 1
+  }
+  systemctl reload caddy 2>/dev/null || systemctl restart caddy
+  systemctl enable caddy > /dev/null 2>&1 || true
+  echo "  ✓ Caddy configured (auto-HTTPS via Let's Encrypt)"
 else
-  echo ""
-  echo "  ⚠️  Nginx not installed. Install it for HTTPS:"
-  echo "     apt install nginx certbot python3-certbot-nginx"
-  echo "     Then re-run: bash deploy.sh"
+  echo "  ✓ Caddy already configured"
 fi
 
 # ─── 14. Cleanup ──────────────────────────────────────────────────
