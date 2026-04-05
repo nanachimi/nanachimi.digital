@@ -11,6 +11,7 @@ interface Props {
   aufwand: number;
   initialStatus: "idle" | "accepted";
   betriebUndWartung?: string; // from submission: "ja" | "teilweise" | "nein" | "unsicher"
+  isPaid?: boolean;
 }
 
 const formatter = new Intl.NumberFormat("de-DE", {
@@ -30,6 +31,7 @@ export function AngebotPricing({
   festpreis,
   aufwand,
   initialStatus,
+  isPaid = false,
 }: Props) {
   const [selectedPackage, setSelectedPackage] = useState<number | null>(null);
 
@@ -92,13 +94,15 @@ export function AngebotPricing({
           ))}
         </div>
 
-        <p className="text-sm text-[#8B8F97] mb-4">
-          Sorgenfrei weiterarbeiten? Wählen Sie ein Betreuungspaket — der
-          Betrag wird automatisch zum Festpreis addiert.
-        </p>
+        {!isPaid && (
+          <p className="text-sm text-[#8B8F97] mb-4">
+            Sorgenfrei weiterarbeiten? Wählen Sie ein Betreuungspaket — der
+            Betrag wird automatisch zum Festpreis addiert.
+          </p>
+        )}
 
         {/* Package selector */}
-        <div className="space-y-2.5">
+        <div className={`space-y-2.5${isPaid ? " opacity-50 pointer-events-none" : ""}`}>
           {/* No package option */}
           <button
             type="button"

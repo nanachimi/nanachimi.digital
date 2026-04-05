@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Check, X, Clock, FileText, CalendarDays, Package } from "lucide-react";
 import { getSubmissionById } from "@/lib/submissions";
 import { getAngebotById } from "@/lib/angebote";
+import { prisma } from "@/lib/db";
 import { AngebotPricing } from "@/components/onboarding/AngebotPricing";
 
 interface PageProps {
@@ -133,6 +134,14 @@ export default async function AngebotPage({ params }: PageProps) {
 
   const { plan } = angebot;
 
+  // Check if payment has been completed
+  const paidPayment = angebot.status === "accepted"
+    ? await prisma.payment.findFirst({
+        where: { angebotId: id, status: "paid" },
+      })
+    : null;
+  const isPaid = !!paidPayment;
+
   return (
     <section className="relative min-h-screen bg-[#111318]">
       <div className="absolute inset-0">
@@ -167,6 +176,7 @@ export default async function AngebotPage({ params }: PageProps) {
             aufwand={angebot.aufwand}
             initialStatus={angebot.status === "accepted" ? "accepted" : "idle"}
             betriebUndWartung={submission.betriebUndWartung}
+            isPaid={isPaid}
           />
 
           {/* Was Sie bekommen */}
@@ -227,12 +237,12 @@ export default async function AngebotPage({ params }: PageProps) {
             </div>
           </div>
 
-          {/* Was wir für Sie erledigen — user stories in Klartext */}
+          {/* Leistungsumfang */}
           {plan && plan.anforderungen?.userStories?.length > 0 && (
             <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-6 mb-6">
               <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
                 <Check className="h-5 w-5 text-[#FFC62C]" />
-                Was wir für Sie umsetzen
+                Leistungsumfang
               </h2>
               <div className="space-y-2">
                 {plan.anforderungen.userStories.map((story, i) => (
@@ -241,9 +251,7 @@ export default async function AngebotPage({ params }: PageProps) {
                     className="flex items-start gap-3 rounded-lg bg-white/[0.03] border border-white/[0.06] p-3"
                   >
                     <Check className="h-4 w-4 mt-0.5 shrink-0 text-[#FFC62C]" />
-                    <p className="text-sm text-[#c0c3c9]">
-                      {story.aktion} — <span className="text-[#8B8F97]">{story.nutzen}</span>
-                    </p>
+                    <p className="text-sm text-[#c0c3c9]">{story.aktion}</p>
                   </div>
                 ))}
               </div>
