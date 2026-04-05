@@ -1,11 +1,20 @@
 import { z } from "zod";
+import { isValidPhoneNumber } from "libphonenumber-js";
 
 export const kontaktdatenSchema = z.object({
   name: z.string().min(2, "Name ist erforderlich"),
   email: z.string().email("Gültige E-Mail-Adresse erforderlich"),
   firma: z.string().optional(),
-  telefon: z.string().min(6, "Telefonnummer zu kurz").max(20, "Telefonnummer zu lang").optional().or(z.literal("")),
+  telefon: z
+    .string()
+    .refine(
+      (val) => !val || val === "" || (val.startsWith("+") && isValidPhoneNumber(val)),
+      { message: "Ungültige Telefonnummer (E.164-Format erforderlich)" }
+    )
+    .optional()
+    .or(z.literal("")),
   whatsappConsent: z.boolean().default(false),
+  phoneVerified: z.boolean().optional(),
 });
 
 export const projekttypSchema = z.object({

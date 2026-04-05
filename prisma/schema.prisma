@@ -82,13 +82,14 @@ model Submission {
 // ---------------------------------------------------------------------------
 
 model Angebot {
-  id           String   @id @default(cuid())
-  submissionId String
-  submission   Submission @relation(fields: [submissionId], references: [id])
-  version      Int
-  status       String   @default("draft")
-  createdAt    DateTime @default(now())
-  sentAt       DateTime?
+  id             String   @id @default(cuid())
+  angebotNummer  String?  @unique // e.g. "AN-2026-0001" — sequential, human-readable
+  submissionId   String
+  submission     Submission @relation(fields: [submissionId], references: [id])
+  version        Int
+  status         String   @default("draft")
+  createdAt      DateTime @default(now())
+  sentAt         DateTime?
 
   festpreis Int
   aufwand   Int // Personentage
@@ -121,9 +122,11 @@ model Payment {
   type        String    // "tranche_1" | "half" | "full"
   method      String    // "stripe" | "bank_transfer"
   stripeId    String?   // Stripe Checkout Session ID
-  status      String    @default("pending") // pending | paid | failed
-  paidAt      DateTime?
-  createdAt   DateTime  @default(now())
+  status          String    @default("pending") // pending | paid | failed
+  paidAt          DateTime?
+  rechnungNummer  String?
+  rechnungFileId  String?
+  createdAt       DateTime  @default(now())
 
   @@index([angebotId])
   @@index([stripeId])
@@ -383,4 +386,46 @@ model Incident {
   @@index([status])
   @@index([severity])
   @@index([createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Company Settings (singleton — configurable in backoffice)
+// ---------------------------------------------------------------------------
+
+model CompanySettings {
+  id              String  @id @default("default")
+  companyName     String  @default("nanachimi.digital")
+  ownerName       String  @default("Achille Nana Chimi")
+  street          String  @default("")
+  plz             String  @default("67227")
+  city            String  @default("Frankenthal")
+  country         String  @default("Deutschland")
+  email           String  @default("info@nanachimi.digital")
+  phone           String? // optional
+  website         String  @default("nanachimi.digital")
+  steuernummer    String  @default("")
+  ustIdNr         String? // USt-IdNr (optional, recommended for B2B)
+  vatRate         Float   @default(19) // MwSt-Satz in %
+  iban            String  @default("DE89 3704 0044 0532 0130 00")
+  bic             String  @default("COBADEFFXXX")
+  bankName        String  @default("Commerzbank")
+  kontoinhaber    String  @default("Achille Nana Chimi")
+  updatedAt       DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Phone Verification (SMS codes)
+// ---------------------------------------------------------------------------
+
+model PhoneVerification {
+  id        String   @id @default(cuid())
+  phone     String   // E.164 format
+  code      String   // 6-digit code
+  expiresAt DateTime
+  verified  Boolean  @default(false)
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([phone, code])
+  @@index([expiresAt])
 }

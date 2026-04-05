@@ -30,6 +30,23 @@ export async function POST(request: Request) {
 
     const data = parsed.data;
 
+    // Server-side verification: if whatsappConsent is true with a phone, verify it was confirmed
+    if (data.whatsappConsent && data.telefon) {
+      const normalizedPhone = normalizePhoneNumber(data.telefon);
+      if (normalizedPhone) {
+        const verified = await prisma.phoneVerification.findFirst({
+          where: { phone: normalizedPhone, verified: true },
+          orderBy: { createdAt: "desc" },
+        });
+        if (!verified) {
+          return NextResponse.json(
+            { error: "Telefonnummer muss verifiziert sein, um WhatsApp-Nachrichten zu erhalten." },
+            { status: 400 }
+          );
+        }
+      }
+    }
+
     // Calculate estimate (includes range, risk, SLA, demand factor)
     const estimate = await calculateEstimate({
       projekttyp: data.projekttyp,
