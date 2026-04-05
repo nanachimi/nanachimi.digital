@@ -17,6 +17,14 @@ COPY . .
 # Generate Prisma client
 RUN npx prisma generate
 
+# ── Build-time public env (NEXT_PUBLIC_* is inlined into browser bundle) ──
+# MUST be passed via --build-arg. Server-side secrets (DATABASE_URL,
+# SESSION_SECRET, SMTP_*, Stripe, Twilio, etc.) are NOT baked in — they
+# are read from env at container runtime via --env-file.
+ARG NEXT_PUBLIC_SITE_URL
+ARG NEXT_PUBLIC_CALCOM_USERNAME
+ENV NEXT_PUBLIC_SITE_URL=${NEXT_PUBLIC_SITE_URL}
+ENV NEXT_PUBLIC_CALCOM_USERNAME=${NEXT_PUBLIC_CALCOM_USERNAME}
 ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN npm run build

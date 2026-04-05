@@ -135,10 +135,31 @@ cd "$APP_DIR/backups" && ls -t *.sql.gz 2>/dev/null | tail -n +11 | xargs rm -f 
 echo "  ✓ Backup: pre_deploy_${TIMESTAMP}.sql.gz"
 
 # ─── 7. Build Docker image ────────────────────────────────────────
+# Read NEXT_PUBLIC_* from .env and pass as --build-arg so they are
+# inlined into the browser bundle. Server-side secrets stay out of
+# the image (they ship via --env-file at runtime).
 echo "▶ Building Docker image (this may take a few minutes)..."
 cd "$APP_DIR"
-docker build -t nanachimi-digital-prod:latest . --quiet
+
+read_env() {
+  local key="$1"
+  grep -E "^${key}=" "$APP_DIR/.env" | head -n1 | cut -d'=' -f2- | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//"
+}
+
+NEXT_PUBLIC_SITE_URL_VAL=$(read_env NEXT_PUBLIC_SITE_URL)
+NEXT_PUBLIC_CALCOM_USERNAME_VAL=$(read_env NEXT_PUBLIC_CALCOM_USERNAME)
+
+if [ -z "$NEXT_PUBLIC_SITE_URL_VAL" ]; then
+  echo "  ❌ NEXT_PUBLIC_SITE_URL is missing from .env — required for build"
+  exit 1
+fi
+
+docker build \
+  --build-arg NEXT_PUBLIC_SITE_URL="$NEXT_PUBLIC_SITE_URL_VAL" \
+  --build-arg NEXT_PUBLIC_CALCOM_USERNAME="$NEXT_PUBLIC_CALCOM_USERNAME_VAL" \
+  -t nanachimi-digital-prod:latest . --quiet
 echo "  ✓ Image built: nanachimi-digital-prod:latest"
+echo "    · NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL_VAL"
 
 # ─── 8. Run database migrations ───────────────────────────────────
 # Call the local prisma binary baked into the image directly (NOT npx)
