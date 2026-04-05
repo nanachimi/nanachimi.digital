@@ -2,33 +2,21 @@
 # ============================================================================
 # nanachimi.digital — Production Deployment Script
 #
-# Two modes:
-#   1. PULL mode (REGISTRY_IMAGE env var set) — production: only runs
-#      pre-built images from the registry. No source code, no build.
-#      Example: REGISTRY_IMAGE=128.140.33.184:5000/nanachimi-digital:sha-xxxx bash deploy.sh
+# Always pulls the pre-built image from the central registry and runs it.
+# No source code, no local build. Manages db + seaweedfs + caddy, backs up
+# DB, runs migrations, restarts app container. Never touches $APP_DIR/data/.
 #
-#   2. BUILD mode (REGISTRY_IMAGE unset) — dev/manual: clones source,
-#      builds image locally, runs it.
-#
-# Both modes: manage db + seaweedfs + caddy, backup DB, run migrations,
-# and restart app container. Never touch $APP_DIR/data/.
+# Override the image via env var:
+#   REGISTRY_IMAGE=128.140.33.184:5000/nanachimi-digital:sha-xxxxxxx bash deploy.sh
 # ============================================================================
 
 set -euo pipefail
 
-# ── Mode selection ──────────────────────────────────────────────────
-REGISTRY_IMAGE="${REGISTRY_IMAGE:-}"
-if [ -n "$REGISTRY_IMAGE" ]; then
-  DEPLOY_MODE="pull"
-  APP_IMAGE="$REGISTRY_IMAGE"
-else
-  DEPLOY_MODE="build"
-  APP_IMAGE="nanachimi-digital-prod:latest"
-fi
+# ── Image to run (override via REGISTRY_IMAGE env var) ──────────────
+APP_IMAGE="${REGISTRY_IMAGE:-128.140.33.184:5000/nanachimi-digital:master}"
 
 # ── Identifiers — all prefixed with `nanachimi-digital-prod-*` ──────
 APP_DIR="/opt/nanachimi-digital"
-REPO_URL="https://github.com/nanachimi/nanachimi.digital.git"
 
 # Docker network
 NETWORK="nanachimi-digital-network"
@@ -62,52 +50,12 @@ if ! command -v docker &> /dev/null; then
   exit 1
 fi
 
-if ! command -v git &> /dev/null; then
-  echo "❌ Git is not installed. Install it first:"
-  echo "   apt-get install -y git"
-  exit 1
-fi
-
 echo "  ✓ Docker $(docker --version | grep -oP '\d+\.\d+\.\d+')"
-echo "  ✓ Git $(git --version | grep -oP '\d+\.\d+\.\d+')"
-echo "  ▸ Mode: $DEPLOY_MODE ($APP_IMAGE)"
+echo "  ▸ Image: $APP_IMAGE"
 
-# ─── 2. Source code (BUILD mode only) ─────────────────────────────
+# ─── 2. Working directory ─────────────────────────────────────────
 mkdir -p "$APP_DIR"
-if [ "$DEPLOY_MODE" = "pull" ]; then
-  echo "▶ PULL mode — skipping source clone/build"
-  cd "$APP_DIR"
-elif [ -d "$APP_DIR/.git" ]; then
-  echo "▶ Pulling latest master..."
-  cd "$APP_DIR"
-  git fetch origin
-  git checkout master
-  OLD_SHA=$(git rev-parse HEAD)
-  git reset --hard origin/master
-  NEW_SHA=$(git rev-parse HEAD)
-  # Self-update: if deploy.sh changed, re-exec the new version so the
-  # currently running (in-memory, stale) copy does not continue.
-  if [ "$OLD_SHA" != "$NEW_SHA" ] && [ "${DEPLOY_SH_RESTARTED:-}" != "1" ]; then
-    echo "  ↻ deploy.sh updated — re-executing new version..."
-    export DEPLOY_SH_RESTARTED=1
-    exec bash "$APP_DIR/deploy.sh" "$@"
-  fi
-elif [ -d "$APP_DIR" ] && [ -n "$(ls -A "$APP_DIR" 2>/dev/null)" ]; then
-  # Directory exists and is non-empty but no .git (e.g. half-finished prior run).
-  # Init git in place so we DO NOT destroy any existing .env or backups.
-  echo "▶ Directory $APP_DIR exists without .git — initializing in place..."
-  cd "$APP_DIR"
-  git init -q
-  git remote add origin "$REPO_URL" 2>/dev/null || git remote set-url origin "$REPO_URL"
-  git fetch origin master
-  git checkout -f -B master origin/master
-else
-  echo "▶ Cloning repository..."
-  mkdir -p "$(dirname "$APP_DIR")"
-  git clone "$REPO_URL" "$APP_DIR"
-  cd "$APP_DIR"
-  git checkout master
-fi
+cd "$APP_DIR"
 
 # ─── 3. Check .env ────────────────────────────────────────────────
 # IMPORTANT: never overwrite an existing .env — production secrets must survive deploys.
@@ -116,15 +64,9 @@ if [ -f "$APP_DIR/.env" ]; then
 else
   echo ""
   echo "⚠️  No .env file found at $APP_DIR/.env"
-  if [ -f "$APP_DIR/.env.example" ]; then
-    cp "$APP_DIR/.env.example" "$APP_DIR/.env"
-    chmod 600 "$APP_DIR/.env"
-    echo "   Template copied from .env.example."
-  else
-    touch "$APP_DIR/.env"
-    chmod 600 "$APP_DIR/.env"
-    echo "   Empty file created (no template available in PULL mode)."
-  fi
+  touch "$APP_DIR/.env"
+  chmod 600 "$APP_DIR/.env"
+  echo "   Empty file created."
   echo "   Edit it: sudo nano $APP_DIR/.env"
   echo ""
   echo "   Required: DATABASE_URL, POSTGRES_PASSWORD, SESSION_SECRET,"
@@ -247,39 +189,10 @@ docker exec "$DB_CONTAINER" pg_dump -U "$DB_USER" "$DB_NAME" \
 cd "$APP_DIR/backups" && ls -t *.sql.gz 2>/dev/null | tail -n +11 | xargs rm -f 2>/dev/null || true
 echo "  ✓ Backup: pre_deploy_${TIMESTAMP}.sql.gz"
 
-# ─── 7. Obtain app image (PULL or BUILD) ──────────────────────────
-if [ "$DEPLOY_MODE" = "pull" ]; then
-  echo "▶ Pulling image from registry: $APP_IMAGE"
-  docker pull "$APP_IMAGE"
-  echo "  ✓ Image pulled: $APP_IMAGE"
-else
-  # Read NEXT_PUBLIC_* from .env and pass as --build-arg so they are
-  # inlined into the browser bundle. Server-side secrets stay out of
-  # the image (they ship via --env-file at runtime).
-  echo "▶ Building Docker image (this may take a few minutes)..."
-  cd "$APP_DIR"
-
-  read_env() {
-    local key="$1"
-    local line
-    line=$(grep -E "^${key}=" "$APP_DIR/.env" 2>/dev/null | head -n1 || true)
-    [ -z "$line" ] && return 0
-    echo "${line#*=}" | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//"
-  }
-
-  NEXT_PUBLIC_SITE_URL_VAL=$(read_env NEXT_PUBLIC_SITE_URL)
-
-  if [ -z "$NEXT_PUBLIC_SITE_URL_VAL" ]; then
-    echo "  ❌ NEXT_PUBLIC_SITE_URL is missing from .env — required for build"
-    exit 1
-  fi
-
-  docker build \
-    --build-arg NEXT_PUBLIC_SITE_URL="$NEXT_PUBLIC_SITE_URL_VAL" \
-    -t "$APP_IMAGE" .
-  echo "  ✓ Image built: $APP_IMAGE"
-  echo "    · NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL_VAL"
-fi
+# ─── 7. Pull app image from registry ──────────────────────────────
+echo "▶ Pulling image from registry: $APP_IMAGE"
+docker pull "$APP_IMAGE"
+echo "  ✓ Image pulled: $APP_IMAGE"
 
 # ─── 8. Run database migrations ───────────────────────────────────
 # Call the local prisma binary baked into the image directly (NOT npx)
