@@ -688,6 +688,10 @@ jobs:
 
             docker network create nanachimi-digital-network 2>/dev/null || true
 
+            # Login to the (basic-auth) registry
+            echo "${{ secrets.REGISTRY_PASSWORD }}" | \
+              docker login ${REGISTRY} --username "${{ secrets.REGISTRY_USERNAME }}" --password-stdin
+
             docker pull ${REGISTRY}/nanachimi-digital:master
             docker tag ${REGISTRY}/nanachimi-digital:master nanachimi-digital:latest
 
