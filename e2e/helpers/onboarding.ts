@@ -4,16 +4,21 @@ import { type Page, expect } from "@playwright/test";
  * Dismiss cookie consent and session storage consent banners if visible.
  */
 export async function dismissBanners(page: Page) {
+  // Wait for full page load + hydration before interacting
+  await page.waitForLoadState("networkidle");
+
   // Cookie consent
   const cookieBtn = page.locator("button", { hasText: "Alle akzeptieren" });
   if (await cookieBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
     await cookieBtn.click();
+    await cookieBtn.waitFor({ state: "hidden", timeout: 5000 }).catch(() => {});
   }
 
   // Session storage consent
   const sessionBtn = page.locator("button", { hasText: "Ja, speichern" });
   if (await sessionBtn.isVisible({ timeout: 1000 }).catch(() => false)) {
     await sessionBtn.click();
+    await sessionBtn.waitFor({ state: "hidden", timeout: 2000 }).catch(() => {});
   }
 }
 

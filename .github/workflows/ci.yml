@@ -5,7 +5,7 @@
 #   pull_request  → quality gates only (lint, typecheck, build) — no deploy
 #   push develop  → quality gates + E2E + docker + deploy to DEV
 #   push staging  → quality gates + E2E + docker + deploy to STAGING
-#   push main     → quality gates + E2E + docker + deploy to PRODUCTION
+#   push master/main → quality gates + E2E + docker + deploy to PRODUCTION
 #
 # Jobs:
 #   1. lint-and-build      — Lint, type check, build (Next.js)
@@ -13,7 +13,7 @@
 #   3. docker-build        — Build & push image to self-hosted registry
 #   4a. deploy-dev         — Deploy to dev (on push to develop)
 #   4b. deploy-staging     — Deploy to staging (on push to staging)
-#   4c. deploy-prod        — Deploy to production (on push to main)
+#   4c. deploy-prod        — Deploy to production (on push to master/main)
 #
 # Infrastructure:
 #   - Self-hosted runner on Hetzner VPS
@@ -632,7 +632,7 @@ jobs:
             exit 1
 
   # ===========================================================================
-  # STAGE 4c — DEPLOY PRODUCTION (on push to main/master)
+  # STAGE 4c — DEPLOY PRODUCTION (on push to master/main)
   # ===========================================================================
   deploy-prod:
     name: "Deploy → Production"
@@ -640,7 +640,7 @@ jobs:
     needs: docker-build
     if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
     environment:
-      name: production
+      name: prod
       url: https://nanachimi.digital
     steps:
       - name: Backup database
@@ -651,11 +651,11 @@ jobs:
           key: ${{ secrets.PROD_SSH_KEY }}
           script: |
             TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-            mkdir -p /opt/nanachimi/backups
-            docker exec nanachimi-db pg_dump -U nanachimi nanachimi \
-              | gzip > /opt/nanachimi/backups/pre_deploy_${TIMESTAMP}.sql.gz 2>/dev/null || true
+            mkdir -p /opt/nanachimi-digital/backups
+            docker exec nanachimi-digital-prod-db pg_dump -U nanachimi_digital nanachimi_digital \
+              | gzip > /opt/nanachimi-digital/backups/pre_deploy_${TIMESTAMP}.sql.gz 2>/dev/null || true
             echo "Backup: pre_deploy_${TIMESTAMP}.sql.gz"
-            cd /opt/nanachimi/backups && ls -t *.sql.gz 2>/dev/null | tail -n +11 | xargs rm -f 2>/dev/null || true
+            cd /opt/nanachimi-digital/backups && ls -t *.sql.gz 2>/dev/null | tail -n +11 | xargs rm -f 2>/dev/null || true
 
       - name: Deploy to production
         uses: appleboy/ssh-action@v1
@@ -667,35 +667,38 @@ jobs:
             IMAGE_TAG="${{ needs.docker-build.outputs.image-tag }}"
             REGISTRY="${{ vars.REGISTRY_HOST }}"
 
-            docker network create nanachimidigital-network 2>/dev/null || true
+            docker network create nanachimi-digital-network 2>/dev/null || true
 
             docker pull ${REGISTRY}/nanachimi-digital:${IMAGE_TAG}
             docker tag ${REGISTRY}/nanachimi-digital:${IMAGE_TAG} nanachimi-digital:latest
 
-            docker stop nanachimi-app 2>/dev/null || true
-            docker rm nanachimi-app 2>/dev/null || true
+            docker stop nanachimi-digital-prod-app 2>/dev/null || true
+            docker rm nanachimi-digital-prod-app 2>/dev/null || true
 
             docker run --rm \
-              --network nanachimidigital-network \
+              --network nanachimi-digital-network \
               -e DATABASE_URL="${{ secrets.DATABASE_URL }}" \
               nanachimi-digital:latest \
               npx prisma db execute --file prisma/migrations/001_backfill_idempotency_key.sql 2>/dev/null || true
+
+            # Safe schema sync — fails if migration would cause data loss
+            # (no --accept-data-loss flag on prod)
             docker run --rm \
-              --network nanachimidigital-network \
+              --network nanachimi-digital-network \
               -e DATABASE_URL="${{ secrets.DATABASE_URL }}" \
               nanachimi-digital:latest \
-              npx prisma db push --accept-data-loss
+              npx prisma db push
 
             docker run -d \
-              --name nanachimi-app \
-              --network nanachimidigital-network \
+              --name nanachimi-digital-prod-app \
+              --network nanachimi-digital-network \
               --restart unless-stopped \
               -p 3000:3000 \
-              --env-file /opt/nanachimi/.env \
+              --env-file /opt/nanachimi-digital/.env \
               nanachimi-digital:latest
 
             sleep 10
-            docker ps | grep nanachimi-app || { echo "Container failed to start!"; exit 1; }
+            docker ps | grep nanachimi-digital-prod-app || { echo "Container failed to start!"; exit 1; }
 
       - name: Production health check
         uses: appleboy/ssh-action@v1
@@ -749,12 +752,12 @@ jobs:
           key: ${{ secrets.PROD_SSH_KEY }}
           script: |
             echo "=== ROLLBACK TRIGGERED ==="
-            docker stop nanachimi-app 2>/dev/null || true
-            docker rm nanachimi-app 2>/dev/null || true
+            docker stop nanachimi-digital-prod-app 2>/dev/null || true
+            docker rm nanachimi-digital-prod-app 2>/dev/null || true
             PREV_IMAGE=$(docker images nanachimi-digital --format '{{.Tag}}' | grep -v latest | grep -v dev | grep -v staging | head -1)
             if [ -n "$PREV_IMAGE" ]; then
               echo "Rolling back to nanachimi-digital:$PREV_IMAGE"
-              docker run -d --name nanachimi-app --network nanachimidigital-network --restart unless-stopped -p 3000:3000 --env-file /opt/nanachimi/.env nanachimi-digital:$PREV_IMAGE
+              docker run -d --name nanachimi-digital-prod-app --network nanachimi-digital-network --restart unless-stopped -p 3000:3000 --env-file /opt/nanachimi-digital/.env nanachimi-digital:$PREV_IMAGE
               echo "Rollback complete"
             else
               echo "No previous image found!"

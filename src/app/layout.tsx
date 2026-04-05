@@ -45,7 +45,8 @@ const jsonLd = {
   },
   address: {
     "@type": "PostalAddress",
-    addressLocality: "Mannheim",
+    addressLocality: "Frankenthal",
+    postalCode: "67227",
     addressCountry: "DE",
   },
   areaServed: { "@type": "Country", name: "DE" },
