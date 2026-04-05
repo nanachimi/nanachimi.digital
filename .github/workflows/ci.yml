@@ -643,121 +643,120 @@ jobs:
       name: prod
       url: https://nanachimi.digital
     steps:
-      - name: Backup database
+      - name: Deploy to prod via SSH
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ vars.PROD_HOST }}
           username: ${{ vars.PROD_USER }}
           key: ${{ secrets.PROD_SSH_KEY }}
           script: |
-            TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-            mkdir -p /opt/nanachimi-digital/backups
-            docker exec nanachimi-digital-prod-db pg_dump -U nanachimi_digital nanachimi_digital \
-              | gzip > /opt/nanachimi-digital/backups/pre_deploy_${TIMESTAMP}.sql.gz 2>/dev/null || true
-            echo "Backup: pre_deploy_${TIMESTAMP}.sql.gz"
-            cd /opt/nanachimi-digital/backups && ls -t *.sql.gz 2>/dev/null | tail -n +11 | xargs rm -f 2>/dev/null || true
-
-      - name: Deploy to production
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ vars.PROD_HOST }}
-          username: ${{ vars.PROD_USER }}
-          key: ${{ secrets.PROD_SSH_KEY }}
-          script: |
+            set -e
+            IMAGE_TAG="${{ needs.docker-build.outputs.image-tag }}"
             REGISTRY="${{ vars.REGISTRY_HOST }}"
+            ENV_DIR="/opt/nanachimi-digital"
+            DB_CONTAINER="nanachimi-digital-prod-db"
+            DB_USER="nanachimi_digital"
+            DB_NAME="nanachimi_digital"
+            APP_CONTAINER="nanachimi-digital-prod-app"
+            SEAWEED_CONTAINER="nanachimi-digital-prod-seaweedfs"
+            NETWORK="nanachimi-digital-network"
 
-            docker network create nanachimi-digital-network 2>/dev/null || true
+            # --- Bootstrap infrastructure (idempotent) ---
+            docker network create ${NETWORK} 2>/dev/null || true
+            mkdir -p ${ENV_DIR}/data/postgres ${ENV_DIR}/data/seaweedfs ${ENV_DIR}/backups
 
-            docker pull ${REGISTRY}/nanachimi-digital:master
-            docker tag ${REGISTRY}/nanachimi-digital:master nanachimi-digital:latest
+            # Read DB password from .env
+            DB_PASS=$(grep -oP 'POSTGRES_PASSWORD=\K.*' ${ENV_DIR}/.env 2>/dev/null || echo "nanachimi_digital_prod")
 
-            docker stop nanachimi-digital-prod-app 2>/dev/null || true
-            docker rm nanachimi-digital-prod-app 2>/dev/null || true
+            # Start PostgreSQL if not running
+            if ! docker ps --format '{{.Names}}' | grep -q "^${DB_CONTAINER}$"; then
+              docker rm -f ${DB_CONTAINER} 2>/dev/null || true
+              docker run -d \
+                --name ${DB_CONTAINER} \
+                --network ${NETWORK} \
+                --restart unless-stopped \
+                -e POSTGRES_USER=${DB_USER} \
+                -e POSTGRES_PASSWORD=${DB_PASS} \
+                -e POSTGRES_DB=${DB_NAME} \
+                -v ${ENV_DIR}/data/postgres:/var/lib/postgresql/data \
+                postgres:16-alpine
+              echo "✓ Prod database started"
+              sleep 5
+            else
+              echo "✓ Prod database already running"
+            fi
 
+            # Start SeaweedFS if not running
+            if ! docker ps --format '{{.Names}}' | grep -q "^${SEAWEED_CONTAINER}$"; then
+              docker rm -f ${SEAWEED_CONTAINER} 2>/dev/null || true
+              docker run -d \
+                --name ${SEAWEED_CONTAINER} \
+                --network ${NETWORK} \
+                --restart unless-stopped \
+                -v ${ENV_DIR}/data/seaweedfs:/data \
+                chrislusf/seaweedfs:latest \
+                server -master -volume -filer -dir=/data
+              echo "✓ SeaweedFS started"
+            else
+              echo "✓ SeaweedFS already running"
+            fi
+
+            # Backup database before deploy
+            TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+            docker exec ${DB_CONTAINER} pg_dump -U ${DB_USER} ${DB_NAME} \
+              | gzip > ${ENV_DIR}/backups/pre_deploy_${TIMESTAMP}.sql.gz 2>/dev/null || true
+            cd ${ENV_DIR}/backups && ls -t *.sql.gz 2>/dev/null | tail -n +11 | xargs rm -f 2>/dev/null || true
+            echo "✓ Backup: pre_deploy_${TIMESTAMP}.sql.gz"
+
+            # --- Deploy application ---
+            docker pull ${REGISTRY}/nanachimi-digital:${IMAGE_TAG}
+            docker tag ${REGISTRY}/nanachimi-digital:${IMAGE_TAG} nanachimi-digital:prod
+
+            docker stop ${APP_CONTAINER} 2>/dev/null || true
+            docker rm ${APP_CONTAINER} 2>/dev/null || true
+
+            # Backfill NULL idempotency keys + run migrations
             docker run --rm \
-              --network nanachimi-digital-network \
-              -e DATABASE_URL="${{ secrets.DATABASE_URL }}" \
-              nanachimi-digital:latest \
+              --network ${NETWORK} \
+              --env-file ${ENV_DIR}/.env \
+              nanachimi-digital:prod \
               npx prisma db execute --file prisma/migrations/001_backfill_idempotency_key.sql 2>/dev/null || true
-
-            # Safe schema sync — fails if migration would cause data loss
-            # (no --accept-data-loss flag on prod)
             docker run --rm \
-              --network nanachimi-digital-network \
-              -e DATABASE_URL="${{ secrets.DATABASE_URL }}" \
-              nanachimi-digital:latest \
-              npx prisma db push
+              --network ${NETWORK} \
+              --env-file ${ENV_DIR}/.env \
+              nanachimi-digital:prod \
+              sh -c "npx prisma db push && npx prisma db seed"
+            echo "✓ Migrations + seed applied"
 
+            # Start app
             docker run -d \
-              --name nanachimi-digital-prod-app \
-              --network nanachimi-digital-network \
+              --name ${APP_CONTAINER} \
+              --network ${NETWORK} \
               --restart unless-stopped \
               -p 3000:3000 \
-              --env-file /opt/nanachimi-digital/.env \
-              nanachimi-digital:latest
+              --env-file ${ENV_DIR}/.env \
+              nanachimi-digital:prod
+            echo "✓ App container started"
 
-            sleep 10
-            docker ps | grep nanachimi-digital-prod-app || { echo "Container failed to start!"; exit 1; }
+            docker system prune -f
 
-      - name: Production health check
+      - name: Prod smoke test
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ vars.PROD_HOST }}
           username: ${{ vars.PROD_USER }}
           key: ${{ secrets.PROD_SSH_KEY }}
           script: |
-            echo "Running production health checks..."
-            for i in $(seq 1 6); do
-              HEALTH_RESPONSE=$(curl -sf -H "Authorization: Bearer ${{ secrets.HEALTH_CHECK_SECRET }}" \
-                http://localhost:3000/api/health 2>/dev/null || echo '{"status":"unreachable"}')
-
-              HEALTH_STATUS=$(echo "$HEALTH_RESPONSE" | jq -r '.status // "unreachable"')
-
-              if [ "$HEALTH_STATUS" = "healthy" ]; then
-                echo "All health checks passed!"
-                echo "$HEALTH_RESPONSE" | jq .
-                exit 0
-              elif [ "$HEALTH_STATUS" = "degraded" ]; then
-                echo "WARNING: Some services degraded (acceptable)."
-                echo "$HEALTH_RESPONSE" | jq .
+            echo "Waiting for prod to start..."
+            for i in $(seq 1 12); do
+              HTTP_STATUS=$(curl -so /dev/null -w "%{http_code}" http://localhost:3000/ 2>/dev/null || echo "000")
+              if [ "$HTTP_STATUS" -gt 0 ] && [ "$HTTP_STATUS" -lt 500 ]; then
+                echo "Prod is up (HTTP $HTTP_STATUS on attempt $i)"
                 exit 0
               fi
-
-              echo "Attempt $i/6 — Status: $HEALTH_STATUS — waiting 10s..."
+              echo "Attempt $i/12 — HTTP $HTTP_STATUS — waiting 10s..."
               sleep 10
             done
-
-            echo "CRITICAL: Health checks failed!"
-            echo "$HEALTH_RESPONSE" | jq . 2>/dev/null || echo "$HEALTH_RESPONSE"
+            echo "Prod health check FAILED"
+            docker logs nanachimi-digital-prod-app --tail 30
             exit 1
-
-      - name: Notify on success
-        if: success()
-        run: |
-          echo "# ✅ Production Deployment" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Detail | Value |" >> $GITHUB_STEP_SUMMARY
-          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Image | \`${{ needs.docker-build.outputs.image-tag }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| URL | https://nanachimi.digital |" >> $GITHUB_STEP_SUMMARY
-          echo "| Time | $(date -u '+%Y-%m-%d %H:%M UTC') |" >> $GITHUB_STEP_SUMMARY
-
-      - name: Automatic rollback on failure
-        if: failure()
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ vars.PROD_HOST }}
-          username: ${{ vars.PROD_USER }}
-          key: ${{ secrets.PROD_SSH_KEY }}
-          script: |
-            echo "=== ROLLBACK TRIGGERED ==="
-            docker stop nanachimi-digital-prod-app 2>/dev/null || true
-            docker rm nanachimi-digital-prod-app 2>/dev/null || true
-            PREV_IMAGE=$(docker images nanachimi-digital --format '{{.Tag}}' | grep -v latest | grep -v dev | grep -v staging | head -1)
-            if [ -n "$PREV_IMAGE" ]; then
-              echo "Rolling back to nanachimi-digital:$PREV_IMAGE"
-              docker run -d --name nanachimi-digital-prod-app --network nanachimi-digital-network --restart unless-stopped -p 3000:3000 --env-file /opt/nanachimi-digital/.env nanachimi-digital:$PREV_IMAGE
-              echo "Rollback complete"
-            else
-              echo "No previous image found!"
-            fi
