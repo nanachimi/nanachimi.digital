@@ -45,7 +45,16 @@ if [ -d "$APP_DIR/.git" ]; then
   cd "$APP_DIR"
   git fetch origin
   git checkout master
+  OLD_SHA=$(git rev-parse HEAD)
   git reset --hard origin/master
+  NEW_SHA=$(git rev-parse HEAD)
+  # Self-update: if deploy.sh changed, re-exec the new version so the
+  # currently running (in-memory, stale) copy does not continue.
+  if [ "$OLD_SHA" != "$NEW_SHA" ] && [ "${DEPLOY_SH_RESTARTED:-}" != "1" ]; then
+    echo "  ↻ deploy.sh updated — re-executing new version..."
+    export DEPLOY_SH_RESTARTED=1
+    exec bash "$APP_DIR/deploy.sh" "$@"
+  fi
 elif [ -d "$APP_DIR" ] && [ -n "$(ls -A "$APP_DIR" 2>/dev/null)" ]; then
   # Directory exists and is non-empty but no .git (e.g. half-finished prior run).
   # Init git in place so we DO NOT destroy any existing .env or backups.
