@@ -760,3 +760,29 @@ jobs:
             echo "Prod health check FAILED"
             docker logs nanachimi-digital-prod-app --tail 30
             exit 1
+
+      - name: Rollback on failure
+        if: failure()
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ vars.PROD_HOST }}
+          username: ${{ vars.PROD_USER }}
+          key: ${{ secrets.PROD_SSH_KEY }}
+          script: |
+            echo "=== ROLLBACK TRIGGERED ==="
+            docker stop nanachimi-digital-prod-app 2>/dev/null || true
+            docker rm nanachimi-digital-prod-app 2>/dev/null || true
+            PREV_IMAGE=$(docker images nanachimi-digital --format '{{.Tag}}' | grep -v prod | head -1)
+            if [ -n "$PREV_IMAGE" ]; then
+              echo "Rolling back to nanachimi-digital:${PREV_IMAGE}"
+              docker run -d \
+                --name nanachimi-digital-prod-app \
+                --network nanachimi-digital-network \
+                --restart unless-stopped \
+                -p 3000:3000 \
+                --env-file /opt/nanachimi-digital/.env \
+                nanachimi-digital:${PREV_IMAGE}
+              echo "✓ Rollback complete"
+            else
+              echo "No previous image found for rollback!"
+            fi
