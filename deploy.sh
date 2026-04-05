@@ -132,17 +132,28 @@ docker build -t nanachimi-digital-prod:latest . --quiet
 echo "  ✓ Image built: nanachimi-digital-prod:latest"
 
 # ─── 8. Run database migrations ───────────────────────────────────
+# Call the local prisma binary baked into the image directly (NOT npx)
+# and pass --schema explicitly so resolution is deterministic.
 echo "▶ Running database migrations..."
+PRISMA_BIN="node /app/node_modules/prisma/build/index.js"
+SCHEMA_ARG="--schema=/app/prisma/schema.prisma"
+
 docker run --rm \
   --network "$NETWORK" \
   --env-file "$APP_DIR/.env" \
+  --workdir /app \
+  --entrypoint sh \
   nanachimi-digital-prod:latest \
-  npx prisma db execute --file prisma/migrations/001_backfill_idempotency_key.sql 2>/dev/null || true
+  -c "$PRISMA_BIN db execute $SCHEMA_ARG --file /app/prisma/migrations/001_backfill_idempotency_key.sql" \
+  2>/dev/null || true
+
 docker run --rm \
   --network "$NETWORK" \
   --env-file "$APP_DIR/.env" \
+  --workdir /app \
+  --entrypoint sh \
   nanachimi-digital-prod:latest \
-  npx prisma db push
+  -c "$PRISMA_BIN db push $SCHEMA_ARG --skip-generate"
 echo "  ✓ Database schema up to date"
 
 # ─── 9. Seed database (only if empty) ─────────────────────────────
@@ -150,8 +161,11 @@ echo "▶ Seeding database..."
 docker run --rm \
   --network "$NETWORK" \
   --env-file "$APP_DIR/.env" \
+  --workdir /app \
+  --entrypoint sh \
   nanachimi-digital-prod:latest \
-  npx prisma db seed 2>/dev/null || true
+  -c "$PRISMA_BIN db seed $SCHEMA_ARG" \
+  2>/dev/null || true
 echo "  ✓ Database seeded"
 
 # ─── 10. Stop old container ───────────────────────────────────────
