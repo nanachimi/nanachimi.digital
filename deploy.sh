@@ -153,7 +153,7 @@ docker run --rm \
   --workdir /app \
   --entrypoint sh \
   nanachimi-digital-prod:latest \
-  -c "$PRISMA_BIN db push $SCHEMA_ARG --skip-generate"
+  -c "$PRISMA_BIN db push $SCHEMA_ARG"
 echo "  ✓ Database schema up to date"
 
 # ─── 9. Seed database (only if empty) ─────────────────────────────
