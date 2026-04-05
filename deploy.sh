@@ -213,7 +213,7 @@ docker run -d \
   --restart unless-stopped \
   -p 3000:3000 \
   --env-file "$APP_DIR/.env" \
-  nanachimi-digital:latest
+  nanachimi-digital-prod:latest
 
 # ─── 12. Health check ─────────────────────────────────────────────
 echo "▶ Running health check..."
