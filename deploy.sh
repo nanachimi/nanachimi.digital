@@ -12,9 +12,11 @@ REPO_URL="https://github.com/nanachimi/nanachimi.digital.git"
 NETWORK="nanachimi-digital-network"
 DB_CONTAINER="nanachimi-digital-prod-db"
 APP_CONTAINER="nanachimi-digital-prod-app"
+SEAWEED_CONTAINER="nanachimi-digital-prod-seaweedfs"
 DB_USER="nanachimi_digital"
 DB_NAME="nanachimi_digital"
 DB_VOLUME="nanachimi-digital-pgdata"
+SEAWEED_VOLUME="nanachimi-digital-prod-seaweed"
 
 echo "============================================"
 echo "  nanachimi.digital — Production Deployment"
@@ -122,6 +124,42 @@ if ! docker ps --format '{{.Names}}' | grep -q "^${DB_CONTAINER}$"; then
   done
 else
   echo "  ✓ PostgreSQL already running"
+fi
+
+# ─── 5b. SeaweedFS (PDF / file storage) ───────────────────────────
+if ! docker ps --format '{{.Names}}' | grep -q "^${SEAWEED_CONTAINER}$"; then
+  echo "▶ Starting SeaweedFS..."
+  docker rm -f "$SEAWEED_CONTAINER" 2>/dev/null || true
+  docker run -d \
+    --name "$SEAWEED_CONTAINER" \
+    --network "$NETWORK" \
+    --restart unless-stopped \
+    -v "$SEAWEED_VOLUME":/data \
+    chrislusf/seaweedfs:latest \
+    server -master -volume -filer -dir=/data
+  echo "  Waiting for SeaweedFS to be ready..."
+  for i in $(seq 1 15); do
+    if docker exec "$SEAWEED_CONTAINER" wget -qO- http://localhost:9333/cluster/status > /dev/null 2>&1; then
+      echo "  ✓ SeaweedFS is ready"
+      break
+    fi
+    sleep 2
+  done
+else
+  echo "  ✓ SeaweedFS already running"
+fi
+
+# Ensure SeaweedFS URLs point at the container (internal Docker DNS)
+SEAWEED_MASTER_EXPECTED="http://${SEAWEED_CONTAINER}:9333"
+SEAWEED_FILER_EXPECTED="http://${SEAWEED_CONTAINER}:8888"
+if ! grep -q "^SEAWEEDFS_MASTER_URL=${SEAWEED_MASTER_EXPECTED}$" "$APP_DIR/.env" 2>/dev/null; then
+  # Remove any existing lines (commented or not) then append correct ones
+  sed -i '/^#\?\s*SEAWEEDFS_MASTER_URL=/d;/^#\?\s*SEAWEEDFS_FILER_URL=/d' "$APP_DIR/.env"
+  {
+    echo "SEAWEEDFS_MASTER_URL=${SEAWEED_MASTER_EXPECTED}"
+    echo "SEAWEEDFS_FILER_URL=${SEAWEED_FILER_EXPECTED}"
+  } >> "$APP_DIR/.env"
+  echo "  ✓ SeaweedFS URLs written to .env"
 fi
 
 # ─── 6. Backup existing database ──────────────────────────────────
