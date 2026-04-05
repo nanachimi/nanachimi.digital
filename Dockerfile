@@ -22,9 +22,7 @@ RUN npx prisma generate
 # SESSION_SECRET, SMTP_*, Stripe, Twilio, etc.) are NOT baked in — they
 # are read from env at container runtime via --env-file.
 ARG NEXT_PUBLIC_SITE_URL
-ARG NEXT_PUBLIC_CALCOM_USERNAME
 ENV NEXT_PUBLIC_SITE_URL=${NEXT_PUBLIC_SITE_URL}
-ENV NEXT_PUBLIC_CALCOM_USERNAME=${NEXT_PUBLIC_CALCOM_USERNAME}
 ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN npm run build

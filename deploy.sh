@@ -151,7 +151,6 @@ read_env() {
 }
 
 NEXT_PUBLIC_SITE_URL_VAL=$(read_env NEXT_PUBLIC_SITE_URL)
-NEXT_PUBLIC_CALCOM_USERNAME_VAL=$(read_env NEXT_PUBLIC_CALCOM_USERNAME)
 
 if [ -z "$NEXT_PUBLIC_SITE_URL_VAL" ]; then
   echo "  ❌ NEXT_PUBLIC_SITE_URL is missing from .env — required for build"
@@ -160,7 +159,6 @@ fi
 
 docker build \
   --build-arg NEXT_PUBLIC_SITE_URL="$NEXT_PUBLIC_SITE_URL_VAL" \
-  --build-arg NEXT_PUBLIC_CALCOM_USERNAME="$NEXT_PUBLIC_CALCOM_USERNAME_VAL" \
   -t nanachimi-digital-prod:latest .
 echo "  ✓ Image built: nanachimi-digital-prod:latest"
 echo "    · NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL_VAL"
