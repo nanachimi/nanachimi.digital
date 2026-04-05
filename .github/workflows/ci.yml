@@ -643,6 +643,26 @@ jobs:
       name: prod
       url: https://nanachimi.digital
     steps:
+      - name: Trust insecure registry on prod VPS
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ vars.PROD_HOST }}
+          username: ${{ vars.PROD_USER }}
+          key: ${{ secrets.PROD_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            REGISTRY="${{ vars.REGISTRY_HOST }}"
+            if ! sudo grep -q "\"${REGISTRY}\"" /etc/docker/daemon.json 2>/dev/null; then
+              echo "Configuring insecure-registry ${REGISTRY}..."
+              sudo mkdir -p /etc/docker
+              echo "{\"insecure-registries\":[\"${REGISTRY}\"]}" | sudo tee /etc/docker/daemon.json > /dev/null
+              sudo systemctl restart docker
+              sleep 3
+              echo "✓ Docker restarted with insecure-registry ${REGISTRY}"
+            else
+              echo "✓ Registry ${REGISTRY} already trusted"
+            fi
+
       - name: Backup database
         uses: appleboy/ssh-action@v1
         with:
