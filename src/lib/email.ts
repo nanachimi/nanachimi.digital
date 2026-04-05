@@ -545,3 +545,173 @@ nanachimi.digital · Mannheim, Deutschland`;
   console.log(`[Email] Confirmation sent to ${data.to}, messageId: ${info.messageId}`);
   return info;
 }
+
+// ─── Email 4: Payment Confirmation (Zahlungsbestätigung) ─────────
+
+interface PaymentConfirmationEmailData {
+  to: string;
+  kundenName: string;
+  rechnungNummer: string;
+  amount: number; // in euros (not cents)
+  discount: number; // in euros
+  discountLabel?: string;
+  paymentType: string;
+  angebotId: string;
+  rechnungPdfBuffer: Buffer;
+  angebotPdfBuffer: Buffer;
+}
+
+export async function sendPaymentConfirmationEmail(data: PaymentConfirmationEmailData) {
+  const anrede = data.kundenName.split(" ")[0];
+  const netAmount = data.amount - data.discount;
+
+  const html = `
+<!DOCTYPE html>
+<html lang="de">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Zahlungsbestätigung</title></head>
+<body style="margin: 0; padding: 0; background-color: #111318; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #111318; padding: 40px 20px;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="max-width: 600px; width: 100%;">
+
+        <!-- Header -->
+        <tr><td style="padding: 30px 40px; text-align: center;">
+          <span style="font-size: 20px; font-weight: 700; color: #ffffff; letter-spacing: -0.5px;">
+            nanachimi<span style="color: #FFC62C; font-weight: 800;">.digital</span>
+          </span>
+        </td></tr>
+
+        <!-- Main Card -->
+        <tr><td style="background-color: #1a1d24; border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 40px;">
+
+          <!-- Checkmark -->
+          <div style="text-align: center; margin-bottom: 24px;">
+            <div style="display: inline-block; background-color: rgba(74,222,128,0.1); border-radius: 50%; padding: 16px;">
+              <span style="font-size: 32px; color: #4ade80;">&#10003;</span>
+            </div>
+          </div>
+
+          <!-- Greeting -->
+          <p style="color: #ffffff; font-size: 22px; font-weight: 700; margin: 0 0 8px 0; text-align: center;">
+            Zahlung erhalten!
+          </p>
+          <p style="color: #8B8F97; font-size: 15px; line-height: 1.6; margin: 0 0 24px 0; text-align: center;">
+            Vielen Dank, ${anrede}. Ihre Zahlung wurde erfolgreich verarbeitet.
+          </p>
+
+          <!-- Payment Details -->
+          <div style="background-color: rgba(74,222,128,0.04); border: 1px solid rgba(74,222,128,0.15); border-radius: 12px; padding: 20px; margin-bottom: 24px;">
+            <p style="color: #4ade80; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; margin: 0 0 12px 0;">
+              Zahlungsdetails
+            </p>
+            <table width="100%" cellpadding="0" cellspacing="0">
+              <tr>
+                <td style="padding: 4px 0; color: #8B8F97; font-size: 13px;">Rechnungsnummer</td>
+                <td style="padding: 4px 0; color: #ffffff; font-size: 13px; font-weight: 600; text-align: right;">${data.rechnungNummer}</td>
+              </tr>
+              <tr>
+                <td style="padding: 4px 0; color: #8B8F97; font-size: 13px; border-top: 1px solid rgba(255,255,255,0.04);">Betrag</td>
+                <td style="padding: 4px 0; color: #ffffff; font-size: 13px; font-weight: 600; text-align: right; border-top: 1px solid rgba(255,255,255,0.04);">${formatEur(data.amount)}</td>
+              </tr>
+              ${data.discount > 0 ? `
+              <tr>
+                <td style="padding: 4px 0; color: #8B8F97; font-size: 13px; border-top: 1px solid rgba(255,255,255,0.04);">Rabatt${data.discountLabel ? ` (${data.discountLabel})` : ""}</td>
+                <td style="padding: 4px 0; color: #4ade80; font-size: 13px; font-weight: 600; text-align: right; border-top: 1px solid rgba(255,255,255,0.04);">-${formatEur(data.discount)}</td>
+              </tr>` : ""}
+              <tr>
+                <td style="padding: 8px 0 4px 0; color: #ffffff; font-size: 14px; font-weight: 700; border-top: 1px solid rgba(255,255,255,0.08);">Gezahlt</td>
+                <td style="padding: 8px 0 4px 0; color: #FFC62C; font-size: 16px; font-weight: 700; text-align: right; border-top: 1px solid rgba(255,255,255,0.08);">${formatEur(netAmount)}</td>
+              </tr>
+            </table>
+          </div>
+
+          <!-- Divider -->
+          <div style="border-top: 1px solid rgba(255,255,255,0.06); margin: 24px 0;"></div>
+
+          <!-- Next Steps -->
+          <p style="color: #ffffff; font-size: 14px; font-weight: 600; margin: 0 0 12px 0;">Nächste Schritte:</p>
+          <table cellpadding="0" cellspacing="0">
+            <tr>
+              <td style="padding: 4px 12px 4px 0; vertical-align: top;"><span style="color: #FFC62C; font-size: 13px; font-weight: 700;">1.</span></td>
+              <td style="padding: 4px 0; color: #8B8F97; font-size: 13px; line-height: 1.5;">Kickoff-Termin innerhalb von 24 Stunden</td>
+            </tr>
+            <tr>
+              <td style="padding: 4px 12px 4px 0; vertical-align: top;"><span style="color: #FFC62C; font-size: 13px; font-weight: 700;">2.</span></td>
+              <td style="padding: 4px 0; color: #8B8F97; font-size: 13px; line-height: 1.5;">Projektstart — Ihre App wird gebaut</td>
+            </tr>
+            <tr>
+              <td style="padding: 4px 12px 4px 0; vertical-align: top;"><span style="color: #FFC62C; font-size: 13px; font-weight: 700;">3.</span></td>
+              <td style="padding: 4px 0; color: #8B8F97; font-size: 13px; line-height: 1.5;">Erste Live-Version innerhalb von 48h</td>
+            </tr>
+          </table>
+
+          <p style="color: #8B8F97; font-size: 12px; margin: 20px 0 0 0; text-align: center;">
+            Die Rechnung und das Angebot finden Sie als PDF im Anhang.
+          </p>
+        </td></tr>
+
+        <!-- Footer -->
+        <tr><td style="padding: 30px 40px; text-align: center;">
+          <p style="color: #6a6e76; font-size: 12px; margin: 0 0 4px 0;">
+            nanachimi.digital &middot; 67227 Frankenthal, Deutschland
+          </p>
+          <p style="color: #6a6e76; font-size: 12px; margin: 0;">
+            <a href="${SITE_URL}" style="color: #FFC62C; text-decoration: none;">nanachimi.digital</a>
+            &nbsp;&middot;&nbsp;
+            <a href="mailto:info@nanachimi.digital" style="color: #FFC62C; text-decoration: none;">info@nanachimi.digital</a>
+          </p>
+        </td></tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+  const text = `Hallo ${anrede},
+
+Zahlung erhalten! Vielen Dank.
+
+Zahlungsdetails:
+Rechnungsnummer: ${data.rechnungNummer}
+Betrag: ${formatEur(data.amount)}${data.discount > 0 ? `\nRabatt${data.discountLabel ? ` (${data.discountLabel})` : ""}: -${formatEur(data.discount)}` : ""}
+Gezahlt: ${formatEur(netAmount)}
+
+Nächste Schritte:
+1. Kickoff-Termin innerhalb von 24 Stunden
+2. Projektstart — Ihre App wird gebaut
+3. Erste Live-Version innerhalb von 48h
+
+Die Rechnung und das Angebot finden Sie als PDF im Anhang.
+
+---
+nanachimi.digital · 67227 Frankenthal, Deutschland
+info@nanachimi.digital`;
+
+  const attachments = [
+    {
+      filename: `Rechnung-${data.rechnungNummer}.pdf`,
+      content: data.rechnungPdfBuffer,
+      contentType: "application/pdf",
+    },
+    {
+      filename: `Angebot-${data.angebotId}.pdf`,
+      content: data.angebotPdfBuffer,
+      contentType: "application/pdf",
+    },
+  ];
+
+  const info = await transporter.sendMail({
+    from: FROM,
+    to: data.to,
+    subject: `Zahlungsbestätigung — Rechnung ${data.rechnungNummer}`,
+    encoding: "utf-8",
+    textEncoding: "quoted-printable",
+    text,
+    html,
+    attachments,
+  });
+
+  console.log(`[Email] Payment confirmation sent to ${data.to}, messageId: ${info.messageId}`);
+  return info;
+}

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { verifyWebhookEvent } from "@/lib/stripe";
 import { prisma } from "@/lib/db";
+import { enqueueJob } from "@/lib/job-queue";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +30,7 @@ export async function POST(request: Request) {
       case "checkout.session.completed": {
         const session = event.data.object;
         const stripeId = session.id;
+        const angebotId = session.metadata?.angebotId;
 
         // Update payment record
         await prisma.payment.updateMany({
@@ -40,8 +42,29 @@ export async function POST(request: Request) {
         });
 
         console.log(
-          `[Stripe] Payment completed: session=${stripeId}, angebotId=${session.metadata?.angebotId}`
+          `[Stripe] Payment completed: session=${stripeId}, angebotId=${angebotId}`
         );
+
+        // Enqueue Rechnung generation + payment confirmation email
+        if (angebotId) {
+          const payment = await prisma.payment.findFirst({
+            where: { stripeId, status: "paid" },
+          });
+
+          if (payment) {
+            await enqueueJob(
+              "payment_confirmation_email",
+              {
+                paymentId: payment.id,
+                angebotId,
+                stripeId,
+              },
+              5,
+              `payment_confirmation_${payment.id}`
+            );
+          }
+        }
+
         break;
       }
 

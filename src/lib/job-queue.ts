@@ -5,6 +5,7 @@ const BACKOFF_MINUTES = [1, 3, 10, 30, 60];
 
 const JOB_TITLES: Record<string, string> = {
   angebot_accepted_email: "Angebot-Bestätigung mit PDF per E-Mail",
+  payment_confirmation_email: "Zahlungsbestätigung mit Rechnung per E-Mail",
   whatsapp_customer_confirmation: "WhatsApp-Bestätigung an Kunden",
   whatsapp_internal_notification: "Interne WhatsApp-Benachrichtigung",
 };
@@ -188,6 +189,7 @@ async function handleAngebotAcceptedEmail(
   const { sendAngebotConfirmationEmail } = await import("@/lib/email");
   const { uploadFile } = await import("@/lib/seaweedfs");
   const { getAngebotById } = await import("@/lib/angebote");
+  const { getCompanySettings } = await import("@/lib/company-settings");
 
   const angebotId = payload.angebotId as string;
   const to = payload.to as string;
@@ -200,9 +202,15 @@ async function handleAngebotAcceptedEmail(
   const plan = payload.plan as Record<string, unknown>;
   const createdAt = payload.createdAt as string;
 
+  const company = await getCompanySettings();
+
+  // Resolve human-readable Angebotsnummer
+  const angebotRecord = await getAngebotById(angebotId);
+  const angebotNummer = angebotRecord?.angebotNummer || angebotId;
+
   // Step 1: Generate PDF — MUST succeed
   const pdfBuffer = await generateAngebotPdf({
-    angebotId,
+    angebotId: angebotNummer,
     kundenName,
     firma,
     email,
@@ -211,6 +219,7 @@ async function handleAngebotAcceptedEmail(
     projektBeschreibung,
     plan: plan as never, // ProjectPlan type from JSON
     createdAt,
+    company,
   });
   console.log(`[Job:angebot_accepted_email] PDF generated: ${pdfBuffer.length} bytes`);
 
@@ -239,6 +248,139 @@ async function handleAngebotAcceptedEmail(
     angebotId,
   });
   console.log(`[Job:angebot_accepted_email] Email with PDF sent to ${to}`);
+}
+
+/**
+ * payment_confirmation_email: Generate Rechnung PDF + send payment confirmation email.
+ * Steps: generate Rechnungsnummer, generate Rechnung PDF, retrieve/generate Angebot PDF,
+ * upload Rechnung to SeaweedFS, update Payment record, send email with both PDFs.
+ */
+async function handlePaymentConfirmationEmail(
+  payload: Record<string, unknown>
+): Promise<void> {
+  const { generateRechnungPdf, generateAngebotPdf } = await import("@/lib/pdf/generate");
+  const { sendPaymentConfirmationEmail } = await import("@/lib/email");
+  const { uploadFile, downloadFile } = await import("@/lib/seaweedfs");
+  const { getAngebotById, generateRechnungNummer } = await import("@/lib/angebote");
+  const { getSubmissionById } = await import("@/lib/submissions");
+  const { getCompanySettings } = await import("@/lib/company-settings");
+
+  const paymentId = payload.paymentId as string;
+  const angebotId = payload.angebotId as string;
+
+  // Load payment, angebot, submission, company settings
+  const payment = await prisma.payment.findUnique({ where: { id: paymentId } });
+  if (!payment) throw new Error(`Payment ${paymentId} not found`);
+  if (payment.status !== "paid") throw new Error(`Payment ${paymentId} is not paid`);
+
+  const angebot = await getAngebotById(angebotId);
+  if (!angebot) throw new Error(`Angebot ${angebotId} not found`);
+
+  const submission = await getSubmissionById(angebot.submissionId);
+  if (!submission) throw new Error(`Submission ${angebot.submissionId} not found`);
+
+  const company = await getCompanySettings();
+  const angebotNummer = angebot.angebotNummer || angebotId;
+
+  // Step 1: Generate Rechnungsnummer (if not already set)
+  let rechnungNummer = payment.rechnungNummer;
+  if (!rechnungNummer) {
+    rechnungNummer = await generateRechnungNummer();
+  }
+
+  // Determine discount label
+  let discountLabel: string | undefined;
+  if (payment.discount > 0) {
+    if (payment.type === "full") discountLabel = "Gesamtzahlung (12%)";
+    else if (payment.type === "half") discountLabel = "50% Anzahlung (5%)";
+  }
+
+  // Step 2: Generate Rechnung PDF
+  const rechnungPdfBuffer = await generateRechnungPdf({
+    rechnungNummer,
+    angebotId: angebotNummer,
+    kundenName: submission.name,
+    firma: submission.firma,
+    email: submission.email,
+    projektBeschreibung: submission.beschreibung,
+    amount: payment.amount / 100, // cents to euros
+    discount: payment.discount / 100,
+    discountLabel,
+    paymentType: payment.type,
+    paidAt: payment.paidAt?.toISOString() || new Date().toISOString(),
+    createdAt: payment.createdAt.toISOString(),
+    company,
+  });
+  console.log(`[Job:payment_confirmation_email] Rechnung PDF generated: ${rechnungPdfBuffer.length} bytes`);
+
+  // Step 3: Retrieve existing Angebot PDF (or generate on-the-fly)
+  let angebotPdfBuffer: Buffer;
+  if (angebot.pdfFileId) {
+    try {
+      angebotPdfBuffer = await downloadFile(angebot.pdfFileId);
+    } catch {
+      console.warn("[Job:payment_confirmation_email] SeaweedFS Angebot PDF download failed, generating on-the-fly");
+      angebotPdfBuffer = await generateAngebotPdf({
+        angebotId: angebotNummer,
+        kundenName: submission.name,
+        firma: submission.firma,
+        email: submission.email,
+        festpreis: angebot.festpreis,
+        aufwand: angebot.aufwand,
+        projektBeschreibung: submission.beschreibung,
+        plan: angebot.plan,
+        createdAt: angebot.createdAt,
+        company,
+      });
+    }
+  } else {
+    angebotPdfBuffer = await generateAngebotPdf({
+      angebotId,
+      kundenName: submission.name,
+      firma: submission.firma,
+      email: submission.email,
+      festpreis: angebot.festpreis,
+      aufwand: angebot.aufwand,
+      projektBeschreibung: submission.beschreibung,
+      plan: angebot.plan,
+      createdAt: angebot.createdAt,
+      company,
+    });
+  }
+
+  // Step 4: Upload Rechnung PDF to SeaweedFS (best-effort)
+  let rechnungFileId: string | null = null;
+  try {
+    rechnungFileId = await uploadFile(rechnungPdfBuffer, `Rechnung-${rechnungNummer}.pdf`);
+    console.log(`[Job:payment_confirmation_email] Rechnung PDF stored in SeaweedFS: fid=${rechnungFileId}`);
+  } catch (storageErr) {
+    console.warn("[Job:payment_confirmation_email] SeaweedFS upload failed (non-blocking):", storageErr);
+  }
+
+  // Step 5: Update Payment with rechnungNummer and rechnungFileId
+  await prisma.payment.update({
+    where: { id: paymentId },
+    data: {
+      rechnungNummer,
+      ...(rechnungFileId ? { rechnungFileId } : {}),
+    },
+  });
+  console.log(`[Job:payment_confirmation_email] Payment ${paymentId} updated: rechnungNummer=${rechnungNummer}`);
+
+  // Step 6: Send email with both PDFs
+  await sendPaymentConfirmationEmail({
+    to: submission.email,
+    kundenName: submission.name,
+    rechnungNummer,
+    amount: payment.amount / 100,
+    discount: payment.discount / 100,
+    discountLabel,
+    paymentType: payment.type,
+    angebotId,
+    rechnungPdfBuffer,
+    angebotPdfBuffer,
+  });
+  console.log(`[Job:payment_confirmation_email] Email sent to ${submission.email}`);
 }
 
 /**
@@ -383,6 +525,7 @@ async function handleWhatsAppInternalNotification(
  */
 const JOB_HANDLERS: Record<string, JobHandler> = {
   angebot_accepted_email: handleAngebotAcceptedEmail,
+  payment_confirmation_email: handlePaymentConfirmationEmail,
   whatsapp_customer_confirmation: handleWhatsAppCustomerConfirmation,
   whatsapp_internal_notification: handleWhatsAppInternalNotification,
 };

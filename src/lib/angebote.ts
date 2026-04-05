@@ -10,6 +10,7 @@ import type { ProjectPlan } from "@/lib/plan-template";
 
 export interface Angebot {
   id: string;
+  angebotNummer?: string;
   submissionId: string;
   version: number;
   status: "draft" | "sent" | "accepted" | "rejected_by_client";
@@ -45,6 +46,7 @@ export interface Angebot {
 function dbToAngebot(r: Record<string, unknown>): Angebot {
   return {
     id: r.id as string,
+    angebotNummer: (r.angebotNummer as string) || undefined,
     submissionId: r.submissionId as string,
     version: r.version as number,
     status: r.status as Angebot["status"],
@@ -65,9 +67,11 @@ function dbToAngebot(r: Record<string, unknown>): Angebot {
 // ─── CRUD ─────────────────────────────────────────────────────────
 
 export async function addAngebot(angebot: Angebot): Promise<void> {
+  const angebotNummer = angebot.angebotNummer || await generateAngebotNummer();
   await prisma.angebot.create({
     data: {
       id: angebot.id,
+      angebotNummer,
       submissionId: angebot.submissionId,
       version: angebot.version,
       status: angebot.status,
@@ -109,6 +113,61 @@ export async function getActiveAngebot(submissionId: string): Promise<Angebot | 
   });
   if (!row) return undefined;
   return dbToAngebot(row as unknown as Record<string, unknown>);
+}
+
+/**
+ * Generate a sequential Angebotsnummer in format AN-{YYYY}-{NNNN}.
+ * Queries the database for the highest existing number in the current year.
+ */
+export async function generateAngebotNummer(): Promise<string> {
+  const year = new Date().getFullYear();
+  const prefix = `AN-${year}-`;
+
+  const lastAngebot = await prisma.angebot.findFirst({
+    where: {
+      angebotNummer: { startsWith: prefix },
+    },
+    orderBy: { angebotNummer: "desc" },
+    select: { angebotNummer: true },
+  });
+
+  let nextNumber = 1;
+  if (lastAngebot?.angebotNummer) {
+    const lastNum = parseInt(lastAngebot.angebotNummer.replace(prefix, ""), 10);
+    if (!isNaN(lastNum)) {
+      nextNumber = lastNum + 1;
+    }
+  }
+
+  return `${prefix}${String(nextNumber).padStart(4, "0")}`;
+}
+
+/**
+ * Generate a gap-free sequential Rechnungsnummer in format RE-{YYYY}-{NNNN}.
+ * Queries the database for the highest existing number in the current year.
+ */
+export async function generateRechnungNummer(): Promise<string> {
+  const year = new Date().getFullYear();
+  const prefix = `RE-${year}-`;
+
+  // Find the highest existing rechnungNummer for the current year
+  const lastPayment = await prisma.payment.findFirst({
+    where: {
+      rechnungNummer: { startsWith: prefix },
+    },
+    orderBy: { rechnungNummer: "desc" },
+    select: { rechnungNummer: true },
+  });
+
+  let nextNumber = 1;
+  if (lastPayment?.rechnungNummer) {
+    const lastNum = parseInt(lastPayment.rechnungNummer.replace(prefix, ""), 10);
+    if (!isNaN(lastNum)) {
+      nextNumber = lastNum + 1;
+    }
+  }
+
+  return `${prefix}${String(nextNumber).padStart(4, "0")}`;
 }
 
 export async function updateAngebotStatus(

@@ -3,6 +3,7 @@ import { getAngebotById } from "@/lib/angebote";
 import { getSubmissionById } from "@/lib/submissions";
 import { downloadFile } from "@/lib/seaweedfs";
 import { generateAngebotPdf } from "@/lib/pdf/generate";
+import { getCompanySettings } from "@/lib/company-settings";
 export const dynamic = "force-dynamic";
 
 interface RouteParams {
@@ -49,8 +50,9 @@ async function generateOnTheFly(angebot: any, id: string): Promise<Buffer> {
     throw new Error("Submission not found");
   }
 
+  const company = await getCompanySettings();
   return generateAngebotPdf({
-    angebotId: id,
+    angebotId: angebot.angebotNummer || id,
     kundenName: submission.name,
     firma: submission.firma,
     email: submission.email,
@@ -59,5 +61,6 @@ async function generateOnTheFly(angebot: any, id: string): Promise<Buffer> {
     projektBeschreibung: submission.beschreibung,
     plan: angebot.plan,
     createdAt: angebot.createdAt,
+    company,
   });
 }
