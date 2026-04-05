@@ -7,16 +7,27 @@
 
 set -euo pipefail
 
+# ── Identifiers — all prefixed with `nanachimi-digital-prod-*` ──────
 APP_DIR="/opt/nanachimi-digital"
 REPO_URL="https://github.com/nanachimi/nanachimi.digital.git"
+
+# Docker network
 NETWORK="nanachimi-digital-network"
+
+# Containers
 DB_CONTAINER="nanachimi-digital-prod-db"
 APP_CONTAINER="nanachimi-digital-prod-app"
 SEAWEED_CONTAINER="nanachimi-digital-prod-seaweedfs"
+
+# Persistent storage (NEVER delete these — production data lives here)
+# Both bind-mounts at identifiable host paths for easy backup & inspection.
+DB_DATA_DIR="$APP_DIR/data/postgres"           # host bind-mount
+SEAWEED_DATA_DIR="$APP_DIR/data/seaweedfs"     # host bind-mount
+LEGACY_DB_VOLUME="nanachimi-digital-pgdata"    # old named volume (migrated on first run)
+
+# Postgres credentials (user/db name)
 DB_USER="nanachimi_digital"
 DB_NAME="nanachimi_digital"
-DB_VOLUME="nanachimi-digital-pgdata"
-SEAWEED_VOLUME="nanachimi-digital-prod-seaweed"
 
 echo "============================================"
 echo "  nanachimi.digital — Production Deployment"
@@ -97,13 +108,42 @@ fi
 echo "▶ Creating Docker network..."
 docker network create "$NETWORK" 2>/dev/null || true
 
-# ─── 5. PostgreSQL ────────────────────────────────────────────────
+# ─── 5. PostgreSQL (DURABLE — host bind-mount) ────────────────────
+# Data lives in $APP_DIR/data/postgres — visible to `ls`, easy to back up.
+# The deploy script NEVER deletes this directory.
+mkdir -p "$DB_DATA_DIR"
+chmod 700 "$DB_DATA_DIR"
+
+# Read DB password from .env (used for new container + any ALTER USER)
+DB_PASS=$(grep -oP 'POSTGRES_PASSWORD=\K.*' "$APP_DIR/.env" 2>/dev/null || echo "nanachimi_digital_prod")
+
+# One-time migration: old named volume → new bind-mount
+# Runs only if the old volume exists AND the bind-mount is empty.
+if [ -z "$(ls -A "$DB_DATA_DIR" 2>/dev/null)" ] \
+   && docker volume inspect "$LEGACY_DB_VOLUME" > /dev/null 2>&1; then
+  echo "▶ Migrating Postgres data from legacy volume to bind-mount..."
+  if docker ps --format '{{.Names}}' | grep -q "^${DB_CONTAINER}$"; then
+    echo "  · Dumping live DB to SQL file..."
+    docker exec "$DB_CONTAINER" pg_dump -U "$DB_USER" "$DB_NAME" \
+      | gzip > "$APP_DIR/backups/migration_${TIMESTAMP:-$(date +%Y%m%d_%H%M%S)}.sql.gz" || {
+        echo "  ❌ pg_dump failed — aborting migration"; exit 1;
+      }
+    docker stop "$DB_CONTAINER" > /dev/null
+    docker rm "$DB_CONTAINER" > /dev/null
+  fi
+  # Copy volume contents to bind-mount (preserves permissions)
+  docker run --rm \
+    -v "$LEGACY_DB_VOLUME":/from \
+    -v "$DB_DATA_DIR":/to \
+    alpine:3.19 sh -c "cp -a /from/. /to/ && chown -R 999:999 /to"
+  echo "  ✓ Data copied to $DB_DATA_DIR"
+  echo "  ℹ Legacy volume '$LEGACY_DB_VOLUME' kept as safety net — remove manually"
+  echo "    after verifying the site works: docker volume rm $LEGACY_DB_VOLUME"
+fi
+
 if ! docker ps --format '{{.Names}}' | grep -q "^${DB_CONTAINER}$"; then
   echo "▶ Starting PostgreSQL..."
-
-  # Read DB password from .env
-  DB_PASS=$(grep -oP 'POSTGRES_PASSWORD=\K.*' "$APP_DIR/.env" 2>/dev/null || echo "nanachimi_digital_prod")
-
+  docker rm -f "$DB_CONTAINER" 2>/dev/null || true
   docker run -d \
     --name "$DB_CONTAINER" \
     --network "$NETWORK" \
@@ -111,7 +151,7 @@ if ! docker ps --format '{{.Names}}' | grep -q "^${DB_CONTAINER}$"; then
     -e POSTGRES_USER="$DB_USER" \
     -e POSTGRES_PASSWORD="$DB_PASS" \
     -e POSTGRES_DB="$DB_NAME" \
-    -v "$DB_VOLUME":/var/lib/postgresql/data \
+    -v "$DB_DATA_DIR":/var/lib/postgresql/data \
     postgres:16-alpine
 
   echo "  Waiting for PostgreSQL to be ready..."
@@ -126,7 +166,13 @@ else
   echo "  ✓ PostgreSQL already running"
 fi
 
-# ─── 5b. SeaweedFS (PDF / file storage) ───────────────────────────
+# ─── 5b. SeaweedFS (PDF / file storage — DURABLE) ─────────────────
+# Data lives in a host bind-mount: $APP_DIR/data/seaweedfs
+# Survives container restart, container removal, and host reboot.
+# The deploy script NEVER deletes this directory.
+mkdir -p "$SEAWEED_DATA_DIR"
+chmod 750 "$SEAWEED_DATA_DIR"
+
 if ! docker ps --format '{{.Names}}' | grep -q "^${SEAWEED_CONTAINER}$"; then
   echo "▶ Starting SeaweedFS..."
   docker rm -f "$SEAWEED_CONTAINER" 2>/dev/null || true
@@ -134,7 +180,7 @@ if ! docker ps --format '{{.Names}}' | grep -q "^${SEAWEED_CONTAINER}$"; then
     --name "$SEAWEED_CONTAINER" \
     --network "$NETWORK" \
     --restart unless-stopped \
-    -v "$SEAWEED_VOLUME":/data \
+    -v "$SEAWEED_DATA_DIR":/data \
     chrislusf/seaweedfs:latest \
     server -master -volume -filer -dir=/data
   echo "  Waiting for SeaweedFS to be ready..."
