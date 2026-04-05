@@ -637,68 +637,25 @@ jobs:
   deploy-prod:
     name: "Deploy → Production"
     runs-on: self-hosted
-    needs: docker-build
+    needs: [lint-and-build, e2e-tests]
     if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
     environment:
       name: prod
       url: https://nanachimi.digital
     steps:
-      - name: Backup database
+      - name: Deploy via deploy.sh on prod VPS
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ vars.PROD_HOST }}
           username: ${{ vars.PROD_USER }}
           key: ${{ secrets.PROD_SSH_KEY }}
+          command_timeout: 15m
           script: |
-            TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-            mkdir -p /opt/nanachimi-digital/backups
-            docker exec nanachimi-digital-prod-db pg_dump -U nanachimi_digital nanachimi_digital \
-              | gzip > /opt/nanachimi-digital/backups/pre_deploy_${TIMESTAMP}.sql.gz 2>/dev/null || true
-            echo "Backup: pre_deploy_${TIMESTAMP}.sql.gz"
-            cd /opt/nanachimi-digital/backups && ls -t *.sql.gz 2>/dev/null | tail -n +11 | xargs rm -f 2>/dev/null || true
-
-      - name: Deploy to production
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ vars.PROD_HOST }}
-          username: ${{ vars.PROD_USER }}
-          key: ${{ secrets.PROD_SSH_KEY }}
-          script: |
-            IMAGE_TAG="${{ needs.docker-build.outputs.image-tag }}"
-            REGISTRY="${{ vars.REGISTRY_HOST }}"
-
-            docker network create nanachimi-digital-network 2>/dev/null || true
-
-            docker pull ${REGISTRY}/nanachimi-digital:${IMAGE_TAG}
-            docker tag ${REGISTRY}/nanachimi-digital:${IMAGE_TAG} nanachimi-digital:latest
-
-            docker stop nanachimi-digital-prod-app 2>/dev/null || true
-            docker rm nanachimi-digital-prod-app 2>/dev/null || true
-
-            docker run --rm \
-              --network nanachimi-digital-network \
-              -e DATABASE_URL="${{ secrets.DATABASE_URL }}" \
-              nanachimi-digital:latest \
-              npx prisma db execute --file prisma/migrations/001_backfill_idempotency_key.sql 2>/dev/null || true
-
-            # Safe schema sync — fails if migration would cause data loss
-            # (no --accept-data-loss flag on prod)
-            docker run --rm \
-              --network nanachimi-digital-network \
-              -e DATABASE_URL="${{ secrets.DATABASE_URL }}" \
-              nanachimi-digital:latest \
-              npx prisma db push
-
-            docker run -d \
-              --name nanachimi-digital-prod-app \
-              --network nanachimi-digital-network \
-              --restart unless-stopped \
-              -p 3000:3000 \
-              --env-file /opt/nanachimi-digital/.env \
-              nanachimi-digital:latest
-
-            sleep 10
-            docker ps | grep nanachimi-digital-prod-app || { echo "Container failed to start!"; exit 1; }
+            set -euo pipefail
+            cd /opt/nanachimi-digital
+            # deploy.sh self-updates, pulls master, backs up DB, builds image,
+            # runs migrations, restarts app container, configures Caddy.
+            sudo bash deploy.sh
 
       - name: Production health check
         uses: appleboy/ssh-action@v1
@@ -739,26 +696,6 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Detail | Value |" >> $GITHUB_STEP_SUMMARY
           echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Image | \`${{ needs.docker-build.outputs.image-tag }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Commit | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| URL | https://nanachimi.digital |" >> $GITHUB_STEP_SUMMARY
           echo "| Time | $(date -u '+%Y-%m-%d %H:%M UTC') |" >> $GITHUB_STEP_SUMMARY
-
-      - name: Automatic rollback on failure
-        if: failure()
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ vars.PROD_HOST }}
-          username: ${{ vars.PROD_USER }}
-          key: ${{ secrets.PROD_SSH_KEY }}
-          script: |
-            echo "=== ROLLBACK TRIGGERED ==="
-            docker stop nanachimi-digital-prod-app 2>/dev/null || true
-            docker rm nanachimi-digital-prod-app 2>/dev/null || true
-            PREV_IMAGE=$(docker images nanachimi-digital --format '{{.Tag}}' | grep -v latest | grep -v dev | grep -v staging | head -1)
-            if [ -n "$PREV_IMAGE" ]; then
-              echo "Rolling back to nanachimi-digital:$PREV_IMAGE"
-              docker run -d --name nanachimi-digital-prod-app --network nanachimi-digital-network --restart unless-stopped -p 3000:3000 --env-file /opt/nanachimi-digital/.env nanachimi-digital:$PREV_IMAGE
-              echo "Rollback complete"
-            else
-              echo "No previous image found!"
-            fi
