@@ -157,7 +157,7 @@ fi
 docker build \
   --build-arg NEXT_PUBLIC_SITE_URL="$NEXT_PUBLIC_SITE_URL_VAL" \
   --build-arg NEXT_PUBLIC_CALCOM_USERNAME="$NEXT_PUBLIC_CALCOM_USERNAME_VAL" \
-  -t nanachimi-digital-prod:latest . --quiet
+  -t nanachimi-digital-prod:latest .
 echo "  ✓ Image built: nanachimi-digital-prod:latest"
 echo "    · NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL_VAL"
 
