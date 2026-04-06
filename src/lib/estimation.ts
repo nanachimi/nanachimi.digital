@@ -124,14 +124,30 @@ function calculateBasePrice(
   config: PricingConfig,
   zeitrahmenOverride?: string
 ): { festpreis: number; aufwand: number; weeklyRate: number; dailyRate: number } {
-  // 1. Sum up feature effort in dev-days
-  let totalDays = config.baseSetupDays;
+  // 1. Collect feature effort values
   const CUSTOM_FEATURE_DAYS = 1; // 1 day per custom feature
+  const featureDaysList: number[] = [];
   for (const feature of input.funktionen) {
     if (feature.startsWith(CUSTOM_FEATURE_PREFIX)) {
-      totalDays += CUSTOM_FEATURE_DAYS;
+      featureDaysList.push(CUSTOM_FEATURE_DAYS);
     } else {
-      totalDays += config.featureDays[feature] || 1;
+      featureDaysList.push(config.featureDays[feature] || 1);
+    }
+  }
+
+  // 2. Volume discount: sort descending so smallest-effort features are last
+  //    - First 4 features: full price
+  //    - Features 5–9: half price (÷2)
+  //    - Features 10+: third price (÷3)
+  featureDaysList.sort((a, b) => b - a);
+  let totalDays = config.baseSetupDays;
+  for (let i = 0; i < featureDaysList.length; i++) {
+    if (i < 4) {
+      totalDays += featureDaysList[i];
+    } else if (i < 9) {
+      totalDays += featureDaysList[i] / 2;
+    } else {
+      totalDays += featureDaysList[i] / 3;
     }
   }
 
