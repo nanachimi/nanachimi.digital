@@ -1,5 +1,4 @@
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import type { OnboardingData } from "@/lib/onboarding-schema";
 import { Users, AppWindow, Globe, Smartphone } from "lucide-react";
 
