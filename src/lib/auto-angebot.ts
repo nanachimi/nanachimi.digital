@@ -112,6 +112,15 @@ function generateBasicPlan(submission: Submission): ProjectPlan {
         empfehlung: "CI/CD-Pipeline mit automatisierten Tests",
       },
     ],
+    offenePunkte: [
+      {
+        typ: "unklarheit" as const,
+        titel: "Automatisch generierter Plan",
+        beschreibung: "Dieser Plan wurde automatisch erstellt, da die SLA-Frist abgelaufen ist. Die Anforderungen wurden nicht manuell geprüft.",
+        vorschlag: "Admin sollte den Plan manuell prüfen und bei Bedarf nachbessern.",
+        prioritaet: "hoch" as const,
+      },
+    ],
     betriebUndWartung: {
       umfang: "Monitoring, Updates, Bugfixes",
       vertragslaufzeit: "1 Monat (im Festpreis inkludiert)",

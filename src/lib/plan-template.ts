@@ -41,6 +41,14 @@ export interface CriticalPoint {
   empfehlung: string;
 }
 
+export interface OffenerPunkt {
+  typ: "luecke" | "inkonsistenz" | "risiko" | "unklarheit";
+  titel: string;
+  beschreibung: string;
+  vorschlag: string;
+  prioritaet: "hoch" | "mittel" | "niedrig";
+}
+
 export interface BetriebUndWartung {
   umfang: string; // z.B. "Monitoring, Updates, Bugfixes"
   vertragslaufzeit: string; // "1 Monat (im Festpreis inkludiert)"
@@ -61,6 +69,7 @@ export interface ProjectPlan {
   };
   technologieStack: TechChoice[];
   kritischePunkte: CriticalPoint[];
+  offenePunkte: OffenerPunkt[];
   betriebUndWartung: BetriebUndWartung;
   generatedAt: string;
 }
@@ -119,7 +128,19 @@ Jedes Projekt enthält standardmäßig 1 Monat Betrieb & Wartung nach Go-Live (i
 - **umfang**: Konkrete Leistungen (Monitoring, Updates, Bugfixes, Sicherheits-Patches, Backup)
 - **vertragslaufzeit**: Immer "1 Monat (im Festpreis inkludiert)"
 - **aboOptionen**: Immer "3 Monate: 69€/Monat, 6 Monate: 49€/Monat, 12 Monate: 29€/Monat"
-- **sla**: Reaktionszeiten und Verfügbarkeit passend zum Projekt (z.B. "Reaktionszeit: 24h an Werktagen, Verfügbarkeit: 99.5%")`;
+- **sla**: Reaktionszeiten und Verfügbarkeit passend zum Projekt (z.B. "Reaktionszeit: 24h an Werktagen, Verfügbarkeit: 99.5%")
+
+## Offene Punkte & Inkonsistenzen
+
+Analysiere die Kundenanfrage kritisch und identifiziere:
+- **Lücken (luecke)**: Fehlende Angaben, die für die Umsetzung geklärt werden müssen (z.B. keine Angabe zur Datenmigration, fehlende Rollenrechte-Definition)
+- **Inkonsistenzen (inkonsistenz)**: Widersprüche zwischen den Anforderungen (z.B. "kostenlose App" + "Online bezahlen", Budget passt nicht zum Funktionsumfang)
+- **Risiken (risiko)**: Potenzielle Probleme, die im Projektverlauf auftreten könnten (z.B. unrealistische Timeline, Abhängigkeit von Drittanbietern)
+- **Unklarheiten (unklarheit)**: Mehrdeutige Angaben, die unterschiedlich interpretiert werden könnten
+
+Für jeden Punkt: formuliere einen konkreten, umsetzbaren Vorschlag, wie das Problem gelöst werden kann. Das hilft dem Admin im Kickoff-Gespräch, gezielt nachzufragen.
+
+Das Array "offenePunkte" darf NICHT leer sein — es gibt immer mindestens einen Punkt zu klären. Finde mindestens 2–3 relevante Punkte.`;
 
 export interface PlanPromptInput {
   projekttyp: string;
@@ -380,6 +401,15 @@ const PLAN_JSON_SCHEMA = {
       kategorie: "Security | Performance | Compliance | Go-Live",
       beschreibung: "Beschreibung des kritischen Punktes",
       empfehlung: "Empfohlene Maßnahme",
+    },
+  ],
+  offenePunkte: [
+    {
+      typ: "luecke | inkonsistenz | risiko | unklarheit",
+      titel: "Kurzer Titel des offenen Punktes",
+      beschreibung: "Was genau fehlt, widersprüchlich oder unklar ist",
+      vorschlag: "Konkreter, umsetzbarer Vorschlag zur Klärung oder Lösung",
+      prioritaet: "hoch | mittel | niedrig",
     },
   ],
   betriebUndWartung: {

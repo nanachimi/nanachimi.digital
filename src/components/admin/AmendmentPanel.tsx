@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import type { ProjectPlan, UserStory, ApiEndpoint, TechChoice, CriticalPoint } from "@/lib/plan-template";
+import type { ProjectPlan, UserStory, ApiEndpoint, TechChoice, CriticalPoint, OffenerPunkt } from "@/lib/plan-template";
 
 interface AmendmentPanelProps {
   submissionId: string;
@@ -236,6 +236,46 @@ export function ReadOnlyPlan({ plan }: { plan: ProjectPlan }) {
         </div>
       </div>
 
+      {/* Offene Punkte */}
+      {plan.offenePunkte && plan.offenePunkte.length > 0 && (
+        <div>
+          <h4 className="text-sm font-semibold text-white flex items-center gap-2 mb-3">
+            <AlertTriangle className="h-4 w-4 text-orange-400" />
+            Offene Punkte &amp; Vorschläge
+          </h4>
+          <div className="space-y-2">
+            {plan.offenePunkte.map((punkt, i) => {
+              const typColors: Record<string, string> = {
+                luecke: "text-red-400 bg-red-400/10",
+                inkonsistenz: "text-orange-400 bg-orange-400/10",
+                risiko: "text-yellow-400 bg-yellow-400/10",
+                unklarheit: "text-blue-400 bg-blue-400/10",
+              };
+              const prioColors: Record<string, string> = {
+                hoch: "text-red-400",
+                mittel: "text-yellow-400",
+                niedrig: "text-green-400",
+              };
+              return (
+                <div key={i} className="rounded-lg bg-white/[0.03] border border-white/[0.06] p-3">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span className={`text-[10px] uppercase tracking-wider rounded-full px-2 py-0.5 ${typColors[punkt.typ] || "text-[#8B8F97] bg-white/[0.06]"}`}>
+                      {punkt.typ}
+                    </span>
+                    <span className={`text-[10px] uppercase tracking-wider ${prioColors[punkt.prioritaet] || "text-[#8B8F97]"}`}>
+                      ● {punkt.prioritaet}
+                    </span>
+                  </div>
+                  <p className="text-sm font-medium text-white">{punkt.titel}</p>
+                  <p className="text-xs text-[#8B8F97] mt-0.5">{punkt.beschreibung}</p>
+                  <p className="text-xs text-green-400 mt-1.5">→ {punkt.vorschlag}</p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Betrieb & Wartung */}
       {plan.betriebUndWartung && (
         <div>
@@ -332,6 +372,20 @@ function EditablePlan({
 
   function addCritical() {
     setPlan({ ...plan, kritischePunkte: [...plan.kritischePunkte, { kategorie: "", beschreibung: "", empfehlung: "" }] });
+  }
+
+  function updateOffenePunkte(index: number, field: keyof OffenerPunkt, value: string) {
+    const punkte = [...(plan.offenePunkte || [])];
+    punkte[index] = { ...punkte[index], [field]: value };
+    setPlan({ ...plan, offenePunkte: punkte });
+  }
+
+  function removeOffenerPunkt(index: number) {
+    setPlan({ ...plan, offenePunkte: (plan.offenePunkte || []).filter((_, i) => i !== index) });
+  }
+
+  function addOffenerPunkt() {
+    setPlan({ ...plan, offenePunkte: [...(plan.offenePunkte || []), { typ: "unklarheit", titel: "", beschreibung: "", vorschlag: "", prioritaet: "mittel" }] });
   }
 
   function updateArchitektur(field: "beschreibung" | "datenfluss" | "datenbankmodell", value: string) {
@@ -520,6 +574,52 @@ function EditablePlan({
           ))}
           <button onClick={addCritical} className="flex items-center gap-1.5 text-xs text-[#FFC62C] hover:text-[#e6b228] mt-1">
             <Plus className="h-3.5 w-3.5" /> Kritischen Punkt hinzufügen
+          </button>
+        </div>
+      </div>
+
+      {/* Offene Punkte — editable */}
+      <div>
+        <h4 className="text-sm font-semibold text-white flex items-center gap-2 mb-3">
+          <AlertTriangle className="h-4 w-4 text-orange-400" />
+          Offene Punkte &amp; Vorschläge
+        </h4>
+        <div className="space-y-2">
+          {(plan.offenePunkte || []).map((punkt, i) => (
+            <div key={i} className="rounded-lg bg-white/[0.03] border border-white/[0.06] p-3 flex items-start gap-2">
+              <div className="flex-1 space-y-2">
+                <div className="flex gap-2">
+                  <select
+                    value={punkt.typ}
+                    onChange={(e) => updateOffenePunkte(i, "typ", e.target.value)}
+                    className="rounded bg-white/[0.06] border border-white/[0.1] px-2 py-1 text-xs text-white focus:border-[#FFC62C]/50 focus:outline-none"
+                  >
+                    <option value="luecke">Lücke</option>
+                    <option value="inkonsistenz">Inkonsistenz</option>
+                    <option value="risiko">Risiko</option>
+                    <option value="unklarheit">Unklarheit</option>
+                  </select>
+                  <select
+                    value={punkt.prioritaet}
+                    onChange={(e) => updateOffenePunkte(i, "prioritaet", e.target.value)}
+                    className="rounded bg-white/[0.06] border border-white/[0.1] px-2 py-1 text-xs text-white focus:border-[#FFC62C]/50 focus:outline-none"
+                  >
+                    <option value="hoch">Hoch</option>
+                    <option value="mittel">Mittel</option>
+                    <option value="niedrig">Niedrig</option>
+                  </select>
+                </div>
+                <EditableField value={punkt.titel} onChange={(v) => updateOffenePunkte(i, "titel", v)} placeholder="Titel" />
+                <EditableField value={punkt.beschreibung} onChange={(v) => updateOffenePunkte(i, "beschreibung", v)} placeholder="Beschreibung" multiline />
+                <EditableField value={punkt.vorschlag} onChange={(v) => updateOffenePunkte(i, "vorschlag", v)} placeholder="Vorschlag zur Lösung" multiline />
+              </div>
+              <button onClick={() => removeOffenerPunkt(i)} className="text-red-400/60 hover:text-red-400 shrink-0 mt-1">
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ))}
+          <button onClick={addOffenerPunkt} className="flex items-center gap-1.5 text-xs text-[#FFC62C] hover:text-[#e6b228] mt-1">
+            <Plus className="h-3.5 w-3.5" /> Offenen Punkt hinzufügen
           </button>
         </div>
       </div>
