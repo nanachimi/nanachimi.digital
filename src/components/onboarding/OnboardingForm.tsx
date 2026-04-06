@@ -7,11 +7,12 @@ import { hasAnalyticsConsent } from "@/lib/consent";
 import { StepKontaktdaten } from "./StepKontaktdaten";
 import { StepProjekttyp } from "./StepProjekttyp";
 import { StepBeschreibung } from "./StepBeschreibung";
-import { StepZielgruppe } from "./StepZielgruppe";
 import { StepFunktionen } from "./StepFunktionen";
 import { StepNutzerrollen } from "./StepNutzerrollen";
 import { StepDesign } from "./StepDesign";
 import { StepBranding } from "./StepBranding";
+import { StepInspiration } from "./StepInspiration";
+import { StepMonetarisierung } from "./StepMonetarisierung";
 import { StepZeitrahmen } from "./StepZeitrahmen";
 import { StepBudget } from "./StepBudget";
 import { StepBetrieb } from "./StepBetrieb";
@@ -19,23 +20,24 @@ import { StepAbschluss } from "./StepAbschluss";
 import { ProgressBar } from "./ProgressBar";
 import type { OnboardingData } from "@/lib/onboarding-schema";
 
-const TOTAL_STEPS = 12;
+const TOTAL_STEPS = 13;
 const STORAGE_KEY = "nanachimi_onboarding";
 const CONSENT_KEY = "nanachimi_storage_consent";
 
 const stepTitles = [
-  "Was schwebt Ihnen vor?",
-  "Erzählen Sie uns davon",
-  "Wer wird das nutzen?",
-  "Was soll möglich sein?",
-  "Wer arbeitet damit?",
-  "Wie soll es aussehen?",
-  "Ihr Branding & Artefakte",
-  "Wann soll es fertig sein?",
-  "In welchem Rahmen?",
-  "Und nach dem Start?",
-  "Kontaktdaten",
-  "Ihre Einschätzung",
+  "Welche Art von Lösung brauchen Sie?",   // 1
+  "Erzählen Sie uns davon",                // 2
+  "Wer wird das nutzen?",                  // 3 (merged: Zielgruppe + Nutzerrollen)
+  "Was soll möglich sein?",                // 4
+  "Wie soll es aussehen?",                 // 5
+  "Ihr Branding & Artefakte",              // 6
+  "Gibt es Projekte, die Sie inspirieren?",// 7 (NEU)
+  "Wie soll Ihr Projekt Geld verdienen?",  // 8 (NEU)
+  "Wann soll es fertig sein?",             // 9
+  "In welchem Rahmen?",                    // 10
+  "Und nach dem Start?",                   // 11
+  "Kontaktdaten",                          // 12
+  "Ihre Einschätzung",                     // 13
 ];
 
 function hasStorageConsent(): boolean {
@@ -280,43 +282,48 @@ export function OnboardingForm() {
         return !!data.projekttyp;
       case 2: // Beschreibung — min 10 chars
         return !!(data.beschreibung && data.beschreibung.trim().length >= 10);
-      case 3: // Zielgruppe — min 5 chars
-        return !!(data.zielgruppe && data.zielgruppe.trim().length >= 5);
-      case 4: // Funktionen — at least 1 selected
-        return !!(data.funktionen && data.funktionen.length > 0);
-      case 5: // Nutzerrollen — rollenAnzahl required, appStruktur if >1 role
+      case 3: // Nutzerrollen
         if (!data.rollenAnzahl) return false;
         if (data.rollenAnzahl === "2" || data.rollenAnzahl === "3+") {
-          if (!data.appStruktur) return false;
-          if (data.appStruktur === "separate") {
-            return !!(
-              data.rollenApps &&
-              data.rollenApps.length > 0 &&
-              data.rollenApps.every((r) => r.rolle.trim().length > 0 && r.appTyp)
-            );
+          // "unsicher" requires manual appStruktur selection
+          if (data.projekttyp === "unsicher" && !data.appStruktur) return false;
+          // All group names must be filled
+          if (!data.rollenApps || data.rollenApps.length === 0) return false;
+          if (!data.rollenApps.every((r) => r.rolle.trim().length > 0)) return false;
+          // "beides" requires both platforms covered across groups
+          if (data.projekttyp === "beides") {
+            const allTypes = new Set(data.rollenApps.flatMap((r) => r.appTyp));
+            if (!allTypes.has("web") || !allTypes.has("mobile")) return false;
           }
+          return true;
         }
         return true;
-      case 6: // Design — must select one
+      case 4: // Funktionen — at least 1 selected
+        return !!(data.funktionen && data.funktionen.length > 0);
+      case 5: // Design — must select one
         return !!data.designLevel;
-      case 7: // Branding — all optional, always can proceed
+      case 6: // Branding — all optional, always can proceed
         return true;
-      case 8: // Zeitrahmen — both fields required
+      case 7: // Inspiration — optional, always can proceed
+        return true;
+      case 8: // Monetarisierung — at least 1 selected
+        return !!(data.monetarisierung && data.monetarisierung.length > 0);
+      case 9: // Zeitrahmen — both fields required
         return !!(data.zeitrahmenMvp && data.zeitrahmenFinal);
-      case 9: // Budget — must select one
+      case 10: // Budget — must select one
         return !!data.budget;
-      case 10: // Betrieb & Wartung — must select one; if "ja", laufzeit required
+      case 11: // Betrieb & Wartung — must select one; if "ja", laufzeit required
         if (!data.betriebUndWartung) return false;
         if (data.betriebUndWartung === "ja" && !data.betriebLaufzeit) return false;
         return true;
-      case 11: // Kontaktdaten — email + name required
+      case 12: // Kontaktdaten — email + name required
         return !!(
           data.email &&
           /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email) &&
           data.name &&
           data.name.trim().length >= 2
         );
-      case 12: // Abschluss — must choose call or angebot
+      case 13: // Abschluss — must choose call or angebot
         return !!data.naechsterSchritt;
       default:
         return true;
@@ -326,16 +333,17 @@ export function OnboardingForm() {
   const stepComponents: Record<number, React.ReactNode> = {
     1: <StepProjekttyp data={data} onChange={updateData} />,
     2: <StepBeschreibung data={data} onChange={updateData} />,
-    3: <StepZielgruppe data={data} onChange={updateData} />,
+    3: <StepNutzerrollen data={data} onChange={updateData} />,
     4: <StepFunktionen data={data} onChange={updateData} />,
-    5: <StepNutzerrollen data={data} onChange={updateData} />,
-    6: <StepDesign data={data} onChange={updateData} />,
-    7: <StepBranding data={data} onChange={updateData} />,
-    8: <StepZeitrahmen data={data} onChange={updateData} />,
-    9: <StepBudget data={data} onChange={updateData} />,
-    10: <StepBetrieb data={data} onChange={updateData} />,
-    11: <StepKontaktdaten data={data} onChange={updateData} />,
-    12: <StepAbschluss data={data} onChange={updateData} estimate={clientEstimate ?? undefined} />,
+    5: <StepDesign data={data} onChange={updateData} />,
+    6: <StepBranding data={data} onChange={updateData} />,
+    7: <StepInspiration data={data} onChange={updateData} />,
+    8: <StepMonetarisierung data={data} onChange={updateData} />,
+    9: <StepZeitrahmen data={data} onChange={updateData} />,
+    10: <StepBudget data={data} onChange={updateData} />,
+    11: <StepBetrieb data={data} onChange={updateData} />,
+    12: <StepKontaktdaten data={data} onChange={updateData} />,
+    13: <StepAbschluss data={data} onChange={updateData} estimate={clientEstimate ?? undefined} />,
   };
 
   return (
@@ -399,7 +407,7 @@ export function OnboardingForm() {
       {/* Step content */}
       <div className="mt-8 rounded-2xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-sm p-8">
         <p className="text-xs font-semibold uppercase tracking-widest text-[#FFC62C] mb-1">
-          Frage {step} von {TOTAL_STEPS}{step >= 8 ? " — dauert nur noch kurz" : ""}
+          Frage {step} von {TOTAL_STEPS}{step >= 9 ? " — dauert nur noch kurz" : ""}
         </p>
         <h2 className="text-xl font-bold text-white mb-6">
           {stepTitles[step - 1]}

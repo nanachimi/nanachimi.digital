@@ -124,24 +124,34 @@ Jedes Projekt enthält standardmäßig 1 Monat Betrieb & Wartung nach Go-Live (i
 export interface PlanPromptInput {
   projekttyp: string;
   beschreibung: string;
-  zielgruppe: string;
+  zielgruppe?: string;
   funktionen: string[];
+  funktionenGruppen?: Record<string, string[]>;
   rollenAnzahl: string;
   rollenBeschreibung?: string;
   appStruktur?: "shared" | "separate";
-  rollenApps?: { rolle: string; appTyp: string[] }[];
+  rollenApps?: { rolle: string; appTyp: string[]; beschreibung?: string }[];
   designLevel: string;
+  budget: string;
   zeitrahmenMvp: string;
   zeitrahmenFinal: string;
   betriebUndWartung: string;
+  betriebLaufzeit?: string;
+  markenname?: string;
+  domain?: string;
+  brandingInfo?: string;
+  inspirationUrls?: { url: string; beschreibung: string }[];
+  monetarisierung?: string[];
+  monetarisierungDetails?: string;
+  werZahlt?: string;
+  zahlendeGruppen?: string[];
   zusatzinfo?: string;
 }
 
 const PROJEKTTYP_MAP: Record<string, string> = {
   web: "Web-App",
   mobile: "Mobile App (iOS/Android)",
-  desktop: "Desktop App (Windows/macOS/Linux)",
-  beides: "Mehrere Plattformen (Web + Mobile + Desktop)",
+  beides: "Mehrere Plattformen (Web + Mobile)",
   unsicher: "Noch zu klären",
 };
 
@@ -165,6 +175,46 @@ const ZEITRAHMEN_FINAL_MAP: Record<string, string> = {
   laufend: "Laufende Entwicklung",
 };
 
+const BUDGET_MAP: Record<string, string> = {
+  "unter-399": "Unter 399 €",
+  "399-1000": "399–1.000 €",
+  "1000-5000": "1.000–5.000 €",
+  "5000-10000": "5.000–10.000 €",
+  "10000-plus": "Über 10.000 €",
+  unsicher: "Noch unsicher",
+};
+
+const BETRIEB_MAP: Record<string, string> = {
+  ja: "Ja, gewünscht",
+  teilweise: "Teilweise",
+  nein: "Nein",
+  unsicher: "Noch unsicher",
+  ohne: "Ohne Betrieb & Wartung",
+};
+
+const BETRIEB_LAUFZEIT_MAP: Record<string, string> = {
+  "3": "3 Monate",
+  "6": "6 Monate",
+  "12": "12 Monate",
+};
+
+const MONETARISIERUNG_MAP: Record<string, string> = {
+  werbung: "Werbung",
+  abonnement: "Abonnement / Mitgliedschaft",
+  "einmalige-zahlung": "Einmalige Zahlung",
+  freemium: "Freemium (kostenlose Basis + bezahlte Premium-Features)",
+  provisionen: "Provisionen / Marktplatz",
+  kostenlos: "Kostenloses Angebot",
+  sonstiges: "Sonstiges",
+};
+
+const WER_ZAHLT_MAP: Record<string, string> = {
+  alle: "Alle Nutzer",
+  "bestimmte-gruppen": "Bestimmte Nutzergruppen",
+  unternehmen: "Das Unternehmen selbst",
+  unsicher: "Noch unsicher",
+};
+
 export function buildPlanPrompt(input: PlanPromptInput): string {
   const lines: string[] = [
     "Erstelle einen Projektplan für folgende Kundenanfrage:",
@@ -175,13 +225,25 @@ export function buildPlanPrompt(input: PlanPromptInput): string {
     input.beschreibung,
     "",
     `## Zielgruppe`,
-    input.zielgruppe,
+    input.zielgruppe || "Nicht angegeben",
     "",
-    `## Gewünschte Funktionen`,
-    ...input.funktionen.map((f) => `- ${f}`),
-    "",
-    `## Nutzerrollen: ${input.rollenAnzahl}`,
   ];
+
+  // ── Funktionen + Gruppen-Zuordnung ──────────────────────────────
+  lines.push(`## Gewünschte Funktionen`);
+  const gruppen = input.funktionenGruppen || {};
+  for (const f of input.funktionen) {
+    const assignedGroups = gruppen[f];
+    if (assignedGroups && assignedGroups.length > 0) {
+      lines.push(`- ${f} → genutzt von: ${assignedGroups.join(", ")}`);
+    } else {
+      lines.push(`- ${f}`);
+    }
+  }
+  lines.push("");
+
+  // ── Nutzerrollen ────────────────────────────────────────────────
+  lines.push(`## Nutzerrollen: ${input.rollenAnzahl}`);
 
   if (input.rollenBeschreibung) {
     lines.push(`Beschreibung: ${input.rollenBeschreibung}`);
@@ -190,19 +252,67 @@ export function buildPlanPrompt(input: PlanPromptInput): string {
   if (input.appStruktur === "separate" && input.rollenApps) {
     lines.push("Separate Apps pro Rolle:");
     for (const app of input.rollenApps) {
-      lines.push(`- ${app.rolle}: ${Array.isArray(app.appTyp) ? app.appTyp.join(", ") : app.appTyp}`);
+      const plattform = Array.isArray(app.appTyp) ? app.appTyp.join(", ") : app.appTyp;
+      const desc = app.beschreibung ? ` — ${app.beschreibung}` : "";
+      lines.push(`- ${app.rolle} (${plattform})${desc}`);
+    }
+  } else if (input.rollenApps && input.rollenApps.length > 0) {
+    lines.push("Alle Rollen nutzen eine gemeinsame Anwendung:");
+    for (const app of input.rollenApps) {
+      const desc = app.beschreibung ? ` — ${app.beschreibung}` : "";
+      lines.push(`- ${app.rolle}${desc}`);
     }
   } else if (input.appStruktur === "shared") {
     lines.push("Alle Rollen nutzen eine gemeinsame Anwendung.");
   }
 
+  // ── Branding ────────────────────────────────────────────────────
+  if (input.markenname || input.domain || input.brandingInfo) {
+    lines.push("", `## Branding`);
+    if (input.markenname) lines.push(`Markenname: ${input.markenname}`);
+    if (input.domain) lines.push(`Domain: ${input.domain}`);
+    if (input.brandingInfo) lines.push(`Branding-Details: ${input.brandingInfo}`);
+  }
+
+  // ── Inspiration ─────────────────────────────────────────────────
+  if (input.inspirationUrls && input.inspirationUrls.length > 0) {
+    lines.push("", `## Inspirations-Referenzen`);
+    for (const ref of input.inspirationUrls) {
+      lines.push(`- ${ref.url} — ${ref.beschreibung}`);
+    }
+  }
+
+  // ── Monetarisierung ─────────────────────────────────────────────
+  if (input.monetarisierung && input.monetarisierung.length > 0) {
+    lines.push(
+      "",
+      `## Monetarisierung`,
+      ...input.monetarisierung.map((m) => `- ${MONETARISIERUNG_MAP[m] || m}`)
+    );
+    if (input.monetarisierungDetails) {
+      lines.push(`Details: ${input.monetarisierungDetails}`);
+    }
+    if (input.werZahlt) {
+      lines.push(`Wer zahlt: ${WER_ZAHLT_MAP[input.werZahlt] || input.werZahlt}`);
+    }
+    if (input.zahlendeGruppen && input.zahlendeGruppen.length > 0) {
+      lines.push(`Zahlende Gruppen: ${input.zahlendeGruppen.join(", ")}`);
+    }
+  }
+
+  // ── Design, Timeline, Budget, Betrieb ───────────────────────────
   lines.push(
     "",
     `## Design-Level: ${DESIGN_MAP[input.designLevel] || input.designLevel}`,
+    `## Budget: ${BUDGET_MAP[input.budget] || input.budget}`,
     `## MVP-Lieferung: ${ZEITRAHMEN_MVP_MAP[input.zeitrahmenMvp] || input.zeitrahmenMvp}`,
     `## Endlieferung: ${ZEITRAHMEN_FINAL_MAP[input.zeitrahmenFinal] || input.zeitrahmenFinal}`,
-    `## Betrieb & Wartung: ${input.betriebUndWartung}`,
+    `## Betrieb & Wartung: ${BETRIEB_MAP[input.betriebUndWartung] || input.betriebUndWartung}`,
   );
+
+  if (input.betriebLaufzeit) {
+    lines.push(`Gewünschte Laufzeit: ${BETRIEB_LAUFZEIT_MAP[input.betriebLaufzeit] || input.betriebLaufzeit}`);
+  }
 
   if (input.zusatzinfo) {
     lines.push("", `## Zusätzliche Informationen`, input.zusatzinfo);

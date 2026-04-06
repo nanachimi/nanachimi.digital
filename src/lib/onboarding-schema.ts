@@ -26,16 +26,17 @@ export const beschreibungSchema = z.object({
 });
 
 export const zielgruppeSchema = z.object({
-  zielgruppe: z.string().min(5, "Bitte beschreiben Sie Ihre Zielgruppe"),
+  zielgruppe: z.string().optional(),
 });
 
 export const funktionenSchema = z.object({
   funktionen: z.array(z.string()).min(1, "Bitte wählen Sie mindestens eine Funktion"),
+  funktionenGruppen: z.record(z.string(), z.array(z.string())).optional(),
 });
 
 export const rolleAppSchema = z.object({
-  rolle: z.string().min(1),
-  appTyp: z.array(z.enum(["web", "mobile", "desktop"])).min(1, "Bitte wählen Sie mindestens einen App-Typ"),
+  rolle: z.string().min(1).max(15).regex(/^\S+$/, "Ein Wort, ohne Leerzeichen"),
+  appTyp: z.array(z.enum(["web", "mobile"])).min(1, "Bitte wählen Sie mindestens einen App-Typ"),
   beschreibung: z.string().optional(),
 });
 
@@ -71,6 +72,36 @@ export const betriebSchema = z.object({
   betriebLaufzeit: z.enum(["3", "6", "12"]).optional(),
 });
 
+export const MAX_INSPIRATION_URLS = 3;
+
+export const inspirationUrlSchema = z.object({
+  url: z.string().url("Gültige URL erforderlich"),
+  beschreibung: z.string().min(5, "Mindestens 5 Zeichen").max(200),
+});
+
+export const inspirationSchema = z.object({
+  inspirationUrls: z.array(inspirationUrlSchema).max(MAX_INSPIRATION_URLS).optional(),
+});
+
+export const MONETARISIERUNG_OPTIONS = [
+  "werbung",
+  "abonnement",
+  "einmalige-zahlung",
+  "freemium",
+  "provisionen",
+  "kostenlos",
+  "sonstiges",
+] as const;
+
+export const monetarisierungSchema = z.object({
+  monetarisierung: z.array(
+    z.enum(MONETARISIERUNG_OPTIONS)
+  ).min(1, "Bitte wählen Sie mindestens ein Modell"),
+  monetarisierungDetails: z.string().max(500).optional(),
+  werZahlt: z.enum(["alle", "bestimmte-gruppen", "unternehmen", "unsicher"]).optional(),
+  zahlendeGruppen: z.array(z.string()).optional(),
+});
+
 export const abschlussSchema = z.object({
   naechsterSchritt: z.enum(["call", "angebot"]),
   zusatzinfo: z.string().optional(),
@@ -85,6 +116,8 @@ export const fullOnboardingSchema = z.object({
   ...nutzerrollenSchema.shape,
   ...designSchema.shape,
   ...brandingSchema.shape,
+  ...inspirationSchema.shape,
+  ...monetarisierungSchema.shape,
   ...zeitrahmenSchema.shape,
   ...budgetSchema.shape,
   ...betriebSchema.shape,

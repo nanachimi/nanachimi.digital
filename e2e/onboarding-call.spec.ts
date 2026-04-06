@@ -9,13 +9,13 @@ test.describe("Onboarding — Call Flow", () => {
     await page.goto("/onboarding");
     await dismissBanners(page);
 
-    // Fill steps 1–11
+    // Fill steps 1–12
     await fillOnboardingSteps(page, {
       name: "Anna Test",
       email: "anna@example.com",
     });
 
-    // Step 12: Select "Persönlich besprechen"
+    // Step 13: Select "Persönlich besprechen"
     await page
       .locator("button[type='button']", { hasText: "Persönlich besprechen" })
       .click();

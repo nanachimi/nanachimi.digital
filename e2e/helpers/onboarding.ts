@@ -23,20 +23,35 @@ export async function dismissBanners(page: Page) {
 }
 
 /**
- * Fill onboarding steps 1–11 with valid data.
- * After calling this, the form is on step 12 (Abschluss).
+ * Fill onboarding steps 1–12 with valid data.
+ * After calling this, the form is on step 13 (Abschluss).
+ *
+ * Step order (13 total):
+ *  1  Projekttyp
+ *  2  Beschreibung
+ *  3  Nutzerrollen
+ *  4  Funktionen
+ *  5  Design
+ *  6  Branding
+ *  7  Inspiration
+ *  8  Monetarisierung
+ *  9  Zeitrahmen
+ * 10  Budget
+ * 11  Betrieb & Wartung
+ * 12  Kontaktdaten
+ * 13  Abschluss
  */
 export async function fillOnboardingSteps(
   page: Page,
   options?: {
     projekttyp?: string;
     beschreibung?: string;
-    zielgruppe?: string;
     features?: string[];
     customFeature?: string;
     rollenAnzahl?: string;
     designLevel?: string;
     markenname?: string;
+    monetarisierung?: string;
     zeitrahmenMvp?: string;
     zeitrahmenFinal?: string;
     budget?: string;
@@ -60,10 +75,28 @@ export async function fillOnboardingSteps(
   await expect(weiter).toBeEnabled();
   await weiter.click();
 
-  // Step 3: Zielgruppe
-  const zielgruppe =
-    options?.zielgruppe ?? "Kleine und mittlere Unternehmen in Deutschland";
-  await page.locator("textarea").fill(zielgruppe);
+  // Step 3: Nutzerrollen — labels: "Nur ich / eine Gruppe", "Zwei Gruppen", "Drei oder mehr Gruppen"
+  const rollenMap: Record<string, string> = {
+    "1": "Nur ich",
+    "2": "Zwei Gruppen",
+    "3+": "Drei oder mehr",
+  };
+  const rollenLabel = rollenMap[options?.rollenAnzahl ?? "1"] ?? "Nur ich";
+  await page
+    .locator("button[type='button']", { hasText: rollenLabel })
+    .first()
+    .click();
+
+  // If multi-role, fill group names
+  if ((options?.rollenAnzahl ?? "1") !== "1") {
+    const gruppeInputs = page.locator("input[placeholder*='Kunden']");
+    const count = await gruppeInputs.count();
+    const defaultNames = ["Kunden", "Verwaltung", "Mitarbeiter"];
+    for (let i = 0; i < count; i++) {
+      await gruppeInputs.nth(i).fill(defaultNames[i] || `Gruppe${i + 1}`);
+    }
+  }
+
   await expect(weiter).toBeEnabled();
   await weiter.click();
 
@@ -86,21 +119,7 @@ export async function fillOnboardingSteps(
   await expect(weiter).toBeEnabled();
   await weiter.click();
 
-  // Step 5: Nutzerrollen — labels: "Nur ich / eine Gruppe", "Zwei Gruppen", "Drei oder mehr Gruppen"
-  const rollenMap: Record<string, string> = {
-    "1": "Nur ich",
-    "2": "Zwei Gruppen",
-    "3+": "Drei oder mehr",
-  };
-  const rollenLabel = rollenMap[options?.rollenAnzahl ?? "1"] ?? "Nur ich";
-  await page
-    .locator("button[type='button']", { hasText: rollenLabel })
-    .first()
-    .click();
-  await expect(weiter).toBeEnabled();
-  await weiter.click();
-
-  // Step 6: Design — labels: "Sauber & funktional", "Nach meinen Vorgaben", "Besonders & hochwertig"
+  // Step 5: Design — labels: "Sauber & funktional", "Nach meinen Vorgaben", "Besonders & hochwertig"
   const designMap: Record<string, string> = {
     standard: "Sauber & funktional",
     individuell: "Nach meinen Vorgaben",
@@ -114,14 +133,27 @@ export async function fillOnboardingSteps(
   await expect(weiter).toBeEnabled();
   await weiter.click();
 
-  // Step 7: Branding (all optional — just proceed)
+  // Step 6: Branding (all optional — just proceed)
   if (options?.markenname) {
     await page.locator("#markenname").fill(options.markenname);
   }
   await expect(weiter).toBeEnabled();
   await weiter.click();
 
-  // Step 8: Zeitrahmen
+  // Step 7: Inspiration (optional — just proceed)
+  await expect(weiter).toBeEnabled();
+  await weiter.click();
+
+  // Step 8: Monetarisierung — at least 1 required
+  const monetLabel = options?.monetarisierung ?? "Kostenlos";
+  await page
+    .locator("button[type='button']", { hasText: monetLabel })
+    .first()
+    .click();
+  await expect(weiter).toBeEnabled();
+  await weiter.click();
+
+  // Step 9: Zeitrahmen
   // MVP labels: "So schnell wie möglich", "In 1–2 Wochen", "In einem Monat", "Kein fester Termin"
   // Final labels: "1 Monat", "2–3 Monate", "6 Monate", "Laufend"
   const mvpLabel = options?.zeitrahmenMvp ?? "Kein fester Termin";
@@ -136,7 +168,7 @@ export async function fillOnboardingSteps(
   await weiter.scrollIntoViewIfNeeded();
   await weiter.click();
 
-  // Step 9: Budget — labels: "Unter 399 €", "399 – 1.000 €", "1.000 – 5.000 €", etc.
+  // Step 10: Budget — labels: "Unter 399 €", "399 – 1.000 €", "1.000 – 5.000 €", etc.
   const budgetLabel = options?.budget ?? "1.000 – 5.000";
   await page
     .locator("button[type='button']", { hasText: budgetLabel })
@@ -145,7 +177,7 @@ export async function fillOnboardingSteps(
   await expect(weiter).toBeEnabled();
   await weiter.click();
 
-  // Step 10: Betrieb & Wartung
+  // Step 11: Betrieb & Wartung
   const betriebLabel = options?.betrieb ?? "Nein, nur den";
   await page
     .locator("button[type='button']", { hasText: betriebLabel })
@@ -154,7 +186,7 @@ export async function fillOnboardingSteps(
   await expect(weiter).toBeEnabled();
   await weiter.click();
 
-  // Step 11: Kontaktdaten — email first (name field appears only after valid email)
+  // Step 12: Kontaktdaten — email first (name field appears only after valid email)
   const name = options?.name ?? "Test Nutzer";
   const email = options?.email ?? "test@example.com";
   await page.locator("input[type='email']").fill(email);
@@ -165,5 +197,5 @@ export async function fillOnboardingSteps(
   await expect(weiter).toBeEnabled();
   await weiter.click();
 
-  // Now on step 12 — Abschluss
+  // Now on step 13 — Abschluss
 }

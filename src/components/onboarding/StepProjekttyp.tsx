@@ -7,8 +7,8 @@ interface Props {
 }
 
 const options = [
-  { value: "web", label: "Etwas im Browser", desc: "Erreichbar über jeden Browser — PC, Tablet oder Handy", icon: Globe },
-  { value: "mobile", label: "Eine Handy-App", desc: "Für iPhone, Android oder beides", icon: Smartphone },
+  { value: "web", label: "Etwas im Browser", desc: "Erreichbar über eine URL über jeden Browser auf PC, Tablet oder Handy", icon: Globe },
+  { value: "mobile", label: "Eine Handy-App", desc: "Lösung über Store zu installieren - iPhone und Android", icon: Smartphone },
   { value: "beides", label: "Beides", desc: "Browser + Handy-App", icon: Layers },
   { value: "unsicher", label: "Ich bin mir noch unsicher", desc: "Kein Problem — wir helfen Ihnen bei der Entscheidung", icon: HelpCircle },
 ] as const;
@@ -17,7 +17,7 @@ export function StepProjekttyp({ data, onChange }: Props) {
   return (
     <div>
       <p className="text-sm text-[#8B8F97] mb-4">
-        Damit wir wissen, wo Ihre Lösung zum Einsatz kommt.
+        Wählen Sie die Plattform, die am besten zu Ihrem Vorhaben passt.
       </p>
       <div className="grid gap-3 sm:grid-cols-2">
         {options.map((opt) => {

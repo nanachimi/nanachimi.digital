@@ -15,9 +15,18 @@ interface Props {
   onChange: (d: Partial<OnboardingData>) => void;
 }
 
+function getRoleNames(data: Partial<OnboardingData>): string[] {
+  if (data.rollenAnzahl === "1") return [];
+  return (data.rollenApps || []).map((r) => r.rolle).filter(Boolean);
+}
+
 export function StepFunktionen({ data, onChange }: Props) {
   const selected = data.funktionen || [];
+  const gruppenMap = data.funktionenGruppen || {};
   const [customInput, setCustomInput] = useState("");
+
+  const roleNames = getRoleNames(data);
+  const hasMultipleRoles = roleNames.length > 0;
 
   // Split selected into predefined and custom
   const customFeatures = selected.filter((f) =>
@@ -30,20 +39,58 @@ export function StepFunktionen({ data, onChange }: Props) {
     const next = selected.includes(feature)
       ? selected.filter((f) => f !== feature)
       : [...selected, feature];
-    onChange({ funktionen: next });
+
+    // Clean up gruppenMap when deselecting
+    if (!next.includes(feature)) {
+      const updatedGruppen = { ...gruppenMap };
+      delete updatedGruppen[feature];
+      onChange({ funktionen: next, funktionenGruppen: updatedGruppen });
+    } else {
+      // Auto-assign all groups when selecting
+      if (hasMultipleRoles) {
+        onChange({
+          funktionen: next,
+          funktionenGruppen: { ...gruppenMap, [feature]: [...roleNames] },
+        });
+      } else {
+        onChange({ funktionen: next });
+      }
+    }
   }
+
+  function toggleGruppe(feature: string, gruppe: string) {
+    const current = gruppenMap[feature] || [];
+    const updated = current.includes(gruppe)
+      ? current.filter((g) => g !== gruppe)
+      : [...current, gruppe];
+    onChange({ funktionenGruppen: { ...gruppenMap, [feature]: updated } });
+  }
+
 
   function addCustomFeature() {
     const trimmed = customInput.trim();
     if (!trimmed || !canAddMore) return;
     const prefixed = CUSTOM_FEATURE_PREFIX + trimmed;
     if (selected.includes(prefixed)) return; // no duplicates
-    onChange({ funktionen: [...selected, prefixed] });
+    const nextFunktionen = [...selected, prefixed];
+    if (hasMultipleRoles) {
+      onChange({
+        funktionen: nextFunktionen,
+        funktionenGruppen: { ...gruppenMap, [prefixed]: [...roleNames] },
+      });
+    } else {
+      onChange({ funktionen: nextFunktionen });
+    }
     setCustomInput("");
   }
 
   function removeCustomFeature(feature: string) {
-    onChange({ funktionen: selected.filter((f) => f !== feature) });
+    const updatedGruppen = { ...gruppenMap };
+    delete updatedGruppen[feature];
+    onChange({
+      funktionen: selected.filter((f) => f !== feature),
+      funktionenGruppen: updatedGruppen,
+    });
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
@@ -51,6 +98,41 @@ export function StepFunktionen({ data, onChange }: Props) {
       e.preventDefault();
       addCustomFeature();
     }
+  }
+
+  function renderGruppenChips(feature: string) {
+    if (!hasMultipleRoles) return null;
+    if (!selected.includes(feature)) return null;
+
+    const featureGruppen = gruppenMap[feature] || [];
+
+    return (
+      <div className="mt-2 ml-0 space-y-1">
+        <p className="text-[10px] text-[#6a6e76] uppercase tracking-wide">Wer nutzt diese Funktion?</p>
+        <div className="flex flex-wrap gap-1.5">
+        {roleNames.map((rolle) => {
+          const isActive = featureGruppen.includes(rolle);
+          return (
+            <button
+              key={rolle}
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleGruppe(feature, rolle);
+              }}
+              className={`rounded-md border px-2 py-0.5 text-xs transition-all ${
+                isActive
+                  ? "border-[#FFC62C]/40 bg-[#FFC62C]/[0.1] text-[#FFC62C]"
+                  : "border-white/10 bg-white/[0.02] text-[#6a6e76] hover:border-white/20"
+              }`}
+            >
+              {rolle}
+            </button>
+          );
+        })}
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -62,27 +144,29 @@ export function StepFunktionen({ data, onChange }: Props) {
         {FEATURE_OPTIONS.map((feature) => {
           const isSelected = selected.includes(feature);
           return (
-            <button
-              key={feature}
-              type="button"
-              onClick={() => toggle(feature)}
-              className={`flex items-center gap-3 rounded-lg border px-4 py-3 text-left text-sm transition-all ${
-                isSelected
-                  ? "border-[#FFC62C]/50 bg-[#FFC62C]/[0.08] text-[#FFC62C]"
-                  : "border-white/[0.08] bg-white/[0.02] text-[#c8cad0] hover:border-white/20"
-              }`}
-            >
-              <div
-                className={`flex h-5 w-5 shrink-0 items-center justify-center rounded ${
+            <div key={feature}>
+              <button
+                type="button"
+                onClick={() => toggle(feature)}
+                className={`flex items-center gap-3 w-full rounded-lg border px-4 py-3 text-left text-sm transition-all ${
                   isSelected
-                    ? "bg-[#FFC62C] text-[#111318]"
-                    : "border border-white/20"
+                    ? "border-[#FFC62C]/50 bg-[#FFC62C]/[0.08] text-[#FFC62C]"
+                    : "border-white/[0.08] bg-white/[0.02] text-[#c8cad0] hover:border-white/20"
                 }`}
               >
-                {isSelected && <Check className="h-3 w-3" />}
-              </div>
-              {feature}
-            </button>
+                <div
+                  className={`flex h-5 w-5 shrink-0 items-center justify-center rounded ${
+                    isSelected
+                      ? "bg-[#FFC62C] text-[#111318]"
+                      : "border border-white/20"
+                  }`}
+                >
+                  {isSelected && <Check className="h-3 w-3" />}
+                </div>
+                {feature}
+              </button>
+              {renderGruppenChips(feature)}
+            </div>
           );
         })}
       </div>
@@ -99,24 +183,24 @@ export function StepFunktionen({ data, onChange }: Props) {
 
         {/* Custom feature chips */}
         {customFeatures.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-3">
+          <div className="space-y-2 mb-3">
             {customFeatures.map((f) => {
               const label = f.slice(CUSTOM_FEATURE_PREFIX.length);
               return (
-                <span
-                  key={f}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-[#FFC62C]/30 bg-[#FFC62C]/[0.08] px-3 py-1.5 text-sm text-[#FFC62C]"
-                >
-                  {label}
-                  <button
-                    type="button"
-                    onClick={() => removeCustomFeature(f)}
-                    className="rounded-full p-0.5 hover:bg-[#FFC62C]/20 transition-colors"
-                    aria-label={`${label} entfernen`}
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </span>
+                <div key={f}>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-[#FFC62C]/30 bg-[#FFC62C]/[0.08] px-3 py-1.5 text-sm text-[#FFC62C]">
+                    {label}
+                    <button
+                      type="button"
+                      onClick={() => removeCustomFeature(f)}
+                      className="rounded-full p-0.5 hover:bg-[#FFC62C]/20 transition-colors"
+                      aria-label={`${label} entfernen`}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                  {renderGruppenChips(f)}
+                </div>
               );
             })}
           </div>

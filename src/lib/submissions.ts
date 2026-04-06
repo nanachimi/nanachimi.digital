@@ -64,7 +64,7 @@ export interface Submission {
   // Project
   projekttyp: string;
   beschreibung: string;
-  zielgruppe: string;
+  zielgruppe?: string;
   funktionen: string[];
   rollenAnzahl: string;
   rollenBeschreibung?: string;
@@ -82,6 +82,16 @@ export interface Submission {
   markenname?: string;
   domain?: string;
   brandingInfo?: string;
+
+  // Funktionen-Gruppen-Zuordnung
+  funktionenGruppen?: Record<string, string[]>;
+
+  // Inspiration & Monetarisierung
+  inspirationUrls?: { url: string; beschreibung: string }[];
+  monetarisierung?: string[];
+  monetarisierungDetails?: string;
+  werZahlt?: string;
+  zahlendeGruppen?: string[];
 
   // Preference
   naechsterSchritt: "call" | "angebot";
@@ -154,6 +164,12 @@ function dbToSubmission(row: Record<string, unknown>): Submission {
     markenname: (row.markenname as string) || undefined,
     domain: (row.domain as string) || undefined,
     brandingInfo: (row.brandingInfo as string) || undefined,
+    funktionenGruppen: row.funktionenGruppen as Submission["funktionenGruppen"] ?? undefined,
+    inspirationUrls: row.inspirationUrls as Submission["inspirationUrls"] ?? undefined,
+    monetarisierung: (row.monetarisierung as string[]) || undefined,
+    monetarisierungDetails: (row.monetarisierungDetails as string) || undefined,
+    werZahlt: (row.werZahlt as string) || undefined,
+    zahlendeGruppen: (row.zahlendeGruppen as string[]) || undefined,
     naechsterSchritt: row.naechsterSchritt as "call" | "angebot",
     clientFeedback: (row.clientFeedback as string) || undefined,
     bookingId: (row.bookingId as string) || undefined,
@@ -185,7 +201,7 @@ export async function addSubmission(submission: Submission): Promise<void> {
       whatsappConsentVersion: submission.whatsappConsentVersion ?? null,
       projekttyp: submission.projekttyp,
       beschreibung: submission.beschreibung,
-      zielgruppe: submission.zielgruppe,
+      zielgruppe: submission.zielgruppe ?? null,
       funktionen: submission.funktionen,
       rollenAnzahl: submission.rollenAnzahl,
       rollenBeschreibung: submission.rollenBeschreibung ?? null,
@@ -201,6 +217,12 @@ export async function addSubmission(submission: Submission): Promise<void> {
       markenname: submission.markenname ?? null,
       domain: submission.domain ?? null,
       brandingInfo: submission.brandingInfo ?? null,
+      funktionenGruppen: submission.funktionenGruppen ? JSON.parse(JSON.stringify(submission.funktionenGruppen)) : undefined,
+      inspirationUrls: submission.inspirationUrls ? JSON.parse(JSON.stringify(submission.inspirationUrls)) : undefined,
+      monetarisierung: submission.monetarisierung ?? [],
+      monetarisierungDetails: submission.monetarisierungDetails ?? null,
+      werZahlt: submission.werZahlt ?? null,
+      zahlendeGruppen: submission.zahlendeGruppen ?? [],
       naechsterSchritt: submission.naechsterSchritt,
       clientFeedback: submission.clientFeedback ?? null,
       bookingId: submission.bookingId ?? null,

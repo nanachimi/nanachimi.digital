@@ -7,9 +7,9 @@ test.describe("Onboarding — Full Angebot Flow", () => {
     await dismissBanners(page);
   });
 
-  test("shows 12 steps and progress bar", async ({ page }) => {
-    await expect(page.locator("text=Frage 1 von 12")).toBeVisible();
-    await expect(page.locator("text=Schritt 1 von 12")).toBeVisible();
+  test("shows 13 steps and progress bar", async ({ page }) => {
+    await expect(page.locator("text=Frage 1 von 13")).toBeVisible();
+    await expect(page.locator("text=Schritt 1 von 13")).toBeVisible();
   });
 
   test("Step 1: select Projekttyp enables Weiter", async ({ page }) => {
@@ -46,6 +46,17 @@ test.describe("Onboarding — Full Angebot Flow", () => {
     // Type enough chars
     await page.locator("textarea").fill("Ein ausführliches Projekt");
     await expect(weiter).toBeEnabled();
+    await weiter.click();
+
+    // Step 3: Nutzerrollen — no selection → Weiter disabled
+    await expect(weiter).toBeDisabled();
+
+    // Select a role count → Weiter enabled
+    await page
+      .locator("button[type='button']", { hasText: "Nur ich" })
+      .first()
+      .click();
+    await expect(weiter).toBeEnabled();
   });
 
   test("back button preserves data", async ({ page }) => {
@@ -62,7 +73,13 @@ test.describe("Onboarding — Full Angebot Flow", () => {
     await page.locator("textarea").fill("Mein tolles Projekt");
     await weiter.click();
 
-    // Step 3 → go back to step 2
+    // Step 3: select Nutzerrollen
+    await page
+      .locator("button[type='button']", { hasText: "Nur ich" })
+      .first()
+      .click();
+
+    // Go back to step 2 — verify textarea preserved
     await zurueck.click();
     const textarea = page.locator("textarea");
     await expect(textarea).toHaveValue("Mein tolles Projekt");
@@ -78,14 +95,18 @@ test.describe("Onboarding — Full Angebot Flow", () => {
   test("Step 4: custom features — add and remove", async ({ page }) => {
     const weiter = page.locator("button", { hasText: "Weiter" });
 
-    // Navigate to step 4
+    // Navigate to step 4: Step 1 (Projekttyp) → Step 2 (Beschreibung) → Step 3 (Nutzerrollen) → Step 4
     await page
       .locator("button[type='button']", { hasText: "Etwas im Browser" })
       .click();
     await weiter.click();
     await page.locator("textarea").fill("Projektbeschreibung ausführlich");
     await weiter.click();
-    await page.locator("textarea").fill("Zielgruppe beschreiben");
+    // Step 3: Nutzerrollen — select "Nur ich / eine Gruppe"
+    await page
+      .locator("button[type='button']", { hasText: "Nur ich" })
+      .first()
+      .click();
     await weiter.click();
 
     // Now on step 4 — Funktionen
@@ -127,7 +148,7 @@ test.describe("Onboarding — Full Angebot Flow", () => {
       email: "max@example.com",
     });
 
-    // Step 12: Abschluss — verify estimate is shown
+    // Step 13: Abschluss — verify estimate is shown
     await expect(
       page.locator("text=Wie möchten Sie weitermachen?")
     ).toBeVisible();
@@ -155,7 +176,7 @@ test.describe("Onboarding — Full Angebot Flow", () => {
     const weiter = page.locator("button", { hasText: "Weiter" });
 
     // Step 1
-    await expect(page.locator("text=Schritt 1 von 12")).toBeVisible();
+    await expect(page.locator("text=Schritt 1 von 13")).toBeVisible();
 
     await page
       .locator("button[type='button']", { hasText: "Etwas im Browser" })
@@ -163,12 +184,12 @@ test.describe("Onboarding — Full Angebot Flow", () => {
     await weiter.click();
 
     // Step 2
-    await expect(page.locator("text=Schritt 2 von 12")).toBeVisible();
+    await expect(page.locator("text=Schritt 2 von 13")).toBeVisible();
 
     await page.locator("textarea").fill("Ausführliche Beschreibung");
     await weiter.click();
 
     // Step 3
-    await expect(page.locator("text=Schritt 3 von 12")).toBeVisible();
+    await expect(page.locator("text=Schritt 3 von 13")).toBeVisible();
   });
 });

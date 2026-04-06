@@ -114,6 +114,12 @@ export async function POST(request: Request) {
       markenname: data.markenname,
       domain: data.domain,
       brandingInfo: data.brandingInfo,
+      funktionenGruppen: data.funktionenGruppen,
+      inspirationUrls: data.inspirationUrls,
+      monetarisierung: data.monetarisierung,
+      monetarisierungDetails: data.monetarisierungDetails,
+      werZahlt: data.werZahlt,
+      zahlendeGruppen: data.zahlendeGruppen,
       naechsterSchritt: data.naechsterSchritt,
       estimate: {
         festpreis: estimate.festpreis,

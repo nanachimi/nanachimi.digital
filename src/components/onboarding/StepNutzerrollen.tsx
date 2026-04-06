@@ -1,7 +1,7 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { OnboardingData } from "@/lib/onboarding-schema";
-import { Users, AppWindow, Globe, Smartphone, Monitor } from "lucide-react";
+import { Users, AppWindow, Globe, Smartphone } from "lucide-react";
 
 interface Props {
   data: Partial<OnboardingData>;
@@ -20,7 +20,6 @@ const MAX_ROLES = 10;
 const appTypOptions = [
   { value: "web", label: "Web", icon: Globe },
   { value: "mobile", label: "Mobile", icon: Smartphone },
-  { value: "desktop", label: "Desktop", icon: Monitor },
 ] as const;
 
 function getDefaultRollenCount(anzahl: string): number {
@@ -43,8 +42,8 @@ export function StepNutzerrollen({ data, onChange }: Props) {
       : defaultCount;
     if (!data.rollenApps || data.rollenApps.length !== targetCount) {
       const apps = Array.from({ length: targetCount }, (_, i) => ({
-        rolle: data.rollenApps?.[i]?.rolle || `Rolle ${i + 1}`,
-        appTyp: data.rollenApps?.[i]?.appTyp || ["web"] as ("web" | "mobile" | "desktop")[],
+        rolle: data.rollenApps?.[i]?.rolle || "",
+        appTyp: data.rollenApps?.[i]?.appTyp || ["web"] as ("web" | "mobile")[],
         beschreibung: data.rollenApps?.[i]?.beschreibung || "",
       }));
       onChange({ appStruktur: struktur, rollenApps: apps });
@@ -57,8 +56,8 @@ export function StepNutzerrollen({ data, onChange }: Props) {
     const apps = [...(data.rollenApps || [])];
     if (apps.length >= MAX_ROLES) return;
     apps.push({
-      rolle: `Rolle ${apps.length + 1}`,
-      appTyp: ["web"] as ("web" | "mobile" | "desktop")[],
+      rolle: "",
+      appTyp: ["web"] as ("web" | "mobile")[],
       beschreibung: "",
     });
     onChange({ rollenApps: apps });
@@ -71,7 +70,7 @@ export function StepNutzerrollen({ data, onChange }: Props) {
     onChange({ rollenApps: apps });
   }
 
-  function toggleAppTyp(index: number, typ: "web" | "mobile" | "desktop") {
+  function toggleAppTyp(index: number, typ: "web" | "mobile") {
     const apps = [...(data.rollenApps || [])];
     if (apps[index]) {
       const current = apps[index].appTyp;
@@ -81,7 +80,7 @@ export function StepNutzerrollen({ data, onChange }: Props) {
       const updated = hasTyp
         ? current.filter((t) => t !== typ)
         : [...current, typ];
-      apps[index] = { ...apps[index], appTyp: updated as ("web" | "mobile" | "desktop")[] };
+      apps[index] = { ...apps[index], appTyp: updated as ("web" | "mobile")[] };
       onChange({ rollenApps: apps });
     }
   }
@@ -110,10 +109,26 @@ export function StepNutzerrollen({ data, onChange }: Props) {
               type="button"
               onClick={() => {
                 const updates: Partial<OnboardingData> = { rollenAnzahl: opt.value };
-                // Reset appStruktur when changing role count
                 if (opt.value === "1") {
                   updates.appStruktur = undefined;
                   updates.rollenApps = undefined;
+                } else {
+                  // Auto-set appStruktur based on projekttyp
+                  if (data.projekttyp === "beides") {
+                    updates.appStruktur = "separate";
+                  } else if (data.projekttyp === "unsicher") {
+                    // User must choose — don't auto-set
+                  } else {
+                    // web or mobile → shared
+                    updates.appStruktur = "shared";
+                  }
+                  // Initialize rollenApps
+                  const count = opt.value === "3+" ? MIN_ROLES_FOR_3PLUS : parseInt(opt.value, 10);
+                  updates.rollenApps = Array.from({ length: count }, (_, i) => ({
+                    rolle: data.rollenApps?.[i]?.rolle || "",
+                    appTyp: data.rollenApps?.[i]?.appTyp || ["web"] as ("web" | "mobile")[],
+                    beschreibung: data.rollenApps?.[i]?.beschreibung || "",
+                  }));
                 }
                 onChange(updates);
               }}
@@ -132,8 +147,8 @@ export function StepNutzerrollen({ data, onChange }: Props) {
         })}
       </div>
 
-      {/* App structure question — only shown when >1 role */}
-      {hasMultipleRoles && (
+      {/* App structure question — only shown when >1 role AND "unsicher" selected */}
+      {hasMultipleRoles && data.projekttyp === "unsicher" && (
         <div className="space-y-3">
           <p className="text-sm text-[#8B8F97]">
             Nutzen alle Gruppen dieselbe Lösung oder braucht jede Gruppe eine eigene?
@@ -213,14 +228,16 @@ export function StepNutzerrollen({ data, onChange }: Props) {
               )}
               <Input
                 value={app.rolle}
-                onChange={(e) => updateRolleField(idx, "rolle", e.target.value)}
-                placeholder={`Rolle ${idx + 1}`}
+                onChange={(e) => updateRolleField(idx, "rolle", e.target.value.replace(/\s/g, ""))}
+                placeholder="z.B. Kunden, Verwaltung…"
+                maxLength={15}
                 className="bg-white/[0.04] border-white/10 text-white placeholder:text-[#5a5e66] focus:border-[#FFC62C]/50 text-sm"
               />
               <Input
                 value={app.beschreibung || ""}
                 onChange={(e) => updateRolleField(idx, "beschreibung", e.target.value)}
-                placeholder={`Was macht diese Rolle? z.B. Verwaltet Bestellungen, erstellt Berichte…`}
+                placeholder="Was macht diese Gruppe? (optional)"
+                maxLength={50}
                 className="bg-white/[0.04] border-white/10 text-white placeholder:text-[#5a5e66] focus:border-[#FFC62C]/50 text-sm"
               />
               <div className="flex gap-2">
@@ -257,15 +274,15 @@ export function StepNutzerrollen({ data, onChange }: Props) {
         </div>
       )}
 
-      {/* Per-role description — shown when shared app with multiple roles */}
-      {hasMultipleRoles && data.appStruktur === "shared" && (
+      {/* Per-role description — shown when appStruktur is not "separate" (shared, or not yet chosen for "unsicher") */}
+      {hasMultipleRoles && data.appStruktur !== "separate" && (
         <div className="space-y-4">
           <p className="text-sm text-[#8B8F97]">
             Beschreiben Sie jede Gruppe (optional)
           </p>
           {Array.from({ length: rollenCount }, (_, idx) => {
             const apps = data.rollenApps || [];
-            const app = apps[idx] || { rolle: `Rolle ${idx + 1}`, appTyp: ["web"], beschreibung: "" };
+            const app = apps[idx] || { rolle: "", appTyp: ["web"], beschreibung: "" };
             return (
               <div
                 key={idx}
@@ -285,22 +302,24 @@ export function StepNutzerrollen({ data, onChange }: Props) {
                   value={app.rolle}
                   onChange={(e) => {
                     const updated = [...apps];
-                    if (!updated[idx]) updated[idx] = { rolle: `Rolle ${idx + 1}`, appTyp: ["web"], beschreibung: "" };
-                    updated[idx] = { ...updated[idx], rolle: e.target.value };
+                    if (!updated[idx]) updated[idx] = { rolle: "", appTyp: ["web"], beschreibung: "" };
+                    updated[idx] = { ...updated[idx], rolle: e.target.value.replace(/\s/g, "") };
                     onChange({ rollenApps: updated });
                   }}
-                  placeholder={`Rolle ${idx + 1}`}
+                  placeholder="z.B. Kunden, Verwaltung…"
+                  maxLength={15}
                   className="bg-white/[0.04] border-white/10 text-white placeholder:text-[#5a5e66] focus:border-[#FFC62C]/50 text-sm"
                 />
                 <Input
                   value={app.beschreibung || ""}
                   onChange={(e) => {
                     const updated = [...apps];
-                    if (!updated[idx]) updated[idx] = { rolle: `Rolle ${idx + 1}`, appTyp: ["web"], beschreibung: "" };
+                    if (!updated[idx]) updated[idx] = { rolle: "", appTyp: ["web"], beschreibung: "" };
                     updated[idx] = { ...updated[idx], beschreibung: e.target.value };
                     onChange({ rollenApps: updated });
                   }}
-                  placeholder={`Was macht diese Rolle? z.B. Verwaltet Bestellungen, erstellt Berichte…`}
+                  placeholder="Was macht diese Gruppe? (optional)"
+                maxLength={50}
                   className="bg-white/[0.04] border-white/10 text-white placeholder:text-[#5a5e66] focus:border-[#FFC62C]/50 text-sm"
                 />
               </div>
@@ -318,16 +337,20 @@ export function StepNutzerrollen({ data, onChange }: Props) {
         </div>
       )}
 
-      {/* Single role description */}
+      {/* Single role — name + description */}
       {data.rollenAnzahl === "1" && (
-        <div className="space-y-2">
-          <Label className="text-[#c8cad0]">Beschreibung (optional)</Label>
-          <Input
-            value={data.rollenBeschreibung || ""}
-            onChange={(e) => onChange({ rollenBeschreibung: e.target.value })}
-            placeholder="z.B. Endnutzer sucht Produkte und bestellt online"
-            className="bg-white/[0.04] border-white/10 text-white placeholder:text-[#5a5e66] focus:border-[#FFC62C]/50"
-          />
+        <div className="space-y-4">
+          <p className="text-sm text-[#8B8F97]">
+            Beschreiben Sie die Gruppe (optional)
+          </p>
+          <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4 space-y-3">
+            <Input
+              value={data.rollenBeschreibung || ""}
+              onChange={(e) => onChange({ rollenBeschreibung: e.target.value })}
+              placeholder="z.B. Kunden, Mitarbeiter, Besucher…"
+              className="bg-white/[0.04] border-white/10 text-white placeholder:text-[#5a5e66] focus:border-[#FFC62C]/50 text-sm"
+            />
+          </div>
         </div>
       )}
     </div>
