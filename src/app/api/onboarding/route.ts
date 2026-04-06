@@ -102,6 +102,7 @@ export async function POST(request: Request) {
       zielgruppe: data.zielgruppe,
       funktionen: data.funktionen,
       rollenAnzahl: data.rollenAnzahl,
+      rollenName: data.rollenName,
       rollenBeschreibung: data.rollenBeschreibung,
       appStruktur: data.appStruktur,
       rollenApps: data.rollenApps,

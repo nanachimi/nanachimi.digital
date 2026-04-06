@@ -42,6 +42,7 @@ export const rolleAppSchema = z.object({
 
 export const nutzerrollenSchema = z.object({
   rollenAnzahl: z.enum(["1", "2", "3+"]),
+  rollenName: z.string().min(1).max(30).regex(/^[A-Za-zÀ-ÖØ-öø-ÿ0-9]+(?:[\s-][A-Za-zÀ-ÖØ-öø-ÿ0-9]+)*$/, "Nur Buchstaben, Ziffern, Leerzeichen oder Bindestrich").optional(),
   rollenBeschreibung: z.string().optional(),
   appStruktur: z.enum(["shared", "separate"]).optional(),
   rollenApps: z.array(rolleAppSchema).optional(),

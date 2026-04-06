@@ -255,6 +255,9 @@ function SubmissionCard({
             <InfoRow label="Budget" value={BUDGET_LABELS[submission.budget]} />
             <InfoRow label="Betrieb & Wartung" value={BETRIEB_LABELS[submission.betriebUndWartung]} />
             <InfoRow label="Nutzerrollen" value={submission.rollenAnzahl} />
+            {submission.rollenName && (
+              <InfoRow label="Gruppenname" value={submission.rollenName} />
+            )}
             {submission.appStruktur && (
               <InfoRow label="App-Struktur" value={submission.appStruktur === "shared" ? "Gemeinsame App" : "Separate Apps"} />
             )}

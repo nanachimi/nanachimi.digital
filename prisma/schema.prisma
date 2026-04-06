@@ -27,6 +27,7 @@ model Submission {
   zielgruppe         String?
   funktionen         String[]
   rollenAnzahl       String
+  rollenName         String?
   rollenBeschreibung String?
   appStruktur        String?
   rollenApps         Json?

@@ -87,8 +87,13 @@ export async function fillOnboardingSteps(
     .first()
     .click();
 
-  // If multi-role, fill group names
-  if ((options?.rollenAnzahl ?? "1") !== "1") {
+  // Fill group name(s)
+  if ((options?.rollenAnzahl ?? "1") === "1") {
+    // Single role — mandatory Gruppenname field
+    const nameInput = page.locator("input[placeholder*='Kunden']").first();
+    await nameInput.fill("Kunden");
+  } else {
+    // Multi-role — fill all group name inputs
     const gruppeInputs = page.locator("input[placeholder*='Kunden']");
     const count = await gruppeInputs.count();
     const defaultNames = ["Kunden", "Verwaltung", "Mitarbeiter"];

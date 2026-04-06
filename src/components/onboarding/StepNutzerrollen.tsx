@@ -336,19 +336,47 @@ export function StepNutzerrollen({ data, onChange }: Props) {
         </div>
       )}
 
-      {/* Single role — name + description */}
+      {/* Single role — name (mandatory) + description (optional) */}
       {data.rollenAnzahl === "1" && (
         <div className="space-y-4">
           <p className="text-sm text-[#8B8F97]">
-            Beschreiben Sie die Gruppe (optional)
+            Wie heißt die Nutzergruppe?
           </p>
           <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4 space-y-3">
-            <Input
-              value={data.rollenBeschreibung || ""}
-              onChange={(e) => onChange({ rollenBeschreibung: e.target.value })}
-              placeholder="z.B. Kunden, Mitarbeiter, Besucher…"
-              className="bg-white/[0.04] border-white/10 text-white placeholder:text-[#5a5e66] focus:border-[#FFC62C]/50 text-sm"
-            />
+            <div>
+              <label className="block text-xs text-[#6a6e76] uppercase tracking-wider mb-1">
+                Gruppenname *
+              </label>
+              <Input
+                value={data.rollenName || ""}
+                onChange={(e) =>
+                  onChange({
+                    rollenName: e.target.value.replace(
+                      /[^A-Za-zÀ-ÖØ-öø-ÿ0-9\s-]/g,
+                      ""
+                    ),
+                  })
+                }
+                maxLength={30}
+                placeholder="z.B. Kunden, Mitarbeiter, Besucher"
+                className="bg-white/[0.04] border-white/10 text-white placeholder:text-[#5a5e66] focus:border-[#FFC62C]/50 text-sm"
+              />
+              <p className="text-xs text-[#5a5e66] mt-1">
+                {(data.rollenName || "").length}/30
+              </p>
+            </div>
+            <div>
+              <label className="block text-xs text-[#6a6e76] uppercase tracking-wider mb-1">
+                Beschreibung (optional)
+              </label>
+              <Input
+                value={data.rollenBeschreibung || ""}
+                onChange={(e) => onChange({ rollenBeschreibung: e.target.value })}
+                maxLength={50}
+                placeholder="Kurze Beschreibung der Gruppe…"
+                className="bg-white/[0.04] border-white/10 text-white placeholder:text-[#5a5e66] focus:border-[#FFC62C]/50 text-sm"
+              />
+            </div>
           </div>
         </div>
       )}

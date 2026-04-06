@@ -63,6 +63,7 @@ export async function POST(
     funktionen: submission.funktionen,
     funktionenGruppen: submission.funktionenGruppen,
     rollenAnzahl: submission.rollenAnzahl,
+    rollenName: submission.rollenName,
     rollenBeschreibung: submission.rollenBeschreibung,
     appStruktur: submission.appStruktur,
     rollenApps: submission.rollenApps,

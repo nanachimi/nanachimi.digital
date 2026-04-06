@@ -149,6 +149,7 @@ export interface PlanPromptInput {
   funktionen: string[];
   funktionenGruppen?: Record<string, string[]>;
   rollenAnzahl: string;
+  rollenName?: string;
   rollenBeschreibung?: string;
   appStruktur?: "shared" | "separate";
   rollenApps?: { rolle: string; appTyp: string[]; beschreibung?: string }[];
@@ -266,6 +267,9 @@ export function buildPlanPrompt(input: PlanPromptInput): string {
   // ── Nutzerrollen ────────────────────────────────────────────────
   lines.push(`## Nutzerrollen: ${input.rollenAnzahl}`);
 
+  if (input.rollenName) {
+    lines.push(`Gruppenname: ${input.rollenName}`);
+  }
   if (input.rollenBeschreibung) {
     lines.push(`Beschreibung: ${input.rollenBeschreibung}`);
   }

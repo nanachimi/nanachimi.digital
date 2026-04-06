@@ -67,6 +67,7 @@ export interface Submission {
   zielgruppe?: string;
   funktionen: string[];
   rollenAnzahl: string;
+  rollenName?: string;
   rollenBeschreibung?: string;
   appStruktur?: "shared" | "separate";
   rollenApps?: { rolle: string; appTyp: string[]; beschreibung?: string }[];
@@ -151,6 +152,7 @@ function dbToSubmission(row: Record<string, unknown>): Submission {
     zielgruppe: row.zielgruppe as string,
     funktionen: row.funktionen as string[],
     rollenAnzahl: row.rollenAnzahl as string,
+    rollenName: (row.rollenName as string) || undefined,
     rollenBeschreibung: (row.rollenBeschreibung as string) || undefined,
     appStruktur: (row.appStruktur as string as "shared" | "separate") || undefined,
     rollenApps: row.rollenApps as Submission["rollenApps"] ?? undefined,
@@ -204,6 +206,7 @@ export async function addSubmission(submission: Submission): Promise<void> {
       zielgruppe: submission.zielgruppe ?? null,
       funktionen: submission.funktionen,
       rollenAnzahl: submission.rollenAnzahl,
+      rollenName: submission.rollenName ?? null,
       rollenBeschreibung: submission.rollenBeschreibung ?? null,
       appStruktur: submission.appStruktur ?? null,
       rollenApps: submission.rollenApps ? JSON.parse(JSON.stringify(submission.rollenApps)) : undefined,

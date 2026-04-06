@@ -284,6 +284,10 @@ export function OnboardingForm() {
         return !!(data.beschreibung && data.beschreibung.trim().length >= 10);
       case 3: // Nutzerrollen
         if (!data.rollenAnzahl) return false;
+        if (data.rollenAnzahl === "1") {
+          // Single group — rollenName is mandatory
+          return !!(data.rollenName && data.rollenName.trim().length > 0);
+        }
         if (data.rollenAnzahl === "2" || data.rollenAnzahl === "3+") {
           // "unsicher" requires manual appStruktur selection
           if (data.projekttyp === "unsicher" && !data.appStruktur) return false;
