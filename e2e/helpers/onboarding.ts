@@ -4,8 +4,8 @@ import { type Page, expect } from "@playwright/test";
  * Dismiss cookie consent and session storage consent banners if visible.
  */
 export async function dismissBanners(page: Page) {
-  // Wait for full page load + hydration before interacting
-  await page.waitForLoadState("networkidle");
+  // Wait for page load + hydration before interacting
+  await page.waitForLoadState("domcontentloaded");
 
   // Cookie consent
   const cookieBtn = page.locator("button", { hasText: "Alle akzeptieren" });
