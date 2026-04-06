@@ -51,11 +51,15 @@ test.describe("Onboarding — Full Angebot Flow", () => {
     // Step 3: Nutzerrollen — no selection → Weiter disabled
     await expect(weiter).toBeDisabled();
 
-    // Select a role count → Weiter enabled
+    // Select a role count → still disabled (Gruppenname required)
     await page
       .locator("button[type='button']", { hasText: "Nur ich" })
       .first()
       .click();
+    await expect(weiter).toBeDisabled();
+
+    // Fill mandatory Gruppenname → Weiter enabled
+    await page.locator("input[placeholder*='Kunden']").first().fill("Kunden");
     await expect(weiter).toBeEnabled();
   });
 
@@ -102,11 +106,12 @@ test.describe("Onboarding — Full Angebot Flow", () => {
     await weiter.click();
     await page.locator("textarea").fill("Projektbeschreibung ausführlich");
     await weiter.click();
-    // Step 3: Nutzerrollen — select "Nur ich / eine Gruppe"
+    // Step 3: Nutzerrollen — select "Nur ich / eine Gruppe" + fill Gruppenname
     await page
       .locator("button[type='button']", { hasText: "Nur ich" })
       .first()
       .click();
+    await page.locator("input[placeholder*='Kunden']").first().fill("Kunden");
     await weiter.click();
 
     // Now on step 4 — Funktionen
