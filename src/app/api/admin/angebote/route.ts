@@ -9,6 +9,7 @@ import {
 } from "@/lib/angebote";
 import { sendAngebotEmail } from "@/lib/email";
 import { requireAdmin } from "@/lib/auth/require-admin";
+import { shouldShowToCustomer } from "@/lib/offene-punkte-utils";
 export const dynamic = "force-dynamic";
 
 // POST /api/admin/angebote — Create a new Angebot from an amended Anfrage
@@ -82,6 +83,11 @@ export async function POST(request: Request) {
 
   // Send email to customer with Angebot link
   try {
+    // Count customer-visible offene Punkte
+    const offenePunkteCount =
+      submission.amendment?.plan?.offenePunkte?.filter(shouldShowToCustomer)
+        .length ?? 0;
+
     await sendAngebotEmail({
       to: submission.email,
       kundenName: submission.name,
@@ -90,6 +96,7 @@ export async function POST(request: Request) {
       festpreis: angebot.festpreis,
       aufwand: angebot.aufwand,
       projektBeschreibung: submission.beschreibung,
+      offenePunkteCount,
     });
   } catch (emailError) {
     console.error("[Angebot] Email sending failed:", emailError);

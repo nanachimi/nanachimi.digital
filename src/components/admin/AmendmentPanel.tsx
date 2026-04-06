@@ -21,6 +21,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import type { ProjectPlan, UserStory, ApiEndpoint, TechChoice, CriticalPoint, OffenerPunkt } from "@/lib/plan-template";
+import { OffenePunkteEmpfehlungBanner } from "@/components/admin/OffenePunkteEmpfehlungBanner";
 
 interface AmendmentPanelProps {
   submissionId: string;
@@ -851,6 +852,11 @@ export function AmendmentPanel({
             </div>
           )}
         </div>
+      )}
+
+      {/* Empfehlung Banner */}
+      {plan && plan.offenePunkte && plan.offenePunkte.length > 0 && (
+        <OffenePunkteEmpfehlungBanner offenePunkte={plan.offenePunkte} />
       )}
 
       {/* Pricing Section */}

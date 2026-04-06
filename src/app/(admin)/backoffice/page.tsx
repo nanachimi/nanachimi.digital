@@ -27,6 +27,7 @@ import type { Booking, AvailabilitySlot } from "@/lib/bookings";
 import { AmendmentPanel, ReadOnlyPlan } from "@/components/admin/AmendmentPanel";
 import { Code, Eye, LogOut } from "lucide-react";
 import { AngebotHistory } from "@/components/admin/AngebotHistory";
+import { OffenePunkteEmpfehlungBanner } from "@/components/admin/OffenePunkteEmpfehlungBanner";
 import { useRouter } from "next/navigation";
 
 const PROJEKTTYP_LABELS: Record<string, string> = {
@@ -445,9 +446,17 @@ function SubmissionCard({
               </>
             )}
 
-            {/* AMENDED/AUTO_GENERATED: Show "Angebot erstellen" + "Bearbeiten" */}
+            {/* AMENDED/AUTO_GENERATED: Show recommendation banner + "Angebot erstellen" + "Bearbeiten" */}
             {["amended", "auto_generated"].includes(submission.status) && (
               <>
+                {submission.amendment?.plan?.offenePunkte &&
+                  submission.amendment.plan.offenePunkte.length > 0 && (
+                    <div className="w-full">
+                      <OffenePunkteEmpfehlungBanner
+                        offenePunkte={submission.amendment.plan.offenePunkte}
+                      />
+                    </div>
+                  )}
                 <Button
                   onClick={handleCreateAngebot}
                   disabled={creatingAngebot}

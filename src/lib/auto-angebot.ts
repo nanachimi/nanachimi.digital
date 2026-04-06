@@ -16,6 +16,7 @@ import { addAngebot } from "@/lib/angebote";
 import { getPricingConfig, calculateDemandFactor } from "@/lib/pricing-config";
 import { sendAngebotEmail } from "@/lib/email";
 import type { ProjectPlan } from "@/lib/plan-template";
+import { shouldShowToCustomer } from "@/lib/offene-punkte-utils";
 
 interface AutoAngebotResult {
   success: boolean;
@@ -177,6 +178,9 @@ export async function generateAutoAngebot(submission: Submission): Promise<AutoA
     await updateSubmissionStatus(submission.id, "angebot_sent");
 
     // 6. Send email (fire-and-forget)
+    const offenePunkteCount =
+      plan.offenePunkte?.filter(shouldShowToCustomer).length ?? 0;
+
     sendAngebotEmail({
       to: submission.email,
       kundenName: submission.name,
@@ -186,6 +190,7 @@ export async function generateAutoAngebot(submission: Submission): Promise<AutoA
       aufwand: submission.estimate.aufwand,
       projektBeschreibung: submission.beschreibung,
       betriebUndWartung: submission.betriebUndWartung,
+      offenePunkteCount,
     }).catch((err) => {
       console.error(`[AutoAngebot] Email failed for ${submission.id}:`, err);
     });

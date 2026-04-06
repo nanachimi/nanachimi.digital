@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Check, X, Clock, FileText, CalendarDays, Package } from "lucide-react";
+import { Check, X, Clock, FileText, CalendarDays, Package, AlertTriangle, Info } from "lucide-react";
+import {
+  shouldShowToCustomer,
+  formatOffenerPunktForCustomer,
+} from "@/lib/offene-punkte-utils";
 import { getSubmissionById } from "@/lib/submissions";
 import { getAngebotById } from "@/lib/angebote";
 import { prisma } from "@/lib/db";
@@ -254,6 +258,40 @@ export default async function AngebotPage({ params }: PageProps) {
                     <p className="text-sm text-[#c0c3c9]">{story.aktion}</p>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* Unsere Annahmen (from offenePunkte) */}
+          {plan && plan.offenePunkte && plan.offenePunkte.filter(shouldShowToCustomer).length > 0 && (
+            <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-6 mb-6">
+              <h2 className="text-lg font-bold text-white mb-2 flex items-center gap-2">
+                <Info className="h-5 w-5 text-[#4a90d9]" />
+                Unsere Annahmen
+              </h2>
+              <p className="text-sm text-[#8B8F97] mb-4">
+                Basierend auf Ihren Angaben haben wir folgende Annahmen getroffen. Falls eine Annahme nicht zutrifft, sprechen Sie uns gerne an.
+              </p>
+              <div className="space-y-3">
+                {plan.offenePunkte.filter(shouldShowToCustomer).map((punkt, i) => {
+                  const formatted = formatOffenerPunktForCustomer(punkt);
+                  return (
+                    <div
+                      key={i}
+                      className="flex items-start gap-3 rounded-lg bg-white/[0.03] border border-white/[0.06] p-3"
+                    >
+                      {formatted.icon === "warning" ? (
+                        <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0 text-yellow-400" />
+                      ) : (
+                        <Check className="h-4 w-4 mt-0.5 shrink-0 text-green-400" />
+                      )}
+                      <div>
+                        <p className="text-sm font-medium text-white">{formatted.titel}</p>
+                        <p className="text-xs text-[#8B8F97] mt-1">{formatted.text}</p>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}

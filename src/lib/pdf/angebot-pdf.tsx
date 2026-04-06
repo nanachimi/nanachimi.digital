@@ -7,6 +7,10 @@ import {
   StyleSheet,
 } from "@react-pdf/renderer";
 import type { AngebotPdfData } from "./generate";
+import {
+  shouldShowToCustomer,
+  formatOffenerPunktForCustomer,
+} from "@/lib/offene-punkte-utils";
 
 // Print-friendly color palette (white background)
 const C = {
@@ -581,6 +585,29 @@ export function AngebotPdfDocument({ data }: { data: AngebotPdfData }) {
             </Text>
           </View>
         ))}
+
+        {/* Unsere Annahmen (from offenePunkte) */}
+        {plan.offenePunkte && plan.offenePunkte.filter(shouldShowToCustomer).length > 0 && (
+          <>
+            <Text style={styles.sectionTitle}>Unsere Annahmen</Text>
+            <Text style={{ fontSize: 8, color: C.textLight, lineHeight: 1.5, marginBottom: 8 }}>
+              Basierend auf Ihren Angaben haben wir folgende Annahmen getroffen. Falls eine Annahme nicht zutrifft, sprechen Sie uns gerne an.
+            </Text>
+            {plan.offenePunkte.filter(shouldShowToCustomer).map((punkt, i) => {
+              const formatted = formatOffenerPunktForCustomer(punkt);
+              return (
+                <View key={i} style={{ borderLeftWidth: 3, borderLeftColor: "#4a90d9", paddingLeft: 10, paddingVertical: 5, marginBottom: 5 }}>
+                  <Text style={{ fontSize: 9, fontWeight: "bold", color: C.text, marginBottom: 2 }}>
+                    {formatted.icon === "warning" ? "\u26A0" : "\u2713"} {formatted.titel}
+                  </Text>
+                  <Text style={{ fontSize: 8, color: C.textLight, lineHeight: 1.4 }}>
+                    {formatted.text}
+                  </Text>
+                </View>
+              );
+            })}
+          </>
+        )}
 
         {/* Betrieb & Wartung */}
         {plan.betriebUndWartung && (

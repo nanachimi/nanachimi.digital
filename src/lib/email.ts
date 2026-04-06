@@ -214,6 +214,7 @@ interface AngebotEmailData {
   aufwand: number; // Personentage
   projektBeschreibung: string;
   betriebUndWartung?: string;
+  offenePunkteCount?: number;
 }
 
 export async function sendAngebotEmail(data: AngebotEmailData) {
@@ -342,7 +343,7 @@ export async function sendAngebotEmail(data: AngebotEmailData) {
 
               <!-- Info text -->
               <p style="color: #6a6e76; font-size: 13px; line-height: 1.6; margin: 0 0 16px 0; text-align: center;">
-                Im Angebot finden Sie den vollständigen Projektplan inkl. User Stories, technischer Architektur und Meilensteine.
+                Im Angebot finden Sie den vollständigen Projektplan inkl. User Stories, technischer Architektur und Meilensteine.${data.offenePunkteCount && data.offenePunkteCount > 0 ? " Außerdem finden Sie unsere Annahmen zu offenen Punkten — bitte prüfen Sie diese." : ""}
               </p>
 
               <!-- Divider -->
@@ -421,7 +422,7 @@ Inkl. 1 Monat Betrieb & Wartung nach Go-Live.
 ${customerWantsBW ? "Danach: ab 29 €/Monat (separat buchbar)." : "Nach dem 1. Monat: Betrieb eigenverantwortlich."}
 
 Angebot ansehen: ${angebotUrl}
-
+${data.offenePunkteCount && data.offenePunkteCount > 0 ? `\nIm Angebot finden Sie auch unsere Annahmen zu offenen Punkten — bitte prüfen Sie diese.\n` : ""}
 So geht es weiter:
 1. Angebot prüfen und bei Fragen direkt antworten
 2. Angebot annehmen oder ablehnen (mit Feedback)
