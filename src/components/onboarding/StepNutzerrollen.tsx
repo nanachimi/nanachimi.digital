@@ -227,9 +227,9 @@ export function StepNutzerrollen({ data, onChange }: Props) {
               )}
               <Input
                 value={app.rolle}
-                onChange={(e) => updateRolleField(idx, "rolle", e.target.value.replace(/\s/g, ""))}
+                onChange={(e) => updateRolleField(idx, "rolle", e.target.value.replace(/[^A-Za-zÀ-ÖØ-öø-ÿ0-9\s-]/g, ""))}
                 placeholder="z.B. Kunden, Verwaltung…"
-                maxLength={15}
+                maxLength={30}
                 className="bg-white/[0.04] border-white/10 text-white placeholder:text-[#5a5e66] focus:border-[#FFC62C]/50 text-sm"
               />
               <Input
@@ -302,11 +302,11 @@ export function StepNutzerrollen({ data, onChange }: Props) {
                   onChange={(e) => {
                     const updated = [...apps];
                     if (!updated[idx]) updated[idx] = { rolle: "", appTyp: ["web"], beschreibung: "" };
-                    updated[idx] = { ...updated[idx], rolle: e.target.value.replace(/\s/g, "") };
+                    updated[idx] = { ...updated[idx], rolle: e.target.value.replace(/[^A-Za-zÀ-ÖØ-öø-ÿ0-9\s-]/g, "") };
                     onChange({ rollenApps: updated });
                   }}
                   placeholder="z.B. Kunden, Verwaltung…"
-                  maxLength={15}
+                  maxLength={30}
                   className="bg-white/[0.04] border-white/10 text-white placeholder:text-[#5a5e66] focus:border-[#FFC62C]/50 text-sm"
                 />
                 <Input

@@ -35,9 +35,9 @@ export const funktionenSchema = z.object({
 });
 
 export const rolleAppSchema = z.object({
-  rolle: z.string().min(1).max(15).regex(/^\S+$/, "Ein Wort, ohne Leerzeichen"),
+  rolle: z.string().min(1).max(30).regex(/^[A-Za-zÀ-ÖØ-öø-ÿ0-9]+(?:[\s-][A-Za-zÀ-ÖØ-öø-ÿ0-9]+)*$/, "Nur Buchstaben, Ziffern, Leerzeichen oder Bindestrich"),
   appTyp: z.array(z.enum(["web", "mobile"])).min(1, "Bitte wählen Sie mindestens einen App-Typ"),
-  beschreibung: z.string().optional(),
+  beschreibung: z.string().max(50).optional(),
 });
 
 export const nutzerrollenSchema = z.object({
