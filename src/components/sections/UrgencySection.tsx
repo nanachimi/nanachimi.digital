@@ -232,7 +232,7 @@ export function UrgencySection() {
   }, []);
 
   return (
-    <section ref={sectionRef} className="relative overflow-hidden bg-[#111318] py-20 md:py-28">
+    <section ref={sectionRef} className="relative overflow-hidden bg-[#111318] pt-[75px] pb-20 md:pb-28">
       {/* Background accents */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-1/2 left-1/4 -translate-y-1/2 h-[400px] w-[400px] rounded-full bg-[#FFC62C]/[0.05] blur-[120px]" />

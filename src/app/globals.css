@@ -52,7 +52,7 @@
 
 @layer base {
   html {
-    zoom: 1.25;
+    zoom: 1.15;
   }
   * {
     @apply border-border;
