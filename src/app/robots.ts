@@ -5,7 +5,13 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: "*",
       allow: "/",
-      disallow: ["/api/", "/onboarding/ergebnis"],
+      disallow: [
+        "/api/",
+        "/backoffice",
+        "/onboarding/ergebnis",
+        "/onboarding/bestaetigung",
+        "/angebot/",
+      ],
     },
     sitemap: "https://nanachimi.digital/sitemap.xml",
   };

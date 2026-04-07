@@ -1,6 +1,0 @@
-User-agent: *
-Allow: /
-Disallow: /backoffice
-Disallow: /api/
-
-Sitemap: https://nanachimi.digital/sitemap.xml

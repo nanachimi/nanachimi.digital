@@ -10,12 +10,14 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/leistungen/48h-mvp",
     "/leistungen/individuelle-loesung",
     "/leistungen/betrieb-und-wartung",
+    "/leistungen/app-entwicklung",
     "/portfolio",
     "/ueber-mich",
     "/kontakt",
     "/onboarding",
     "/impressum",
     "/datenschutz",
+    "/agb",
   ];
 
   const portfolioPages = portfolioProjects.map((p) => `/portfolio/${p.slug}`);
