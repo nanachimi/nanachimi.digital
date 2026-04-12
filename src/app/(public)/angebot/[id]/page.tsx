@@ -8,6 +8,7 @@ import {
 import { getSubmissionById } from "@/lib/submissions";
 import { getAngebotById } from "@/lib/angebote";
 import { prisma } from "@/lib/db";
+import { getPromoDiscountForSubmission } from "@/lib/promo";
 import { AngebotPricing } from "@/components/onboarding/AngebotPricing";
 
 interface PageProps {
@@ -146,6 +147,10 @@ export default async function AngebotPage({ params }: PageProps) {
     : null;
   const isPaid = !!paidPayment;
 
+  // Promo discount stacked on top of payment-time discounts (if any).
+  const promoDiscount = await getPromoDiscountForSubmission(angebot.submissionId);
+  const promoCodeLabel = submission.promoCode ?? undefined;
+
   return (
     <section className="relative min-h-screen bg-[#111318]">
       <div className="absolute inset-0">
@@ -181,6 +186,8 @@ export default async function AngebotPage({ params }: PageProps) {
             initialStatus={angebot.status === "accepted" ? "accepted" : "idle"}
             betriebUndWartung={submission.betriebUndWartung}
             isPaid={isPaid}
+            promoDiscount={promoDiscount}
+            promoCode={promoCodeLabel}
           />
 
           {/* Was Sie bekommen */}

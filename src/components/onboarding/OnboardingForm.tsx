@@ -143,6 +143,25 @@ export function OnboardingForm() {
       setShowConsentBanner(true);
     }
 
+    // Capture UTM parameters from the URL once on mount so they get saved
+    // onto the Submission for affiliate/campaign attribution analytics.
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const utmSource = params.get("utm_source") || undefined;
+      const utmMedium = params.get("utm_medium") || undefined;
+      const utmCampaign = params.get("utm_campaign") || undefined;
+      if (utmSource || utmMedium || utmCampaign) {
+        setData((prev) => ({
+          ...prev,
+          utmSource: prev.utmSource ?? utmSource,
+          utmMedium: prev.utmMedium ?? utmMedium,
+          utmCampaign: prev.utmCampaign ?? utmCampaign,
+        }));
+      }
+    } catch {
+      // window.location.search unavailable — ignore
+    }
+
     // Track initial step entry
     trackOnboarding("step_enter", 1, stepTitles[0]);
     stepEnteredAtRef.current = Date.now();

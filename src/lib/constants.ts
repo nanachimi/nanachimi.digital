@@ -27,9 +27,9 @@ export const FOOTER_SECTIONS = [
   {
     title: "Unternehmen",
     links: [
-      { label: "Über mich", href: "/ueber-mich" },
       { label: "Portfolio", href: "/portfolio" },
       { label: "Kontakt", href: "/kontakt" },
+      { label: "Affiliate-Programm", href: "/affiliates" },
     ],
   },
   {
@@ -80,16 +80,58 @@ export const PAYMENT_DISCOUNTS = {
 
 export type PaymentType = keyof typeof PAYMENT_DISCOUNTS;
 
-export function calculatePaymentOptions(festpreis: number) {
+/** Hard floor to protect margin when stacking promo + payment discounts. */
+export const MIN_FESTPREIS_EUR = 299;
+
+/**
+ * Cap total combined discount (promo + payment-time) at 50 % to protect
+ * margins against aggressive campaigns combined with Vollzahlung.
+ *
+ * Must match promo.ts `MAX_TOTAL_DISCOUNT` — kept as a local const so
+ * constants.ts doesn't pull the promo lib into edge runtime.
+ */
+export const MAX_TOTAL_DISCOUNT_PCT = 0.5;
+
+/**
+ * Calculate the three payment options for an Angebot, optionally stacking
+ * an additional promo code discount on top of the payment-time discount.
+ *
+ * Stacking rule (validated with founder): **additive** — a 25 % promo plus
+ * the 12 % Vollzahlung bonus yields 37 %, clamped at MAX_TOTAL_DISCOUNT_PCT.
+ * The final price is also clamped at MIN_FESTPREIS_EUR so we never sell
+ * below the floor regardless of stacking.
+ */
+export function calculatePaymentOptions(
+  festpreis: number,
+  promoDiscount: number = 0,
+) {
+  const safePromo = Math.max(0, Math.min(promoDiscount, MAX_TOTAL_DISCOUNT_PCT));
   return Object.entries(PAYMENT_DISCOUNTS).map(([type, config]) => {
-    const discountedTotal = Math.round(festpreis * (1 - config.discount));
+    const rawTotalPct = safePromo + config.discount;
+    const totalPct = Math.min(rawTotalPct, MAX_TOTAL_DISCOUNT_PCT);
+    const clamped = rawTotalPct > MAX_TOTAL_DISCOUNT_PCT;
+
+    // Clamp final price at the minimum festpreis floor.
+    const discountedTotal = Math.max(
+      Math.round(festpreis * (1 - totalPct)),
+      MIN_FESTPREIS_EUR,
+    );
     const amount = Math.round(discountedTotal * (config.percent / 100));
     const discountAmount = festpreis - discountedTotal;
+    // Breakdown (informational only — displayed separately in AngebotPricing).
+    const promoAmount = Math.round(festpreis * safePromo);
+    const paymentDiscountAmount = discountAmount - promoAmount;
+
     return {
       type: type as PaymentType,
       amount,
       discount: discountAmount,
-      discountPercent: Math.round(config.discount * 100),
+      discountPercent: Math.round(totalPct * 100),
+      promoDiscount: safePromo,
+      promoDiscountAmount: promoAmount,
+      paymentDiscountPercent: Math.round(config.discount * 100),
+      paymentDiscountAmount,
+      clamped,
       label: config.label,
       badgeLabel: config.badgeLabel,
       festpreisOriginal: festpreis,

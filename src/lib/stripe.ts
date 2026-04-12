@@ -21,13 +21,15 @@ export async function createCheckoutSession(opts: {
   angebotId: string;
   festpreis: number;
   paymentType: PaymentType;
+  /** Promo code discount as a fraction (0.25 = 25 %), stacked additively. */
+  promoDiscount?: number;
   customerEmail?: string;
   customerName?: string;
 }): Promise<{ url: string; sessionId: string } | null> {
   const stripe = getStripe();
   if (!stripe) return null;
 
-  const options = calculatePaymentOptions(opts.festpreis);
+  const options = calculatePaymentOptions(opts.festpreis, opts.promoDiscount ?? 0);
   const option = options.find((o) => o.type === opts.paymentType);
   if (!option) throw new Error(`Invalid payment type: ${opts.paymentType}`);
 
@@ -91,4 +93,21 @@ export async function verifyWebhookEvent(
   if (!stripe || !webhookSecret) return null;
 
   return stripe.webhooks.constructEvent(body, signature, webhookSecret);
+}
+
+/**
+ * Resolve the Checkout Session id from a PaymentIntent id.
+ * Used by the refund webhook because Payment rows are stored against the
+ * session id (cs_...), not the payment intent id (pi_...).
+ */
+export async function findCheckoutSessionIdForPaymentIntent(
+  paymentIntentId: string,
+): Promise<string | null> {
+  const stripe = getStripe();
+  if (!stripe) return null;
+  const sessions = await stripe.checkout.sessions.list({
+    payment_intent: paymentIntentId,
+    limit: 1,
+  });
+  return sessions.data[0]?.id ?? null;
 }

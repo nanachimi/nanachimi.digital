@@ -2,12 +2,30 @@ import { type Page, expect } from "@playwright/test";
 
 /**
  * Dismiss cookie consent and session storage consent banners if visible.
+ * Also pre-sets the consent cookie so banners won't appear on subsequent navigations.
  */
 export async function dismissBanners(page: Page) {
-  // Wait for page load + hydration before interacting
-  await page.waitForLoadState("domcontentloaded");
+  // Pre-set the consent cookie so the banner won't appear on future navigations
+  await page.context().addCookies([
+    {
+      name: "ncd-consent",
+      value: encodeURIComponent(
+        JSON.stringify({
+          necessary: true,
+          analytics: true,
+          consentedAt: new Date().toISOString(),
+          version: 1,
+        }),
+      ),
+      domain: "localhost",
+      path: "/",
+    },
+  ]);
 
-  // Cookie consent
+  // Wait for full page load + hydration
+  await page.waitForLoadState("load");
+
+  // If the banner appeared before the cookie was set, dismiss it
   const cookieBtn = page.locator("button", { hasText: "Alle akzeptieren" });
   if (await cookieBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
     await cookieBtn.click();

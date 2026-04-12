@@ -131,6 +131,16 @@ export interface Submission {
 
   // Demand factor at time of submission
   demandFactor?: number;
+
+  // Attribution & promo (affiliate system)
+  visitorId?: string;
+  promoCode?: string;
+  promoCodeId?: string;
+  affiliateId?: string; // winner — promo code or fallback cookie
+  firstTouchAffiliateId?: string; // analytics — first cookie touch
+  utmSource?: string;
+  utmMedium?: string;
+  utmCampaign?: string;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────
@@ -184,6 +194,14 @@ function dbToSubmission(row: Record<string, unknown>): Submission {
     slaStartedAt: row.slaStartedAt ? (row.slaStartedAt as Date).toISOString() : undefined,
     slaBreachedAt: row.slaBreachedAt ? (row.slaBreachedAt as Date).toISOString() : undefined,
     demandFactor: (row.demandFactor as number) ?? undefined,
+    visitorId: (row.visitorId as string) || undefined,
+    promoCode: (row.promoCode as string) || undefined,
+    promoCodeId: (row.promoCodeId as string) || undefined,
+    affiliateId: (row.affiliateId as string) || undefined,
+    firstTouchAffiliateId: (row.firstTouchAffiliateId as string) || undefined,
+    utmSource: (row.utmSource as string) || undefined,
+    utmMedium: (row.utmMedium as string) || undefined,
+    utmCampaign: (row.utmCampaign as string) || undefined,
   };
 }
 
@@ -237,6 +255,14 @@ export async function addSubmission(submission: Submission): Promise<void> {
       slaStartedAt: submission.slaStartedAt ? new Date(submission.slaStartedAt) : null,
       demandFactor: submission.demandFactor ?? null,
       amendment: submission.amendment ? JSON.parse(JSON.stringify(submission.amendment)) : undefined,
+      visitorId: submission.visitorId ?? null,
+      promoCode: submission.promoCode ?? null,
+      promoCodeId: submission.promoCodeId ?? null,
+      affiliateId: submission.affiliateId ?? null,
+      firstTouchAffiliateId: submission.firstTouchAffiliateId ?? null,
+      utmSource: submission.utmSource ?? null,
+      utmMedium: submission.utmMedium ?? null,
+      utmCampaign: submission.utmCampaign ?? null,
     },
   });
 }

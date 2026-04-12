@@ -33,16 +33,19 @@ test.describe("Navigation & CTA Buttons", () => {
     await nav.locator("a", { hasText: "Leistungen" }).click();
     await expect(page).toHaveURL(/\/leistungen/);
     await page.goto("/");
+    await page.waitForLoadState("load");
 
     // Portfolio
     await nav.locator("a", { hasText: "Portfolio" }).click();
     await expect(page).toHaveURL(/\/portfolio/);
     await page.goto("/");
+    await page.waitForLoadState("load");
 
     // Über mich
     await nav.locator("a", { hasText: "Über mich" }).click();
     await expect(page).toHaveURL(/\/ueber-mich/);
     await page.goto("/");
+    await page.waitForLoadState("load");
 
     // Kontakt
     await nav.locator("a", { hasText: "Kontakt" }).click();
@@ -77,6 +80,7 @@ test.describe("Navigation & CTA Buttons", () => {
     await page.goto("/leistungen");
     await dismissBanners(page);
     const cta = page.locator("a", { hasText: "Jetzt starten" }).first();
+    await cta.scrollIntoViewIfNeeded();
     await cta.click();
     await expect(page).toHaveURL(/\/onboarding/);
   });
@@ -88,6 +92,7 @@ test.describe("Navigation & CTA Buttons", () => {
     await dismissBanners(page);
     const cta = page.locator("a", { hasText: "Erstgespräch buchen" }).first();
     if (await cta.isVisible().catch(() => false)) {
+      await cta.scrollIntoViewIfNeeded();
       await cta.click();
       await expect(page).toHaveURL(/\/kontakt/);
     }
@@ -99,6 +104,7 @@ test.describe("Navigation & CTA Buttons", () => {
 
     // "Projekt starten" CTA
     const projektCta = page.locator("a", { hasText: "Projekt starten" }).first();
+    await projektCta.scrollIntoViewIfNeeded();
     await projektCta.click();
     await expect(page).toHaveURL(/\/onboarding/);
   });
@@ -106,15 +112,23 @@ test.describe("Navigation & CTA Buttons", () => {
   test("Footer links navigate to correct pages", async ({ page }) => {
     const footer = page.locator("footer");
 
-    await footer.locator("a", { hasText: "Impressum" }).click();
+    const impressum = footer.locator("a", { hasText: "Impressum" });
+    await impressum.scrollIntoViewIfNeeded();
+    await impressum.click();
     await expect(page).toHaveURL(/\/impressum/);
     await page.goto("/");
+    await page.waitForLoadState("load");
 
-    await footer.locator("a", { hasText: "Datenschutz" }).click();
+    const datenschutz = footer.locator("a", { hasText: "Datenschutz" });
+    await datenschutz.scrollIntoViewIfNeeded();
+    await datenschutz.click();
     await expect(page).toHaveURL(/\/datenschutz/);
     await page.goto("/");
+    await page.waitForLoadState("load");
 
-    await footer.locator("a", { hasText: "AGB" }).click();
+    const agb = footer.locator("a", { hasText: "AGB" });
+    await agb.scrollIntoViewIfNeeded();
+    await agb.click();
     await expect(page).toHaveURL(/\/agb/);
   });
 });

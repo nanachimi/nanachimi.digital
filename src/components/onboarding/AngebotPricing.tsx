@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Headphones, Check, Shield, Clock, Wrench } from "lucide-react";
+import { Headphones, Check, Shield, Clock, Wrench, Tag } from "lucide-react";
 import { BETRIEB_UND_WARTUNG } from "@/lib/constants";
 import { AngebotActions } from "./AngebotActions";
 
@@ -12,6 +12,10 @@ interface Props {
   initialStatus: "idle" | "accepted";
   betriebUndWartung?: string; // from submission: "ja" | "teilweise" | "nein" | "unsicher"
   isPaid?: boolean;
+  /** Promo code discount as fraction (0.25 = 25 %). */
+  promoDiscount?: number;
+  /** The promo code label to show in the UI (e.g. "SysysStartup50"). */
+  promoCode?: string;
 }
 
 const formatter = new Intl.NumberFormat("de-DE", {
@@ -32,6 +36,8 @@ export function AngebotPricing({
   aufwand,
   initialStatus,
   isPaid = false,
+  promoDiscount = 0,
+  promoCode,
 }: Props) {
   const [selectedPackage, setSelectedPackage] = useState<number | null>(null);
 
@@ -41,6 +47,12 @@ export function AngebotPricing({
         .preisProMonat * selectedPackage
     : 0;
   const totalPrice = festpreis + packageCost;
+
+  // Preview the promo discount on the headline price so the customer sees
+  // it right away (exact amount depends on the chosen payment option — the
+  // full stacked calculation is done server-side when they click "bezahlen").
+  const hasPromo = promoDiscount > 0;
+  const promoPercentLabel = Math.round(promoDiscount * 100);
 
   return (
     <>
@@ -58,6 +70,15 @@ export function AngebotPricing({
             inkl. {selectedPackage} Monate Betreuung (
             {formatter.format(packageCost)})
           </p>
+        )}
+        {hasPromo && (
+          <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-400/[0.08] px-3 py-1.5">
+            <Tag className="h-3.5 w-3.5 text-emerald-400" />
+            <span className="text-xs font-semibold text-emerald-300">
+              Gutschein {promoCode ?? ""} — {promoPercentLabel}% Rabatt auf
+              Zahlungsoptionen angewendet
+            </span>
+          </div>
         )}
       </div>
 
@@ -217,6 +238,8 @@ export function AngebotPricing({
         initialStatus={initialStatus}
         festpreis={totalPrice}
         betreuungMonate={selectedPackage ?? undefined}
+        promoDiscount={promoDiscount}
+        promoCode={promoCode}
       />
     </>
   );

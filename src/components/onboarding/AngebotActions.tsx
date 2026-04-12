@@ -21,6 +21,16 @@ interface PaymentOption {
   amount: number;
   discount: number;
   discountPercent: number;
+  /** Promo discount as a fraction (0.25 = 25 %). */
+  promoDiscount?: number;
+  /** Promo discount in euros (for display). */
+  promoDiscountAmount?: number;
+  /** Payment-time discount % (Vollzahlung / Half). */
+  paymentDiscountPercent?: number;
+  /** Payment-time discount in euros. */
+  paymentDiscountAmount?: number;
+  /** True if the sum was clamped at MAX_TOTAL_DISCOUNT_PCT. */
+  clamped?: boolean;
   label: string;
   badgeLabel: string;
   festpreisOriginal: number;
@@ -52,6 +62,10 @@ interface Props {
   initialStatus?: "idle" | "accepted";
   festpreis?: number;
   betreuungMonate?: number;
+  /** Promo code discount as a fraction (0.25 = 25 %), stacked additively. */
+  promoDiscount?: number;
+  /** Human-readable promo code to display (e.g. "SysysStartup50"). */
+  promoCode?: string;
 }
 
 function formatEuro(amount: number): string {
@@ -90,7 +104,14 @@ function CopyButton({ text, label }: { text: string; label: string }) {
   );
 }
 
-export function AngebotActions({ id, initialStatus, festpreis, betreuungMonate }: Props) {
+export function AngebotActions({
+  id,
+  initialStatus,
+  festpreis,
+  betreuungMonate,
+  promoDiscount = 0,
+  promoCode,
+}: Props) {
   const [status, setStatus] = useState<
     "idle" | "rejecting" | "accepted" | "rejected" | "loading"
   >(initialStatus || "idle");
@@ -101,18 +122,20 @@ export function AngebotActions({ id, initialStatus, festpreis, betreuungMonate }
   const [paidInfo, setPaidInfo] = useState<PaidInfo | null>(null);
   const isLoading = status === "loading";
 
-  // Recalculate payment options whenever festpreis changes (e.g. Betreuung selection)
+  // Recalculate payment options whenever festpreis or promo changes
+  // (Betreuung selection changes festpreis; promoDiscount is static for the
+  // lifetime of an Angebot but we wire it in for correctness).
   useEffect(() => {
     if ((status === "accepted" || initialStatus === "accepted") && festpreis) {
       import("@/lib/constants").then(({ calculatePaymentOptions, BANKVERBINDUNG }) => {
         setPaymentData({
           festpreis,
-          options: calculatePaymentOptions(festpreis),
+          options: calculatePaymentOptions(festpreis, promoDiscount),
           bank: { ...BANKVERBINDUNG, verwendungszweck: `Angebot ${id}` },
         });
       });
     }
-  }, [status, initialStatus, festpreis, id]);
+  }, [status, initialStatus, festpreis, id, promoDiscount]);
 
   // Check payment status on mount (accepted state)
   useEffect(() => {
@@ -339,17 +362,43 @@ export function AngebotActions({ id, initialStatus, festpreis, betreuungMonate }
                         {option.label}
                       </p>
                       {option.discountPercent > 0 ? (
-                        <p className="text-sm text-[#8B8F97] mt-0.5">
-                          <span className="text-emerald-400 font-medium">
-                            {option.badgeLabel}
-                          </span>
-                          {" · "}
-                          <span className="line-through text-[#6a6e76]">
-                            {formatEuro(option.festpreisOriginal)}
-                          </span>
-                          {" → "}
-                          {formatEuro(option.festpreisDiscounted)}
-                        </p>
+                        <div className="text-sm text-[#8B8F97] mt-0.5 space-y-0.5">
+                          <p>
+                            <span className="line-through text-[#6a6e76]">
+                              {formatEuro(option.festpreisOriginal)}
+                            </span>
+                            {" → "}
+                            <span className="text-white font-medium">
+                              {formatEuro(option.festpreisDiscounted)}
+                            </span>
+                          </p>
+                          {promoDiscount > 0 && (
+                            <p className="text-xs">
+                              <span className="text-emerald-400 font-medium">
+                                Gutschein {promoCode ?? ""} −
+                                {Math.round(promoDiscount * 100)}%
+                              </span>
+                              {(option.paymentDiscountPercent ?? 0) > 0 && (
+                                <>
+                                  {" + "}
+                                  <span className="text-emerald-400 font-medium">
+                                    {option.badgeLabel}
+                                  </span>
+                                </>
+                              )}
+                              {option.clamped && (
+                                <span className="text-amber-300">
+                                  {" "}(max. 50% Gesamtrabatt)
+                                </span>
+                              )}
+                            </p>
+                          )}
+                          {promoDiscount === 0 && option.badgeLabel && (
+                            <p className="text-xs text-emerald-400 font-medium">
+                              {option.badgeLabel}
+                            </p>
+                          )}
+                        </div>
                       ) : (
                         <p className="text-sm text-[#8B8F97] mt-0.5">
                           Vor Projektstart

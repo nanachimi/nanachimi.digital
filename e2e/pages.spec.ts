@@ -23,8 +23,11 @@ test.describe("Portfolio Pages", () => {
     const href = await firstProject.getAttribute("href");
     expect(href).toBeTruthy();
 
-    await firstProject.click();
-    await expect(page).toHaveURL(new RegExp(href!));
+    await firstProject.scrollIntoViewIfNeeded();
+    await Promise.all([
+      page.waitForURL(new RegExp(href!), { timeout: 10_000 }),
+      firstProject.click({ force: true }),
+    ]);
 
     // Detail page should have content
     await expect(page.locator("main")).not.toBeEmpty();

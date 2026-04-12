@@ -16,6 +16,9 @@ import {
   ChevronRight,
   Menu,
   X,
+  Users,
+  Megaphone,
+  Coins,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LogoIcon } from "@/components/layout/LogoIcon";
@@ -67,6 +70,24 @@ const NAV_ITEMS: NavItem[] = [
     icon: AlertTriangle,
     exact: false,
     badgeKey: "incidents",
+  },
+  {
+    label: "Partner",
+    href: "/backoffice/affiliates",
+    icon: Users,
+    exact: false,
+  },
+  {
+    label: "Kampagnen",
+    href: "/backoffice/campaigns",
+    icon: Megaphone,
+    exact: false,
+  },
+  {
+    label: "Kommissionen",
+    href: "/backoffice/commissions",
+    icon: Coins,
+    exact: false,
   },
   {
     label: "Einstellungen",

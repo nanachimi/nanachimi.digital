@@ -16,9 +16,37 @@ export default defineConfig({
   },
 
   projects: [
+    // Main tests (exclude affiliate specs)
     {
       name: "chromium",
+      testIgnore: /affiliate/,
       use: { ...devices["Desktop Chrome"] },
+    },
+
+    // Affiliate: setup logs in once and saves cookies
+    {
+      name: "affiliate-setup",
+      testMatch: /affiliate\.setup\.ts/,
+      use: { ...devices["Desktop Chrome"] },
+    },
+
+    // Affiliate: auth tests (login/logout flow — needs fresh context, no stored state)
+    {
+      name: "affiliate-auth",
+      testMatch: /affiliate-auth\.spec\.ts/,
+      dependencies: ["affiliate-setup"],
+      use: { ...devices["Desktop Chrome"] },
+    },
+
+    // Affiliate: dashboard + API tests (reuse stored login cookies)
+    {
+      name: "affiliate",
+      testMatch: /affiliate-(dashboard|api)\.spec\.ts/,
+      dependencies: ["affiliate-setup"],
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "e2e/.auth/affiliate.json",
+      },
     },
   ],
 

@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo } from "react";
-import { Phone, Mail, Shield, Clock } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Phone, Mail, Shield, Clock, Tag, Check, X, Loader2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import type { OnboardingData } from "@/lib/onboarding-schema";
@@ -38,6 +39,55 @@ export function StepAbschluss({ data, onChange, estimate }: Props) {
     () => getSlaLabel(estimate?.slaMinutes ?? 30),
     [estimate?.slaMinutes]
   );
+
+  // Promo code live validation (case-sensitive, debounced on change).
+  const [promoStatus, setPromoStatus] = useState<
+    | { state: "idle" }
+    | { state: "checking" }
+    | { state: "valid"; discountPercent: number; code: string }
+    | { state: "invalid"; reason: string }
+  >({ state: "idle" });
+
+  useEffect(() => {
+    const code = (data.promoCode ?? "").trim();
+    if (!code) {
+      setPromoStatus({ state: "idle" });
+      return;
+    }
+    setPromoStatus({ state: "checking" });
+    const controller = new AbortController();
+    const timeout = setTimeout(async () => {
+      try {
+        const res = await fetch("/api/promo/validate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code }),
+          signal: controller.signal,
+        });
+        const json = await res.json();
+        if (json?.valid) {
+          setPromoStatus({
+            state: "valid",
+            discountPercent: json.discountPercent,
+            code: json.code,
+          });
+        } else {
+          setPromoStatus({
+            state: "invalid",
+            reason: json?.reason ?? "not_found",
+          });
+        }
+      } catch (err) {
+        if ((err as Error).name !== "AbortError") {
+          setPromoStatus({ state: "invalid", reason: "network_error" });
+        }
+      }
+    }, 400);
+    return () => {
+      controller.abort();
+      clearTimeout(timeout);
+    };
+  }, [data.promoCode]);
 
   // Layout priority based on risk level
   const isLow = riskLevel === "low";
@@ -291,6 +341,50 @@ export function StepAbschluss({ data, onChange, estimate }: Props) {
           rows={4}
           className="bg-white/[0.04] border-white/10 text-white placeholder:text-[#5a5e66] focus:border-[#FFC62C]/50 resize-none"
         />
+      </div>
+
+      {/* Promo / Gutschein code */}
+      <div className="pt-2">
+        <Label className="text-[#c8cad0] flex items-center gap-2">
+          <Tag className="h-4 w-4 text-[#FFC62C]" />
+          Gutscheincode
+        </Label>
+        <p className="text-sm text-[#8B8F97] mt-1 mb-3">
+          Haben Sie einen Code erhalten? Geben Sie ihn hier ein — der Rabatt
+          wird in Ihrem Angebot automatisch angewendet.
+        </p>
+        <div className="relative">
+          <Input
+            value={data.promoCode ?? ""}
+            onChange={(e) => onChange({ promoCode: e.target.value })}
+            placeholder="Optional (z. B. SysysStartup50)"
+            className="bg-white/[0.04] border-white/10 text-white placeholder:text-[#5a5e66] focus:border-[#FFC62C]/50 pr-10 font-mono"
+            spellCheck={false}
+            autoComplete="off"
+          />
+          <div className="absolute right-3 top-1/2 -translate-y-1/2">
+            {promoStatus.state === "checking" && (
+              <Loader2 className="h-4 w-4 text-[#8B8F97] animate-spin" />
+            )}
+            {promoStatus.state === "valid" && (
+              <Check className="h-4 w-4 text-emerald-400" />
+            )}
+            {promoStatus.state === "invalid" && (
+              <X className="h-4 w-4 text-red-400" />
+            )}
+          </div>
+        </div>
+        {promoStatus.state === "valid" && (
+          <p className="mt-2 text-xs text-emerald-400">
+            ✓ Gutschein gültig — {promoStatus.discountPercent}% Rabatt auf den
+            Festpreis
+          </p>
+        )}
+        {promoStatus.state === "invalid" && (
+          <p className="mt-2 text-xs text-red-400">
+            ✗ Code ungültig oder abgelaufen
+          </p>
+        )}
       </div>
     </div>
   );

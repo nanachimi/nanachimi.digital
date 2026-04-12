@@ -6,6 +6,12 @@ import { sendOnboardingConfirmationEmail } from "@/lib/email";
 import { prisma } from "@/lib/db";
 import { WHATSAPP_CONSENT_VERSION, normalizePhoneNumber } from "@/lib/whatsapp";
 import { formLimiter } from "@/lib/auth/rate-limit";
+import { validatePromoCode } from "@/lib/promo";
+import {
+  REF_COOKIE_NAME,
+  resolveAttribution,
+  upsertReferral,
+} from "@/lib/affiliate/attribution";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
@@ -29,6 +35,43 @@ export async function POST(request: Request) {
     }
 
     const data = parsed.data;
+
+    // ─── Affiliate attribution ──────────────────────────────────────
+    // Read the ncd_ref cookie (set by middleware when visitor lands on /@handle)
+    // and the ncd-ab cookie (shared visitor id used by the analytics pipeline).
+    const refCookie = request.headers
+      .get("cookie")
+      ?.split(";")
+      .map((c) => c.trim())
+      .find((c) => c.startsWith(`${REF_COOKIE_NAME}=`));
+    const cookieHandle = refCookie
+      ? decodeURIComponent(refCookie.slice(REF_COOKIE_NAME.length + 1)) || null
+      : null;
+
+    const visitorCookie = request.headers
+      .get("cookie")
+      ?.split(";")
+      .map((c) => c.trim())
+      .find((c) => c.startsWith("ncd-ab="));
+    const visitorId = visitorCookie
+      ? decodeURIComponent(visitorCookie.slice("ncd-ab=".length)) || undefined
+      : undefined;
+
+    // Validate promo code (case-sensitive, joins with Campaign).
+    const submittedPromo = data.promoCode?.trim() || "";
+    const promoValidation = submittedPromo
+      ? await validatePromoCode(submittedPromo)
+      : null;
+    const validPromo =
+      promoValidation && promoValidation.valid ? promoValidation : null;
+
+    // Resolve attribution (promo wins over cookie; cookie still logged for analytics).
+    const attribution = await resolveAttribution({
+      cookieHandle,
+      promoCode: validPromo
+        ? { id: validPromo.id, affiliateId: validPromo.affiliateId }
+        : null,
+    });
 
     // Server-side verification: if whatsappConsent is true with a phone, verify it was confirmed
     if (data.whatsappConsent && data.telefon) {
@@ -136,7 +179,33 @@ export async function POST(request: Request) {
       slaDeadline,
       slaStartedAt,
       demandFactor: estimate.demandFactor,
+      visitorId,
+      promoCode: validPromo ? validPromo.code : undefined,
+      promoCodeId: validPromo?.id,
+      affiliateId: attribution.winnerAffiliateId ?? undefined,
+      firstTouchAffiliateId: attribution.firstTouchAffiliateId ?? undefined,
+      utmSource: data.utmSource,
+      utmMedium: data.utmMedium,
+      utmCampaign: data.utmCampaign,
     });
+
+    // Bump the usedCount on the promo code exactly once per consumption.
+    if (validPromo) {
+      await prisma.promoCode.update({
+        where: { id: validPromo.id },
+        data: { usedCount: { increment: 1 } },
+      });
+    }
+
+    // Record / update the Referral row so commission creation has a firstTouchAt anchor.
+    if (attribution.winnerAffiliateId && visitorId) {
+      await upsertReferral({
+        visitorId,
+        affiliateId: attribution.winnerAffiliateId,
+        source: attribution.source === "promo_code" ? "promo_code" : "handle_link",
+        submissionId: id,
+      });
+    }
 
     // Link uploaded files (by tempToken from fileIds) to the new submission
     if (data.fileIds && data.fileIds.length > 0) {

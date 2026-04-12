@@ -29,9 +29,16 @@ export async function requireAdmin(): Promise<SessionData> {
     throw new Error("SESSION_EXPIRED");
   }
 
-  // Update activity timestamp (sliding window)
+  // Update activity timestamp (sliding window).
+  // session.save() fails in RSC render (cookies are read-only there), so we
+  // swallow the error — Route Handlers still get the sliding update, and
+  // session validity is also checked by the middleware on every request.
   session.lastActivity = Date.now();
-  await session.save();
+  try {
+    await session.save();
+  } catch {
+    /* RSC context — cookies cannot be modified during render */
+  }
 
   return session;
 }

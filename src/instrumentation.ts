@@ -4,6 +4,7 @@
  * Starts background intervals for:
  *   - Job queue processing (every 60s)
  *   - SLA breach checking (every 5min)
+ *   - Commission approval (every 6h — 14d hold window)
  *
  * Calls internal /api/cron/* endpoints via localhost.
  * Middleware allows localhost-only access to these routes.
@@ -46,6 +47,19 @@ export async function register() {
       }
     } catch { /* server not ready */ }
   }, 5 * 60_000);
+
+  // Commission approval every 6 hours (14-day hold window — granularity not critical)
+  setInterval(async () => {
+    try {
+      const res = await fetch(`${base}/api/cron/commissions-approve`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.approved > 0) {
+          console.log(`[Scheduler] Commissions: ${data.approved} approved`);
+        }
+      }
+    } catch { /* server not ready */ }
+  }, 6 * 60 * 60_000);
 
   // Initial run after 15s
   setTimeout(async () => {

@@ -4,6 +4,7 @@ import { getSubmissionById } from "@/lib/submissions";
 import { createCheckoutSession, isStripeConfigured } from "@/lib/stripe";
 import { prisma } from "@/lib/db";
 import { calculatePaymentOptions, type PaymentType } from "@/lib/constants";
+import { getPromoDiscountForSubmission } from "@/lib/promo";
 
 export const dynamic = "force-dynamic";
 
@@ -84,8 +85,9 @@ export async function POST(request: Request, { params }: RouteParams) {
 
   const submission = await getSubmissionById(angebot.submissionId);
 
-  // Calculate amounts
-  const options = calculatePaymentOptions(angebot.festpreis);
+  // Calculate amounts (additive stacking: promo discount + payment-time discount).
+  const promoDiscount = await getPromoDiscountForSubmission(angebot.submissionId);
+  const options = calculatePaymentOptions(angebot.festpreis, promoDiscount);
   const option = options.find((o) => o.type === paymentType);
   if (!option) {
     return NextResponse.json({ error: "Zahlungsoption nicht gefunden" }, { status: 400 });
@@ -96,6 +98,7 @@ export async function POST(request: Request, { params }: RouteParams) {
       angebotId: id,
       festpreis: angebot.festpreis,
       paymentType,
+      promoDiscount,
       customerEmail: submission?.email,
       customerName: submission?.name,
     });
@@ -107,12 +110,15 @@ export async function POST(request: Request, { params }: RouteParams) {
       );
     }
 
-    // Create Payment record
+    // Create Payment record — split discount into promo + payment-time parts
+    // so the affiliate system can compute commissions on the real amount paid
+    // and the admin dashboard can show the breakdown.
     await prisma.payment.create({
       data: {
         angebotId: id,
         amount: option.amount * 100, // Store in cents
-        discount: option.discount * 100,
+        discount: option.paymentDiscountAmount * 100, // payment-time discount only
+        promoDiscount: option.promoDiscountAmount * 100,
         type: paymentType,
         method: "stripe",
         stripeId: result.sessionId,

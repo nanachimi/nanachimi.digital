@@ -11,6 +11,7 @@ export default function robots(): MetadataRoute.Robots {
         "/onboarding/ergebnis",
         "/onboarding/bestaetigung",
         "/angebot/",
+        "/portal",
       ],
     },
     sitemap: "https://nanachimi.digital/sitemap.xml",

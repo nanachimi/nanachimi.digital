@@ -716,3 +716,200 @@ info@nanachimi.digital`;
   console.log(`[Email] Payment confirmation sent to ${data.to}, messageId: ${info.messageId}`);
   return info;
 }
+
+// ─── Email 5: Affiliate application received (to applicant) ───────
+
+interface AffiliateApplicationReceivedData {
+  to: string;
+  name: string;
+}
+
+export async function sendAffiliateApplicationReceivedEmail(
+  data: AffiliateApplicationReceivedData,
+) {
+  const anrede = data.name.split(" ")[0];
+  const subject = "Ihre Partner-Bewerbung bei nanachimi.digital";
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto; background: #111318; color: #c8cad0; padding: 32px;">
+      <h1 style="color: #FFC62C; font-size: 24px; margin: 0 0 16px 0;">Danke, ${anrede}!</h1>
+      <p>Ihre Bewerbung für unser Partnerprogramm ist bei uns eingegangen.</p>
+      <p>Wir prüfen jede Bewerbung persönlich und melden uns innerhalb weniger Werktage bei Ihnen — entweder mit Ihren Zugangsdaten oder einer kurzen Rückmeldung.</p>
+      <p style="margin-top: 32px; color: #8B8F97; font-size: 12px;">nanachimi.digital · Mannheim, Deutschland</p>
+    </div>`;
+
+  const text = `Hallo ${anrede},
+
+Ihre Bewerbung für unser Partnerprogramm ist bei uns eingegangen.
+
+Wir prüfen jede Bewerbung persönlich und melden uns innerhalb weniger Werktage bei Ihnen — entweder mit Ihren Zugangsdaten oder einer kurzen Rückmeldung.
+
+---
+nanachimi.digital · Mannheim, Deutschland`;
+
+  const info = await transporter.sendMail({
+    from: FROM,
+    to: data.to,
+    subject,
+    encoding: "utf-8",
+    textEncoding: "quoted-printable",
+    text,
+    html,
+  });
+
+  console.log(`[Email] Affiliate application received sent to ${data.to}, messageId: ${info.messageId}`);
+  return info;
+}
+
+// ─── Email 6: Affiliate application — internal notification ──────
+
+interface AffiliateApplicationInternalData {
+  applicantEmail: string;
+  applicantName: string;
+  handle: string;
+  audience: string;
+  motivation: string;
+  applicationId: string;
+}
+
+export async function sendAffiliateApplicationInternalEmail(
+  data: AffiliateApplicationInternalData,
+) {
+  const adminEmail = process.env.ADMIN_EMAIL || "info@nanachimi.digital";
+  const reviewUrl = `${SITE_URL}/backoffice/affiliates/applications/${data.applicationId}`;
+
+  const text = `Neue Partner-Bewerbung
+
+Name: ${data.applicantName}
+E-Mail: ${data.applicantEmail}
+Gewünschter Handle: @${data.handle}
+
+Zielgruppe:
+${truncate(data.audience, 500)}
+
+Motivation:
+${truncate(data.motivation, 500)}
+
+Prüfen: ${reviewUrl}
+`;
+
+  const info = await transporter.sendMail({
+    from: FROM,
+    to: adminEmail,
+    subject: `[Partner] Neue Bewerbung — ${data.applicantName}`,
+    encoding: "utf-8",
+    textEncoding: "quoted-printable",
+    text,
+  });
+
+  console.log(`[Email] Internal affiliate application notification, messageId: ${info.messageId}`);
+  return info;
+}
+
+// ─── Email 7: Affiliate approved ─────────────────────────────────
+
+interface AffiliateApprovedData {
+  to: string;
+  name: string;
+  handle: string;
+  tempPassword: string;
+}
+
+export async function sendAffiliateApprovedEmail(data: AffiliateApprovedData) {
+  const anrede = data.name.split(" ")[0];
+  const loginUrl = "https://affiliates.nanachimi.digital/login";
+  const referralLink = `${SITE_URL}/@${data.handle}`;
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto; background: #111318; color: #c8cad0; padding: 32px;">
+      <h1 style="color: #FFC62C; font-size: 24px; margin: 0 0 16px 0;">Willkommen im Partnerprogramm, ${anrede}!</h1>
+      <p>Wir freuen uns, Sie an Bord zu haben. Ihr Partner-Account ist jetzt aktiv.</p>
+
+      <div style="background: #1a1d24; border: 1px solid #FFC62C33; border-radius: 12px; padding: 24px; margin: 24px 0;">
+        <p style="margin: 0 0 8px 0; color: #8B8F97; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Ihre Zugangsdaten</p>
+        <p style="margin: 0 0 4px 0;"><strong style="color: #fff;">Login:</strong> <a href="${loginUrl}" style="color: #FFC62C; text-decoration: none;">${loginUrl}</a></p>
+        <p style="margin: 0 0 4px 0;"><strong style="color: #fff;">E-Mail:</strong> ${data.to}</p>
+        <p style="margin: 0 0 4px 0;"><strong style="color: #fff;">Temporäres Passwort:</strong> <code style="background: #0a0c10; padding: 4px 8px; border-radius: 4px; color: #FFC62C; font-size: 14px;">${data.tempPassword}</code></p>
+        <p style="margin: 12px 0 0 0; color: #8B8F97; font-size: 12px;">Bitte ändern Sie Ihr Passwort nach dem ersten Login.</p>
+      </div>
+
+      <div style="background: #1a1d24; border: 1px solid #FFC62C33; border-radius: 12px; padding: 24px; margin: 24px 0;">
+        <p style="margin: 0 0 8px 0; color: #8B8F97; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Ihr persönlicher Empfehlungslink</p>
+        <p style="margin: 0;"><a href="${referralLink}" style="color: #FFC62C; text-decoration: none; font-weight: 600;">${referralLink}</a></p>
+        <p style="margin: 12px 0 0 0; color: #8B8F97; font-size: 12px;">Jeder Kunde, der über diesen Link kommt, wird Ihnen für <strong style="color: #fff;">2 Jahre</strong> zugeordnet.</p>
+      </div>
+
+      <p>Im Dashboard sehen Sie alle aktuellen Kampagnen, können Ihren eigenen Gutscheincode generieren und Ihre Kommissionen verfolgen.</p>
+
+      <p style="margin-top: 32px; color: #8B8F97; font-size: 12px;">nanachimi.digital · Mannheim, Deutschland</p>
+    </div>`;
+
+  const text = `Willkommen im Partnerprogramm, ${anrede}!
+
+Ihr Partner-Account ist jetzt aktiv.
+
+ZUGANGSDATEN
+Login: ${loginUrl}
+E-Mail: ${data.to}
+Temporäres Passwort: ${data.tempPassword}
+(Bitte nach dem ersten Login ändern.)
+
+IHR EMPFEHLUNGSLINK
+${referralLink}
+
+Jeder Kunde, der über diesen Link kommt, wird Ihnen für 2 Jahre zugeordnet.
+
+Im Dashboard sehen Sie alle aktuellen Kampagnen, können Ihren eigenen Gutscheincode generieren und Ihre Kommissionen verfolgen.
+
+---
+nanachimi.digital · Mannheim, Deutschland`;
+
+  const info = await transporter.sendMail({
+    from: FROM,
+    to: data.to,
+    subject: "Ihr Partner-Zugang bei nanachimi.digital",
+    encoding: "utf-8",
+    textEncoding: "quoted-printable",
+    text,
+    html,
+  });
+
+  console.log(`[Email] Affiliate approval sent to ${data.to}, messageId: ${info.messageId}`);
+  return info;
+}
+
+// ─── Email 8: Affiliate application rejected ─────────────────────
+
+interface AffiliateRejectedData {
+  to: string;
+  name: string;
+}
+
+export async function sendAffiliateApplicationRejectedEmail(
+  data: AffiliateRejectedData,
+) {
+  const anrede = data.name.split(" ")[0];
+
+  const text = `Hallo ${anrede},
+
+vielen Dank für Ihr Interesse an unserem Partnerprogramm.
+
+Nach sorgfältiger Prüfung Ihrer Bewerbung können wir Sie leider aktuell nicht in unser Programm aufnehmen.
+
+Wir wünschen Ihnen für Ihre Projekte viel Erfolg.
+
+---
+nanachimi.digital · Mannheim, Deutschland`;
+
+  const info = await transporter.sendMail({
+    from: FROM,
+    to: data.to,
+    subject: "Ihre Partner-Bewerbung bei nanachimi.digital",
+    encoding: "utf-8",
+    textEncoding: "quoted-printable",
+    text,
+  });
+
+  console.log(`[Email] Affiliate rejection sent to ${data.to}, messageId: ${info.messageId}`);
+  return info;
+}

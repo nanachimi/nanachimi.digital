@@ -106,6 +106,10 @@ export const monetarisierungSchema = z.object({
 export const abschlussSchema = z.object({
   naechsterSchritt: z.enum(["call", "angebot"]),
   zusatzinfo: z.string().optional(),
+  promoCode: z.string().trim().max(60).optional().or(z.literal("")),
+  utmSource: z.string().max(100).optional(),
+  utmMedium: z.string().max(100).optional(),
+  utmCampaign: z.string().max(100).optional(),
 });
 
 export const fullOnboardingSchema = z.object({

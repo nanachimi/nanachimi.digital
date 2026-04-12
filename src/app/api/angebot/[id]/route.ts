@@ -134,14 +134,18 @@ export async function PATCH(request: Request, { params }: RouteParams) {
   }
 
   if (action === "accept") {
-    // Return payment options with discount calculations
+    // Return payment options with discount calculations (stack promo on top
+    // of payment-time discounts if the submission had a valid promo code).
     const { calculatePaymentOptions, BANKVERBINDUNG } = await import("@/lib/constants");
-    const options = calculatePaymentOptions(angebot.festpreis);
+    const { getPromoDiscountForSubmission } = await import("@/lib/promo");
+    const promoDiscount = await getPromoDiscountForSubmission(angebot.submissionId);
+    const options = calculatePaymentOptions(angebot.festpreis, promoDiscount);
     return NextResponse.json({
       success: true,
       status: "accepted",
       payment: {
         festpreis: angebot.festpreis,
+        promoDiscount,
         options,
         bank: {
           ...BANKVERBINDUNG,
