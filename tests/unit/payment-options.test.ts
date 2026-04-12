@@ -36,11 +36,12 @@ describe("calculatePaymentOptions", () => {
   });
 
   it("handles small prices correctly", () => {
+    // 299 is the MIN_FESTPREIS_EUR floor — discount is clamped
     const options = calculatePaymentOptions(299);
     const full = options.find((o) => o.type === "full")!;
-    expect(full.festpreisDiscounted).toBe(263); // Math.round(299 * 0.88)
-    expect(full.amount).toBe(263);
-    expect(full.discount).toBe(36);
+    expect(full.festpreisDiscounted).toBe(299); // clamped at floor
+    expect(full.amount).toBe(299);
+    expect(full.discount).toBe(0);
   });
 
   it("preserves original festpreis in all options", () => {
