@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Megaphone, Plus } from "lucide-react";
+import { Megaphone } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { redirect } from "next/navigation";

@@ -18,7 +18,7 @@
  */
 
 import { prisma } from "@/lib/db";
-import type { Commission, Payment } from "@prisma/client";
+import type { Commission } from "@prisma/client";
 
 // ─── Constants ────────────────────────────────────────────────────────
 

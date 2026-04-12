@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   Users,
@@ -37,7 +37,6 @@ const LS_KEY = "ncd-affiliate-sidebar-collapsed";
 
 export function AffiliateSidebar() {
   const pathname = usePathname();
-  const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 

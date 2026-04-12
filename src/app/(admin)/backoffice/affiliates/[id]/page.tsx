@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, Mail, AtSign, Percent, Calendar } from "lucide-react";
+import { ArrowLeft, Mail, AtSign, Calendar } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { redirect, notFound } from "next/navigation";
