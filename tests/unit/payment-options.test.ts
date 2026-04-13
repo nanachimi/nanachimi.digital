@@ -36,12 +36,11 @@ describe("calculatePaymentOptions", () => {
   });
 
   it("handles small prices correctly", () => {
-    // 299 is the MIN_FESTPREIS_EUR floor — discount is clamped
     const options = calculatePaymentOptions(299);
     const full = options.find((o) => o.type === "full")!;
-    expect(full.festpreisDiscounted).toBe(299); // clamped at floor
-    expect(full.amount).toBe(299);
-    expect(full.discount).toBe(0);
+    expect(full.festpreisDiscounted).toBe(263); // Math.round(299 * 0.88)
+    expect(full.amount).toBe(263);
+    expect(full.discount).toBe(36);
   });
 
   it("preserves original festpreis in all options", () => {
@@ -68,5 +67,15 @@ describe("calculatePaymentOptions", () => {
         expect(Number.isInteger(option.festpreisDiscounted)).toBe(true);
       }
     }
+  });
+
+  it("hat keinen betreuung-Parameter (Signatur-Vertrag)", () => {
+    // calculatePaymentOptions(festpreis, promoDiscount = 0) — 1 required param.
+    // .length only counts params before the first default.
+    // If someone adds a required betreuung param, this guard test breaks.
+    expect(calculatePaymentOptions.length).toBe(1);
+    // Verify it works with exactly 2 args (festpreis + promo) — no third arg needed
+    const options = calculatePaymentOptions(1000, 0.1);
+    expect(options).toHaveLength(3);
   });
 });

@@ -198,6 +198,7 @@ async function handleAngebotAcceptedEmail(
   const email = payload.email as string;
   const festpreis = payload.festpreis as number;
   const aufwand = payload.aufwand as number;
+  const betreuungMonate = payload.betreuungMonate as number | null;
   const projektBeschreibung = payload.projektBeschreibung as string;
   const plan = payload.plan as Record<string, unknown>;
   const createdAt = payload.createdAt as string;
@@ -239,11 +240,21 @@ async function handleAngebotAcceptedEmail(
     console.warn(`[Job:angebot_accepted_email] SeaweedFS upload failed (non-blocking):`, storageErr);
   }
 
+  // Calculate betreuung cost for email (if selected)
+  let betreuungCost: number | undefined;
+  if (betreuungMonate) {
+    const { BETRIEB_UND_WARTUNG } = await import("@/lib/constants");
+    const pkg = BETRIEB_UND_WARTUNG.pakete.find((p) => p.monate === betreuungMonate);
+    if (pkg) betreuungCost = pkg.preisProMonat * betreuungMonate;
+  }
+
   // Step 3: Send email with PDF — MUST succeed
   await sendAngebotConfirmationEmail({
     to,
     kundenName,
     festpreis,
+    betreuungMonate,
+    betreuungCost,
     pdfBuffer,
     angebotId,
   });

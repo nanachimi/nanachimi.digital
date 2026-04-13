@@ -80,9 +80,6 @@ export const PAYMENT_DISCOUNTS = {
 
 export type PaymentType = keyof typeof PAYMENT_DISCOUNTS;
 
-/** Hard floor to protect margin when stacking promo + payment discounts. */
-export const MIN_FESTPREIS_EUR = 299;
-
 /**
  * Cap total combined discount (promo + payment-time) at 50 % to protect
  * margins against aggressive campaigns combined with Vollzahlung.
@@ -98,8 +95,6 @@ export const MAX_TOTAL_DISCOUNT_PCT = 0.5;
  *
  * Stacking rule (validated with founder): **additive** — a 25 % promo plus
  * the 12 % Vollzahlung bonus yields 37 %, clamped at MAX_TOTAL_DISCOUNT_PCT.
- * The final price is also clamped at MIN_FESTPREIS_EUR so we never sell
- * below the floor regardless of stacking.
  */
 export function calculatePaymentOptions(
   festpreis: number,
@@ -111,11 +106,7 @@ export function calculatePaymentOptions(
     const totalPct = Math.min(rawTotalPct, MAX_TOTAL_DISCOUNT_PCT);
     const clamped = rawTotalPct > MAX_TOTAL_DISCOUNT_PCT;
 
-    // Clamp final price at the minimum festpreis floor.
-    const discountedTotal = Math.max(
-      Math.round(festpreis * (1 - totalPct)),
-      MIN_FESTPREIS_EUR,
-    );
+    const discountedTotal = Math.round(festpreis * (1 - totalPct));
     const amount = Math.round(discountedTotal * (config.percent / 100));
     const discountAmount = festpreis - discountedTotal;
     // Breakdown (informational only — displayed separately in AngebotPricing).

@@ -453,6 +453,8 @@ export async function sendAngebotConfirmationEmail(data: {
   to: string;
   kundenName: string;
   festpreis: number;
+  betreuungMonate?: number | null;
+  betreuungCost?: number;
   pdfBuffer?: Buffer;
   angebotId: string;
 }) {
@@ -478,9 +480,12 @@ export async function sendAngebotConfirmationEmail(data: {
           <p style="color: #fff; font-size: 22px; font-weight: 700; margin: 0 0 8px 0; text-align: center;">
             Vielen Dank, ${anrede}!
           </p>
-          <p style="color: #8B8F97; font-size: 15px; line-height: 1.6; margin: 0 0 24px 0; text-align: center;">
+          <p style="color: #8B8F97; font-size: 15px; line-height: 1.6; margin: 0 0 ${data.betreuungMonate ? "12px" : "24px"} 0; text-align: center;">
             Ihr Angebot über <strong style="color: #FFC62C;">${formatEur(data.festpreis)}</strong> wurde erfolgreich angenommen.
-          </p>
+          </p>${data.betreuungMonate && data.betreuungCost ? `
+          <p style="color: #8B8F97; font-size: 13px; line-height: 1.5; margin: 0 0 24px 0; text-align: center;">
+            Inkl. Betrieb & Wartung: ${data.betreuungMonate} Monate (${formatEur(data.betreuungCost)})
+          </p>` : ""}
           <div style="border-top: 1px solid rgba(255,255,255,0.06); margin: 24px 0;"></div>
           <p style="color: #fff; font-size: 14px; font-weight: 600; margin: 0 0 12px 0;">Nächste Schritte:</p>
           <table cellpadding="0" cellspacing="0">
@@ -510,7 +515,7 @@ export async function sendAngebotConfirmationEmail(data: {
 
   const text = `Hallo ${anrede},
 
-Vielen Dank! Ihr Angebot über ${formatEur(data.festpreis)} wurde erfolgreich angenommen.
+Vielen Dank! Ihr Angebot über ${formatEur(data.festpreis)} wurde erfolgreich angenommen.${data.betreuungMonate && data.betreuungCost ? `\nInkl. Betrieb & Wartung: ${data.betreuungMonate} Monate (${formatEur(data.betreuungCost)})` : ""}
 
 Nächste Schritte:
 1. Sie erhalten in Kürze die erste Rechnung (15% vor Projektstart)

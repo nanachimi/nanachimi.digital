@@ -3,6 +3,7 @@ import { getSubmissionById, updateSubmissionStatus } from "@/lib/submissions";
 import { getAngebotById, updateAngebotStatus } from "@/lib/angebote";
 import { bootstrapProject } from "@/lib/project-bootstrap";
 import { enqueueJob, processJobs } from "@/lib/job-queue";
+import { prisma } from "@/lib/db";
 export const dynamic = "force-dynamic";
 
 interface RouteParams {
@@ -56,9 +57,10 @@ export async function GET(_request: Request, { params }: RouteParams) {
 export async function PATCH(request: Request, { params }: RouteParams) {
   const { id } = await params;
   const body = await request.json();
-  const { action, feedback } = body as {
+  const { action, feedback, betreuungMonate } = body as {
     action: "accept" | "reject";
     feedback?: string;
+    betreuungMonate?: number;
   };
 
   if (!action || !["accept", "reject"].includes(action)) {
@@ -85,6 +87,14 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     await updateAngebotStatus(id, "accepted");
     await updateSubmissionStatus(angebot.submissionId, "accepted");
 
+    // Store selected betreuung package on the Angebot
+    if (betreuungMonate) {
+      await prisma.angebot.update({
+        where: { id },
+        data: { betreuungMonate },
+      });
+    }
+
     // Get submission for PDF data + project bootstrap
     const submission = await getSubmissionById(angebot.submissionId);
 
@@ -100,6 +110,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
           email: submission.email,
           festpreis: angebot.festpreis,
           aufwand: angebot.aufwand,
+          betreuungMonate: betreuungMonate ?? null,
           projektBeschreibung: submission.beschreibung,
           plan: angebot.plan,
           createdAt: angebot.createdAt,
@@ -136,10 +147,18 @@ export async function PATCH(request: Request, { params }: RouteParams) {
   if (action === "accept") {
     // Return payment options with discount calculations (stack promo on top
     // of payment-time discounts if the submission had a valid promo code).
-    const { calculatePaymentOptions, BANKVERBINDUNG } = await import("@/lib/constants");
+    const { calculatePaymentOptions, BANKVERBINDUNG, BETRIEB_UND_WARTUNG } = await import("@/lib/constants");
     const { getPromoDiscountForSubmission } = await import("@/lib/promo");
     const promoDiscount = await getPromoDiscountForSubmission(angebot.submissionId);
     const options = calculatePaymentOptions(angebot.festpreis, promoDiscount);
+
+    // Calculate betreuung cost (separate position, no discounts)
+    let betreuungCost = 0;
+    if (betreuungMonate) {
+      const pkg = BETRIEB_UND_WARTUNG.pakete.find((p) => p.monate === betreuungMonate);
+      if (pkg) betreuungCost = pkg.preisProMonat * betreuungMonate;
+    }
+
     return NextResponse.json({
       success: true,
       status: "accepted",
@@ -147,6 +166,8 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         festpreis: angebot.festpreis,
         promoDiscount,
         options,
+        betreuungMonate: betreuungMonate ?? null,
+        betreuungCost,
         bank: {
           ...BANKVERBINDUNG,
           verwendungszweck: `Angebot ${angebot.id}`,

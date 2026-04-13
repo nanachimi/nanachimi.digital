@@ -80,10 +80,11 @@ describe("applyDiscounts", () => {
     expect(result.totalDiscountPct).toBe(0.5);
   });
 
-  it("respects the minimum-price floor", () => {
-    // A deep discount on a tiny festpreis must floor at minPriceEur (default 299)
+  it("applies full discount even on small prices", () => {
+    // 50% discount on 400€ → 200€ (no floor clamp)
     const result = applyDiscounts(400, 0.5, 0);
-    expect(result.finalPriceEur).toBe(299);
+    expect(result.finalPriceEur).toBe(200);
+    expect(result.savingsEur).toBe(200);
   });
 
   it("returns festpreis unchanged when no discounts apply", () => {

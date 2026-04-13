@@ -23,6 +23,10 @@ export async function createCheckoutSession(opts: {
   paymentType: PaymentType;
   /** Promo code discount as a fraction (0.25 = 25 %), stacked additively. */
   promoDiscount?: number;
+  /** Betreuung package months (e.g. 3, 6, 12). */
+  betreuungMonate?: number;
+  /** Betreuung total cost in EUR (e.g. 348 for 12×29). */
+  betreuungCost?: number;
   customerEmail?: string;
   customerName?: string;
 }): Promise<{ url: string; sessionId: string } | null> {
@@ -40,27 +44,46 @@ export async function createCheckoutSession(opts: {
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
+  // Build line items — project payment + optional betreuung
+  const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [
+    {
+      price_data: {
+        currency: "eur",
+        unit_amount: option.amount * 100, // Stripe uses cents
+        product_data: {
+          name: `NanaChimi Digital — Projektzahlung`,
+          description,
+        },
+      },
+      quantity: 1,
+    },
+  ];
+
+  if (opts.betreuungMonate && opts.betreuungCost) {
+    lineItems.push({
+      price_data: {
+        currency: "eur",
+        unit_amount: opts.betreuungCost * 100,
+        product_data: {
+          name: `Betrieb & Wartung — ${opts.betreuungMonate} Monate`,
+          description: `Monitoring, Updates & Bugfixes für ${opts.betreuungMonate} Monate`,
+        },
+      },
+      quantity: 1,
+    });
+  }
+
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
     payment_method_types: ["card"],
-    line_items: [
-      {
-        price_data: {
-          currency: "eur",
-          unit_amount: option.amount * 100, // Stripe uses cents
-          product_data: {
-            name: `NanaChimi Digital — Projektzahlung`,
-            description,
-          },
-        },
-        quantity: 1,
-      },
-    ],
+    line_items: lineItems,
     metadata: {
       angebotId: opts.angebotId,
       paymentType: opts.paymentType,
       festpreis: String(opts.festpreis),
       discountPercent: String(option.discountPercent),
+      ...(opts.betreuungMonate ? { betreuungMonate: String(opts.betreuungMonate) } : {}),
+      ...(opts.betreuungCost ? { betreuungCost: String(opts.betreuungCost) } : {}),
     },
     customer_email: opts.customerEmail,
     success_url: `${siteUrl}/angebot/${opts.angebotId}?payment=success`,

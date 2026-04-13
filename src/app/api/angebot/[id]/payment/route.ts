@@ -3,7 +3,7 @@ import { getAngebotById } from "@/lib/angebote";
 import { getSubmissionById } from "@/lib/submissions";
 import { createCheckoutSession, isStripeConfigured } from "@/lib/stripe";
 import { prisma } from "@/lib/db";
-import { calculatePaymentOptions, type PaymentType } from "@/lib/constants";
+import { calculatePaymentOptions, BETRIEB_UND_WARTUNG, type PaymentType } from "@/lib/constants";
 import { getPromoDiscountForSubmission } from "@/lib/promo";
 
 export const dynamic = "force-dynamic";
@@ -93,12 +93,22 @@ export async function POST(request: Request, { params }: RouteParams) {
     return NextResponse.json({ error: "Zahlungsoption nicht gefunden" }, { status: 400 });
   }
 
+  // Calculate betreuung cost (separate position, no discounts apply)
+  const betreuungMonate = angebot.betreuungMonate ?? null;
+  let betreuungCost = 0;
+  if (betreuungMonate) {
+    const pkg = BETRIEB_UND_WARTUNG.pakete.find((p) => p.monate === betreuungMonate);
+    if (pkg) betreuungCost = pkg.preisProMonat * betreuungMonate;
+  }
+
   try {
     const result = await createCheckoutSession({
       angebotId: id,
       festpreis: angebot.festpreis,
       paymentType,
       promoDiscount,
+      betreuungMonate: betreuungMonate ?? undefined,
+      betreuungCost: betreuungCost || undefined,
       customerEmail: submission?.email,
       customerName: submission?.name,
     });
@@ -113,10 +123,11 @@ export async function POST(request: Request, { params }: RouteParams) {
     // Create Payment record — split discount into promo + payment-time parts
     // so the affiliate system can compute commissions on the real amount paid
     // and the admin dashboard can show the breakdown.
+    // Amount includes betreuung cost (project amount + betreuung).
     await prisma.payment.create({
       data: {
         angebotId: id,
-        amount: option.amount * 100, // Store in cents
+        amount: (option.amount + betreuungCost) * 100, // Store in cents
         discount: option.paymentDiscountAmount * 100, // payment-time discount only
         promoDiscount: option.promoDiscountAmount * 100,
         type: paymentType,

@@ -215,21 +215,18 @@ export async function getPromoDiscountForSubmission(
 
 /**
  * Apply stacked discounts to a festpreis (in euros).
- * Clamps at `minPriceEur` to never go below the minimum.
  */
 export function applyDiscounts(
   festpreisEur: number,
   promoDiscount: number,
   paymentDiscount: number,
-  minPriceEur = 299,
 ): {
   finalPriceEur: number;
   totalDiscountPct: number;
   savingsEur: number;
 } {
   const stack = stackDiscounts(promoDiscount, paymentDiscount);
-  const raw = festpreisEur * (1 - stack.total);
-  const finalPriceEur = Math.max(Math.round(raw), minPriceEur);
+  const finalPriceEur = Math.round(festpreisEur * (1 - stack.total));
   return {
     finalPriceEur,
     totalDiscountPct: stack.total,

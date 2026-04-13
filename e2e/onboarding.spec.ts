@@ -177,6 +177,61 @@ test.describe("Onboarding — Full Angebot Flow", () => {
     );
   });
 
+  test("Step 11: Betrieb & Wartung — Ja auswählen und fortfahren", async ({
+    page,
+  }) => {
+    const weiter = page.getByRole("button", { name: "Weiter", exact: true });
+
+    // Navigate through steps 1-10 using the helper (stop before step 11)
+    // Step 1: Projekttyp
+    await page.locator("button[type='button']", { hasText: "Etwas im Browser" }).click();
+    await weiter.click();
+    // Step 2: Beschreibung
+    await page.locator("textarea").fill("Ein Portal für Terminbuchungen und Kunden.");
+    await weiter.click();
+    // Step 3: Nutzerrollen
+    await page.locator("button[type='button']", { hasText: "Nur ich" }).first().click();
+    await page.locator("input[placeholder*='Kunden']").first().fill("Kunden");
+    await weiter.click();
+    // Step 4: Funktionen
+    await page.locator("button[type='button']", { hasText: "Anmeldung & Benutzerkonten" }).click();
+    await weiter.click();
+    // Step 5: Design
+    await page.locator("button[type='button']", { hasText: "Sauber & funktional" }).first().click();
+    await weiter.click();
+    // Step 6: Branding (optional)
+    await weiter.click();
+    // Step 7: Inspiration (optional)
+    await weiter.click();
+    // Step 8: Monetarisierung
+    await page.locator("button[type='button']", { hasText: "Kostenlos" }).first().click();
+    await weiter.click();
+    // Step 9: Zeitrahmen
+    const mvpBtn = page.locator("button[type='button']", { hasText: "Kein fester Termin" }).first();
+    await mvpBtn.scrollIntoViewIfNeeded();
+    await mvpBtn.click();
+    const finalBtn = page.locator("button[type='button']", { hasText: "2–3 Monate" }).first();
+    await finalBtn.scrollIntoViewIfNeeded();
+    await finalBtn.click();
+    await expect(weiter).toBeEnabled({ timeout: 5000 });
+    await weiter.scrollIntoViewIfNeeded();
+    await weiter.click();
+    // Step 10: Budget
+    await page.locator("button[type='button']", { hasText: "1.000 – 5.000" }).first().click();
+    await weiter.click();
+
+    // Now on Step 11: Betrieb & Wartung
+    await expect(page.locator("text=Schritt 11 von 13")).toBeVisible();
+
+    // Select "Ja" option
+    await page.locator("button[type='button']", { hasText: /^Ja/ }).first().click();
+    await expect(weiter).toBeEnabled();
+
+    // Proceed to step 12
+    await weiter.click();
+    await expect(page.locator("text=Schritt 12 von 13")).toBeVisible();
+  });
+
   test("progress bar updates with each step", async ({ page }) => {
     const weiter = page.locator("button", { hasText: "Weiter" });
 

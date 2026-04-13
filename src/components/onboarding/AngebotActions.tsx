@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { BETRIEB_UND_WARTUNG } from "@/lib/constants";
 
 interface PaymentOption {
   type: "full" | "half" | "tranche_1";
@@ -49,6 +50,8 @@ interface PaymentData {
   festpreis: number;
   options: PaymentOption[];
   bank: BankDetails;
+  betreuungMonate: number | null;
+  betreuungCost: number;
 }
 
 interface PaidInfo {
@@ -122,20 +125,25 @@ export function AngebotActions({
   const [paidInfo, setPaidInfo] = useState<PaidInfo | null>(null);
   const isLoading = status === "loading";
 
-  // Recalculate payment options whenever festpreis or promo changes
-  // (Betreuung selection changes festpreis; promoDiscount is static for the
-  // lifetime of an Angebot but we wire it in for correctness).
+  // Recalculate payment options whenever festpreis, promo, or betreuung changes.
+  // Discounts apply only to festpreis; betreuung is a separate fixed-price position.
   useEffect(() => {
     if ((status === "accepted" || initialStatus === "accepted") && festpreis) {
       import("@/lib/constants").then(({ calculatePaymentOptions, BANKVERBINDUNG }) => {
+        const bwPkg = betreuungMonate
+          ? BETRIEB_UND_WARTUNG.pakete.find((p) => p.monate === betreuungMonate)
+          : null;
+        const bwCost = bwPkg ? bwPkg.preisProMonat * betreuungMonate! : 0;
         setPaymentData({
           festpreis,
           options: calculatePaymentOptions(festpreis, promoDiscount),
           bank: { ...BANKVERBINDUNG, verwendungszweck: `Angebot ${id}` },
+          betreuungMonate: betreuungMonate ?? null,
+          betreuungCost: bwCost,
         });
       });
     }
-  }, [status, initialStatus, festpreis, id, promoDiscount]);
+  }, [status, initialStatus, festpreis, id, promoDiscount, betreuungMonate]);
 
   // Check payment status on mount (accepted state)
   useEffect(() => {
@@ -414,10 +422,30 @@ export function AngebotActions({
                     </p>
                   </div>
 
+                  {/* Betreuung line item (if selected) */}
+                  {paymentData.betreuungCost > 0 && (
+                    <div className="mt-3 pt-3 border-t border-white/[0.06]">
+                      <div className="flex justify-between items-center text-sm mb-2">
+                        <span className="text-[#8B8F97]">
+                          Betrieb & Wartung — {paymentData.betreuungMonate} Monate
+                        </span>
+                        <span className="text-white font-medium">
+                          {formatEuro(paymentData.betreuungCost)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center text-sm font-semibold">
+                        <span className="text-white">Gesamt</span>
+                        <span className={isRecommended ? "text-[#FFC62C]" : "text-white"}>
+                          {formatEuro(option.amount + paymentData.betreuungCost)}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
                   <Button
                     onClick={() => handleStripePayment(option.type)}
                     disabled={!!payingType}
-                    className={`w-full rounded-xl font-semibold ${
+                    className={`w-full rounded-xl font-semibold ${paymentData.betreuungCost > 0 ? "mt-4" : ""} ${
                       isRecommended
                         ? "bg-[#FFC62C] text-[#111318] hover:bg-[#e6b228] shadow-[0_0_20px_rgba(255,198,44,0.2)]"
                         : "bg-white/[0.06] text-white hover:bg-white/[0.1] border border-white/[0.1]"

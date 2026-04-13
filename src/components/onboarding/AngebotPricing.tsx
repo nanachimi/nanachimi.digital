@@ -232,11 +232,11 @@ export function AngebotPricing({
         )}
       </div>
 
-      {/* Accept / Reject / Payment — uses totalPrice */}
+      {/* Accept / Reject / Payment — festpreis only (betreuung is separate) */}
       <AngebotActions
         id={id}
         initialStatus={initialStatus}
-        festpreis={totalPrice}
+        festpreis={festpreis}
         betreuungMonate={selectedPackage ?? undefined}
         promoDiscount={promoDiscount}
         promoCode={promoCode}
