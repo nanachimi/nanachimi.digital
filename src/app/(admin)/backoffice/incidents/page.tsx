@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   AlertTriangle,
   AlertCircle,
@@ -219,13 +220,37 @@ const STATUS_LABELS: Record<string, string> = {
 
 // ─── Page Component ──────────────────────────────────────────────
 
-export default function IncidentsPage() {
+const VALID_TABS = ["incidents", "jobs"] as const;
+const VALID_INCIDENT_FILTERS = ["all", "open", "resolved"] as const;
+const VALID_JOB_FILTERS = ["all", "active", "completed", "failed"] as const;
+
+function IncidentsContent() {
+  const searchParams = useSearchParams();
+  const urlTab = searchParams.get("tab");
+  const urlFilter = searchParams.get("filter");
+
+  const initialTab = VALID_TABS.includes(urlTab as typeof VALID_TABS[number])
+    ? (urlTab as "incidents" | "jobs")
+    : "jobs";
+
+  const initialIncidentFilter =
+    initialTab === "incidents" &&
+    VALID_INCIDENT_FILTERS.includes(urlFilter as typeof VALID_INCIDENT_FILTERS[number])
+      ? (urlFilter as "all" | "open" | "resolved")
+      : "open";
+
+  const initialJobFilter =
+    initialTab === "jobs" &&
+    VALID_JOB_FILTERS.includes(urlFilter as typeof VALID_JOB_FILTERS[number])
+      ? (urlFilter as "all" | "active" | "completed" | "failed")
+      : "active";
+
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
-  const [incidentFilter, setIncidentFilter] = useState<"all" | "open" | "resolved">("open");
-  const [jobFilter, setJobFilter] = useState<"all" | "active" | "completed" | "failed">("active");
-  const [tab, setTab] = useState<"incidents" | "jobs">("jobs");
+  const [incidentFilter, setIncidentFilter] = useState<"all" | "open" | "resolved">(initialIncidentFilter);
+  const [jobFilter, setJobFilter] = useState<"all" | "active" | "completed" | "failed">(initialJobFilter);
+  const [tab, setTab] = useState<"incidents" | "jobs">(initialTab);
   const [expandedJobs, setExpandedJobs] = useState<Set<string>>(new Set());
 
   function toggleJobExpanded(id: string) {
@@ -629,5 +654,17 @@ export default function IncidentsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Default export with Suspense boundary (required for useSearchParams)
+// ---------------------------------------------------------------------------
+
+export default function IncidentsPage() {
+  return (
+    <Suspense>
+      <IncidentsContent />
+    </Suspense>
   );
 }

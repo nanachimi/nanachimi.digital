@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
+  Inbox,
   FlaskConical,
   BarChart3,
   Calendar,
@@ -19,6 +20,7 @@ import {
   Users,
   Megaphone,
   Coins,
+  BookOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LogoIcon } from "@/components/layout/LogoIcon";
@@ -27,7 +29,7 @@ import { LogoIcon } from "@/components/layout/LogoIcon";
 // Navigation items
 // ---------------------------------------------------------------------------
 
-type BadgeKey = "dashboard" | "bookings" | "incidents" | "status";
+type BadgeKey = "dashboard" | "anfragen" | "bookings" | "incidents" | "status";
 
 interface NavItem {
   label: string;
@@ -44,6 +46,13 @@ const NAV_ITEMS: NavItem[] = [
     icon: LayoutDashboard,
     exact: true,
     badgeKey: "dashboard",
+  },
+  {
+    label: "Anfragen",
+    href: "/backoffice/anfragen",
+    icon: Inbox,
+    exact: false,
+    badgeKey: "anfragen",
   },
   {
     label: "A/B Tests",
@@ -96,6 +105,12 @@ const NAV_ITEMS: NavItem[] = [
     exact: false,
   },
   {
+    label: "Dokumentation",
+    href: "/backoffice/docs",
+    icon: BookOpen,
+    exact: false,
+  },
+  {
     label: "Systemstatus",
     href: "/backoffice/status",
     icon: Activity,
@@ -112,6 +127,7 @@ const LS_KEY = "ncd-admin-sidebar-collapsed";
 
 interface BadgeCounts {
   dashboard: number;
+  anfragen: number;
   bookings: number;
   incidents: number;
   status: number;

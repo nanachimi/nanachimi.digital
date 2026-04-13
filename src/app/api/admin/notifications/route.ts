@@ -55,13 +55,14 @@ export async function GET() {
   ]);
 
   // Per-section counts for sidebar badges
-  const dashboard = pendingSubmissions + customerReplies;
+  const anfragen = pendingSubmissions + customerReplies;
   const bookings = upcomingBookings;
   const incidents = openIncidents + failedJobs;
   const status = systemIncidents;
 
   return NextResponse.json({
-    dashboard,
+    dashboard: 0,
+    anfragen,
     bookings,
     incidents,
     status,

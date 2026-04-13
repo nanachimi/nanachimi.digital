@@ -16,11 +16,29 @@ export default defineConfig({
   },
 
   projects: [
-    // Main tests (exclude affiliate specs)
+    // Main tests (exclude affiliate + admin specs)
     {
       name: "chromium",
-      testIgnore: /affiliate/,
+      testIgnore: /affiliate|dashboard\.spec/,
       use: { ...devices["Desktop Chrome"] },
+    },
+
+    // Admin: setup logs in once (handles TOTP) and saves cookies
+    {
+      name: "admin-setup",
+      testMatch: /admin\.setup\.ts/,
+      use: { ...devices["Desktop Chrome"] },
+    },
+
+    // Admin: dashboard + backoffice tests (reuse stored admin cookies)
+    {
+      name: "admin",
+      testMatch: "**/dashboard.spec.ts",
+      dependencies: ["admin-setup"],
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "e2e/.auth/admin.json",
+      },
     },
 
     // Affiliate: setup logs in once and saves cookies
