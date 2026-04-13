@@ -14,6 +14,7 @@ import { requireAdmin } from "@/lib/auth/require-admin";
 import { isValidHandle } from "@/lib/affiliate/attribution";
 import { hashPassword, generateTempPassword } from "@/lib/affiliate/password";
 import { sendAffiliateApprovedEmail } from "@/lib/email";
+import { upsertAffiliateIp } from "@/lib/affiliate/self-referral";
 
 export const dynamic = "force-dynamic";
 
@@ -123,6 +124,17 @@ export async function POST(
 
     return created;
   });
+
+  // Copy the application IP to the AffiliateIp table (fire-and-forget).
+  if (application.applicationIp) {
+    upsertAffiliateIp({
+      affiliateId: affiliate.id,
+      ip: application.applicationIp,
+      source: "application",
+    }).catch((err) =>
+      console.error("[Affiliate approve] IP upsert failed:", err),
+    );
+  }
 
   // Send email with temp password — do not fail the approval if email fails.
   try {

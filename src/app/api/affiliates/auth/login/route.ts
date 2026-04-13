@@ -5,9 +5,11 @@ import { AffiliateSessionData, affiliateSessionOptions } from "@/lib/auth/affili
 import { verifyPassword } from "@/lib/affiliate/password";
 import { loginLimiter } from "@/lib/auth/rate-limit";
 import { prisma } from "@/lib/db";
+import { upsertAffiliateIp } from "@/lib/affiliate/self-referral";
 
 export async function POST(request: Request) {
-  const ip = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown";
+  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    request.headers.get("x-real-ip") || "unknown";
   if (!loginLimiter.check(`aff:${ip}`)) {
     const resetIn = loginLimiter.getResetSeconds(`aff:${ip}`);
     return NextResponse.json(
@@ -62,6 +64,11 @@ export async function POST(request: Request) {
   session.loginAt = Date.now();
   session.lastActivity = Date.now();
   await session.save();
+
+  // Record the affiliate's IP for self-referral detection (fire-and-forget).
+  upsertAffiliateIp({ affiliateId: affiliate.id, ip, source: "login" }).catch(
+    (err) => console.error("[Affiliate login] IP upsert failed:", err),
+  );
 
   return NextResponse.json({ success: true });
 }

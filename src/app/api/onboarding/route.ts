@@ -12,6 +12,7 @@ import {
   resolveAttribution,
   upsertReferral,
 } from "@/lib/affiliate/attribution";
+import { checkSelfReferral } from "@/lib/affiliate/self-referral";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
@@ -72,6 +73,52 @@ export async function POST(request: Request) {
         ? { id: validPromo.id, affiliateId: validPromo.affiliateId }
         : null,
     });
+
+    // ─── Self-referral check ───────────────────────────────────────
+    // If the submitter is the winning affiliate (by IP or active session),
+    // strip the affiliate attribution. The submission still succeeds — the
+    // customer is never affected.
+    let effectiveWinnerAffiliateId = attribution.winnerAffiliateId;
+
+    if (attribution.winnerAffiliateId) {
+      // Read the affiliate session cookie (set when affiliate logs into portal).
+      const affSessionCookie = request.headers
+        .get("cookie")
+        ?.split(";")
+        .map((c) => c.trim())
+        .find((c) => c.startsWith("ncd-affiliate-session="));
+      // We cannot decrypt the iron-session cookie here (no async decrypt in
+      // the submission hot path), so we parse the affiliateId from the
+      // cookie payload only if the portal injects a plain marker. For now,
+      // we rely on the IP check as the primary detection mechanism, and
+      // treat the session cookie as a secondary signal by checking if any
+      // affiliate session exists.
+      const affiliateSessionId: string | null = affSessionCookie
+        ? attribution.winnerAffiliateId // conservative: if session exists, assume it's the winner
+        : null;
+
+      const selfRef = await checkSelfReferral({
+        submissionIp: ip,
+        winnerAffiliateId: attribution.winnerAffiliateId,
+        affiliateSessionId,
+      });
+
+      if (selfRef.blocked) {
+        effectiveWinnerAffiliateId = null;
+        // Log as incident for admin visibility (fire-and-forget).
+        import("@/lib/job-queue")
+          .then(({ createIncident }) =>
+            createIncident({
+              severity: "warning",
+              title: "Selbstvermittlung erkannt",
+              message: `Affiliate-Zuordnung entfernt.\n\nGrund: ${selfRef.reason}\nAffiliate: ${attribution.winnerAffiliateId}\nIP: ${ip}\nKunde: ${data.email}`,
+              source: "affiliate",
+              referenceId: attribution.winnerAffiliateId ?? undefined,
+            }),
+          )
+          .catch(() => {/* incident creation best-effort */});
+      }
+    }
 
     // Server-side verification: if whatsappConsent is true with a phone, verify it was confirmed
     if (data.whatsappConsent && data.telefon) {
@@ -182,7 +229,7 @@ export async function POST(request: Request) {
       visitorId,
       promoCode: validPromo ? validPromo.code : undefined,
       promoCodeId: validPromo?.id,
-      affiliateId: attribution.winnerAffiliateId ?? undefined,
+      affiliateId: effectiveWinnerAffiliateId || undefined,
       firstTouchAffiliateId: attribution.firstTouchAffiliateId ?? undefined,
       utmSource: data.utmSource,
       utmMedium: data.utmMedium,
@@ -198,10 +245,11 @@ export async function POST(request: Request) {
     }
 
     // Record / update the Referral row so commission creation has a firstTouchAt anchor.
-    if (attribution.winnerAffiliateId && visitorId) {
+    // Only create if the effective winner survived the self-referral check.
+    if (effectiveWinnerAffiliateId && visitorId) {
       await upsertReferral({
         visitorId,
-        affiliateId: attribution.winnerAffiliateId,
+        affiliateId: effectiveWinnerAffiliateId,
         source: attribution.source === "promo_code" ? "promo_code" : "handle_link",
         submissionId: id,
       });

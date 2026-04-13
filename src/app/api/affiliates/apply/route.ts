@@ -29,6 +29,10 @@ const applySchema = z.object({
     .regex(HANDLE_PATTERN, "Handle darf nur Buchstaben, Zahlen, _ oder - enthalten"),
   audience: z.string().min(20).max(3000),
   motivation: z.string().min(20).max(3000),
+  /** Partner-AGB must be explicitly accepted. */
+  agbAccepted: z.literal(true, {
+    error: "Bitte akzeptieren Sie die Teilnahmebedingungen des Partnerprogramms.",
+  }),
   /** Optional honeypot — bots tend to fill every field. */
   website: z.string().max(0).optional(),
 });
@@ -110,6 +114,9 @@ export async function POST(request: Request) {
       audience: data.audience,
       motivation: data.motivation,
       status: "pending",
+      applicationIp: ip !== "unknown" ? ip : null,
+      agbAccepted: true,
+      agbAcceptedAt: new Date(),
     },
   });
 

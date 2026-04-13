@@ -32,9 +32,7 @@ function AnimatedCounter({ target, suffix = "" }: { target: number; suffix?: str
 
 // ─── Chaos → Order Animation ─────────────────────────────────────
 // Visualizes the daily struggle of solo entrepreneurs:
-// Scattered sticky notes, messages, deadlines → organized dashboard
-
-// Detailed pain-point cards that zoom into real daily chaos
+// Three A/B-testable chaos variants → organized dashboard
 
 const ORDER_ITEMS = [
   { emoji: "✅", label: "Aufgaben erledigt", progress: 100 },
@@ -43,8 +41,360 @@ const ORDER_ITEMS = [
   { emoji: "⏱️", label: "Zeit gespart", progress: 72 },
 ];
 
+// ─── Chaos Variant A: Alltags-Chaos (WhatsApp, Anrufe, Excel) ────
+
+function ChaosAlltag() {
+  return (
+    <>
+      {/* WhatsApp messages — top left, tilted */}
+      <div className="absolute left-0 top-0 w-[55%] animate-in fade-in slide-in-from-left-4 duration-500" style={{ transform: "rotate(-2deg)" }}>
+        <div className="rounded-xl bg-[#1a2e1a]/80 border border-[#25D366]/20 p-3 shadow-xl">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="h-5 w-5 rounded-full bg-[#25D366]/30 flex items-center justify-center">
+              <span className="text-[10px]">📱</span>
+            </div>
+            <span className="text-[10px] font-bold text-[#25D366]">WhatsApp</span>
+            <span className="ml-auto rounded-full bg-[#25D366] px-1.5 py-0.5 text-[8px] font-bold text-white">12</span>
+          </div>
+          <div className="space-y-1.5">
+            <div className="rounded-lg bg-white/[0.06] px-2.5 py-1.5">
+              <p className="text-[9px] text-[#6a6e76]">Kunde Müller · 09:14</p>
+              <p className="text-[10px] text-white/80">Wann ist meine Bestellung da?? 😤</p>
+            </div>
+            <div className="rounded-lg bg-white/[0.06] px-2.5 py-1.5">
+              <p className="text-[9px] text-[#6a6e76]">Lieferant Schmidt · 10:31</p>
+              <p className="text-[10px] text-white/80">Rechnung überfällig, bitte dringend!</p>
+            </div>
+            <div className="rounded-lg bg-white/[0.06] px-2.5 py-1.5">
+              <p className="text-[9px] text-[#6a6e76]">Team-Gruppe · 11:02</p>
+              <p className="text-[10px] text-white/80">Wer hat den Zugang zum Lager?</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Missed calls — top right */}
+      <div className="absolute right-0 top-2 w-[42%] animate-in fade-in slide-in-from-right-4 duration-500" style={{ animationDelay: "0.2s", animationFillMode: "both", transform: "rotate(3deg)" }}>
+        <div className="rounded-xl bg-red-500/[0.08] border border-red-500/20 p-3 shadow-xl">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-xs">📞</span>
+            <span className="text-[10px] font-bold text-red-400">Verpasste Anrufe</span>
+          </div>
+          <div className="space-y-1.5">
+            {[
+              { name: "Fr. Weber", time: "vor 2 Std.", count: 3 },
+              { name: "Steuerberater", time: "vor 4 Std.", count: 1 },
+              { name: "+49 621 …", time: "gestern", count: 2 },
+            ].map((call, i) => (
+              <div key={i} className="flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] text-white/80 font-medium">{call.name}</p>
+                  <p className="text-[8px] text-[#6a6e76]">{call.time}</p>
+                </div>
+                <span className="rounded-full bg-red-500/30 px-1.5 py-0.5 text-[8px] font-bold text-red-300">
+                  {call.count}×
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Chaotic Excel — bottom, full width */}
+      <div className="absolute bottom-0 left-0 right-0 animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: "0.4s", animationFillMode: "both", transform: "rotate(1deg)" }}>
+        <div className="rounded-xl bg-[#1a2010]/60 border border-[#217346]/20 p-3 shadow-xl">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-xs">📋</span>
+            <span className="text-[10px] font-bold text-[#217346]">Kunden_Liste_FINAL_v3_NEU(2).xlsx</span>
+          </div>
+          <div className="overflow-hidden rounded-lg border border-white/[0.06]">
+            <table className="w-full text-[8px]">
+              <thead>
+                <tr className="bg-white/[0.04]">
+                  <th className="px-2 py-1 text-left text-[#6a6e76] font-medium">Name</th>
+                  <th className="px-2 py-1 text-left text-[#6a6e76] font-medium">Status</th>
+                  <th className="px-2 py-1 text-left text-[#6a6e76] font-medium">Bezahlt?</th>
+                  <th className="px-2 py-1 text-left text-[#6a6e76] font-medium">Notiz</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-t border-white/[0.04]">
+                  <td className="px-2 py-1 text-white/60">Müller GmbH</td>
+                  <td className="px-2 py-1 text-amber-400">offen??</td>
+                  <td className="px-2 py-1 text-red-400">NEIN</td>
+                  <td className="px-2 py-1 text-[#6a6e76]">nochmal anrufen!</td>
+                </tr>
+                <tr className="border-t border-white/[0.04]">
+                  <td className="px-2 py-1 text-white/60">Weber</td>
+                  <td className="px-2 py-1 text-[#6a6e76]">???</td>
+                  <td className="px-2 py-1 text-white/60">teil</td>
+                  <td className="px-2 py-1 text-red-400">DRINGEND</td>
+                </tr>
+                <tr className="border-t border-white/[0.04]">
+                  <td className="px-2 py-1 text-white/60">Schmidt & Co</td>
+                  <td className="px-2 py-1 text-white/60">fertig glaub</td>
+                  <td className="px-2 py-1 text-emerald-400/60">ja</td>
+                  <td className="px-2 py-1 text-[#6a6e76]">oder doch nicht?</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {/* Floating stress indicators */}
+      <div className="absolute right-2 bottom-[45%] animate-in fade-in duration-300" style={{ animationDelay: "0.6s", animationFillMode: "both" }}>
+        <div className="rounded-full bg-red-500/10 border border-red-500/20 px-2 py-1">
+          <span className="text-[9px] text-red-400">🤯 Überfordert</span>
+        </div>
+      </div>
+      <div className="absolute left-[30%] top-[42%] animate-in fade-in duration-300" style={{ animationDelay: "0.8s", animationFillMode: "both" }}>
+        <div className="rounded-full bg-amber-500/10 border border-amber-500/20 px-2 py-1">
+          <span className="text-[9px] text-amber-400">⏰ 3 Deadlines heute</span>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ─── Chaos Variant B: Zettelwirtschaft (Post-its, E-Mails, Kalender) ──
+
+function ChaosZettel() {
+  return (
+    <>
+      {/* Post-it Board — top left, tilted */}
+      <div className="absolute left-0 top-0 w-[55%] animate-in fade-in slide-in-from-left-4 duration-500" style={{ transform: "rotate(-2deg)" }}>
+        <div className="rounded-xl bg-white/[0.03] border border-white/10 p-3 shadow-xl">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-xs">📝</span>
+            <span className="text-[10px] font-bold text-amber-300">Notizen</span>
+          </div>
+          <div className="grid grid-cols-2 gap-1.5">
+            {/* Amber note */}
+            <div className="rounded-md bg-amber-400/20 border border-amber-400/30 p-2 shadow-sm" style={{ transform: "rotate(-1deg)" }}>
+              <p className="text-[9px] text-amber-200 font-medium leading-tight">Angebot schreiben!!!</p>
+              <p className="text-[8px] text-amber-300/60 mt-0.5">bis Freitag</p>
+            </div>
+            {/* Pink note — crossed out */}
+            <div className="rounded-md bg-pink-400/20 border border-pink-400/30 p-2 shadow-sm" style={{ transform: "rotate(2deg)" }}>
+              <p className="text-[9px] text-pink-200 font-medium leading-tight line-through opacity-60">Rückruf Weber</p>
+              <p className="text-[8px] text-pink-300/60 mt-0.5">erledigt?</p>
+            </div>
+            {/* Blue note */}
+            <div className="rounded-md bg-sky-400/20 border border-sky-400/30 p-2 shadow-sm col-span-2" style={{ transform: "rotate(0.5deg)" }}>
+              <p className="text-[9px] text-sky-200 font-medium leading-tight">Steuer??? Frist 31.05. — wo sind die Belege??</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Email inbox — top right */}
+      <div className="absolute right-0 top-2 w-[42%] animate-in fade-in slide-in-from-right-4 duration-500" style={{ animationDelay: "0.2s", animationFillMode: "both", transform: "rotate(3deg)" }}>
+        <div className="rounded-xl bg-blue-500/[0.06] border border-blue-500/20 p-3 shadow-xl">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-xs">📧</span>
+            <span className="text-[10px] font-bold text-blue-400">Posteingang</span>
+            <span className="ml-auto rounded-full bg-red-500 px-1.5 py-0.5 text-[8px] font-bold text-white">147</span>
+          </div>
+          <div className="space-y-1.5">
+            <div className="rounded-lg bg-white/[0.06] px-2 py-1.5 border-l-2 border-amber-400">
+              <p className="text-[9px] text-amber-300 font-medium">Angebot bitte bis Freitag!</p>
+              <p className="text-[8px] text-[#6a6e76]">Kunde Braun · 08:22</p>
+            </div>
+            <div className="rounded-lg bg-white/[0.06] px-2 py-1.5">
+              <p className="text-[9px] text-white/60">RE:RE:RE: Rechnung???</p>
+              <p className="text-[8px] text-[#6a6e76]">Buchhaltung · gestern</p>
+            </div>
+            <div className="rounded-lg bg-white/[0.04] px-2 py-1.5 opacity-50">
+              <p className="text-[9px] text-[#6a6e76]">🎉 Sie haben gewonnen!</p>
+              <p className="text-[8px] text-red-400/60">Spam · vor 2 Tg.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Calendar with conflicts — bottom */}
+      <div className="absolute bottom-0 left-0 right-0 animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: "0.4s", animationFillMode: "both", transform: "rotate(1deg)" }}>
+        <div className="rounded-xl bg-purple-500/[0.06] border border-purple-500/20 p-3 shadow-xl">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-xs">📅</span>
+            <span className="text-[10px] font-bold text-purple-400">Kalender — Mittwoch</span>
+          </div>
+          <div className="space-y-1 relative">
+            {/* Time slots */}
+            <div className="flex items-stretch gap-1.5">
+              <div className="w-8 text-[8px] text-[#6a6e76] text-right shrink-0 pt-0.5">09:00</div>
+              <div className="flex-1 rounded-md bg-blue-500/15 border border-blue-500/25 px-2 py-1">
+                <p className="text-[9px] text-blue-300">Kundentermin Meier</p>
+              </div>
+            </div>
+            <div className="flex items-stretch gap-1.5">
+              <div className="w-8 text-[8px] text-[#6a6e76] text-right shrink-0 pt-0.5">10:00</div>
+              <div className="flex-1 relative">
+                {/* Overlapping events */}
+                <div className="rounded-md bg-red-500/15 border border-red-500/30 px-2 py-1">
+                  <p className="text-[9px] text-red-300">⚠️ Steuerberater</p>
+                </div>
+                <div className="absolute top-0 left-3 right-0 rounded-md bg-amber-500/15 border border-amber-500/30 px-2 py-1 translate-y-0.5">
+                  <p className="text-[9px] text-amber-300">⚠️ Lieferant-Meeting</p>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-stretch gap-1.5 mt-2">
+              <div className="w-8 text-[8px] text-[#6a6e76] text-right shrink-0 pt-0.5">14:00</div>
+              <div className="flex-1 rounded-md bg-white/[0.04] border border-white/[0.06] border-dashed px-2 py-1">
+                <p className="text-[9px] text-[#6a6e76]">(frei?? oder doch belegt?)</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Floating stress indicators */}
+      <div className="absolute right-2 bottom-[45%] animate-in fade-in duration-300" style={{ animationDelay: "0.6s", animationFillMode: "both" }}>
+        <div className="rounded-full bg-pink-500/10 border border-pink-500/20 px-2 py-1">
+          <span className="text-[9px] text-pink-400">📌 Vergessen!</span>
+        </div>
+      </div>
+      <div className="absolute left-[30%] top-[42%] animate-in fade-in duration-300" style={{ animationDelay: "0.8s", animationFillMode: "both" }}>
+        <div className="rounded-full bg-red-500/10 border border-red-500/20 px-2 py-1">
+          <span className="text-[9px] text-red-400">🔥 Terminkollision</span>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ─── Chaos Variant C: Tool-Chaos (App-Overload, veraltete Daten) ──
+
+function ChaosTools() {
+  const apps = [
+    { icon: "💬", name: "Slack", badge: 23, bg: "bg-purple-500/20", border: "border-purple-500/30" },
+    { icon: "📧", name: "Gmail", badge: 89, bg: "bg-red-500/20", border: "border-red-500/30" },
+    { icon: "📋", name: "Trello", badge: 7, bg: "bg-blue-500/20", border: "border-blue-500/30" },
+    { icon: "📱", name: "WhatsApp", badge: 12, bg: "bg-emerald-500/20", border: "border-emerald-500/30" },
+    { icon: "📊", name: "Sheets", badge: 3, bg: "bg-green-500/20", border: "border-green-500/30" },
+    { icon: "📅", name: "Kalender", badge: 5, bg: "bg-amber-500/20", border: "border-amber-500/30" },
+  ];
+
+  return (
+    <>
+      {/* App grid — top left */}
+      <div className="absolute left-0 top-0 w-[55%] animate-in fade-in slide-in-from-left-4 duration-500" style={{ transform: "rotate(-2deg)" }}>
+        <div className="rounded-xl bg-white/[0.03] border border-white/10 p-3 shadow-xl">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-xs">📲</span>
+            <span className="text-[10px] font-bold text-white/70">Ihre Tools</span>
+            <span className="ml-auto text-[8px] text-red-400 font-medium">Alle offen</span>
+          </div>
+          <div className="grid grid-cols-3 gap-1.5">
+            {apps.map((app, i) => (
+              <div key={i} className={`relative rounded-lg ${app.bg} border ${app.border} p-1.5 text-center`}>
+                <span className="text-sm">{app.icon}</span>
+                <p className="text-[7px] text-white/50 mt-0.5">{app.name}</p>
+                <span className="absolute -top-1 -right-1 rounded-full bg-red-500 min-w-[14px] px-1 py-0 text-[7px] font-bold text-white leading-[14px] text-center">
+                  {app.badge}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Outdated document — top right */}
+      <div className="absolute right-0 top-2 w-[42%] animate-in fade-in slide-in-from-right-4 duration-500" style={{ animationDelay: "0.2s", animationFillMode: "both", transform: "rotate(3deg)" }}>
+        <div className="rounded-xl bg-amber-500/[0.06] border border-amber-500/20 p-3 shadow-xl">
+          <div className="flex items-center gap-1.5 mb-2">
+            <span className="text-xs">⚠️</span>
+            <span className="text-[9px] font-bold text-amber-400">Umsatzbericht</span>
+          </div>
+          <div className="rounded-lg bg-white/[0.04] px-2 py-1.5 mb-1.5">
+            <p className="text-[8px] text-red-400/80 font-medium">Zuletzt aktualisiert: vor 3 Wochen</p>
+          </div>
+          <div className="space-y-1">
+            <div className="flex justify-between text-[8px]">
+              <span className="text-[#6a6e76]">Q1 Umsatz</span>
+              <span className="text-white/40 line-through">€ 12.400</span>
+            </div>
+            <div className="flex justify-between text-[8px]">
+              <span className="text-[#6a6e76]">Offene Posten</span>
+              <span className="text-amber-400">??? unklar</span>
+            </div>
+            <div className="flex justify-between text-[8px]">
+              <span className="text-[#6a6e76]">Marge</span>
+              <span className="text-red-400">nicht berechnet</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Copy-paste between tools — bottom */}
+      <div className="absolute bottom-0 left-0 right-0 animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: "0.4s", animationFillMode: "both", transform: "rotate(1deg)" }}>
+        <div className="rounded-xl bg-white/[0.03] border border-white/10 p-3 shadow-xl">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-xs">🔄</span>
+            <span className="text-[10px] font-bold text-white/70">Manueller Datenabgleich</span>
+          </div>
+          <div className="flex items-stretch gap-2">
+            {/* Source */}
+            <div className="flex-1 rounded-lg bg-white/[0.04] border border-white/[0.08] p-2">
+              <p className="text-[8px] text-[#6a6e76] mb-1">Excel</p>
+              <p className="text-[9px] text-white/60">Müller: <span className="text-emerald-400">€ 2.400</span></p>
+              <p className="text-[9px] text-white/60">Weber: <span className="text-emerald-400">€ 890</span></p>
+            </div>
+            {/* Arrow */}
+            <div className="flex items-center shrink-0">
+              <span className="text-[#6a6e76] text-sm">→</span>
+            </div>
+            {/* Destination with error */}
+            <div className="flex-1 rounded-lg bg-red-500/[0.06] border border-red-500/20 p-2">
+              <p className="text-[8px] text-[#6a6e76] mb-1">Buchhaltung</p>
+              <p className="text-[9px] text-white/60">Müller: <span className="text-red-400">€ 2.040</span> ✗</p>
+              <p className="text-[9px] text-white/60">Weber: <span className="text-white/40">fehlt</span></p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Floating stress indicators */}
+      <div className="absolute right-2 bottom-[45%] animate-in fade-in duration-300" style={{ animationDelay: "0.6s", animationFillMode: "both" }}>
+        <div className="rounded-full bg-amber-500/10 border border-amber-500/20 px-2 py-1">
+          <span className="text-[9px] text-amber-400">🔄 Manuell kopiert</span>
+        </div>
+      </div>
+      <div className="absolute left-[30%] top-[42%] animate-in fade-in duration-300" style={{ animationDelay: "0.8s", animationFillMode: "both" }}>
+        <div className="rounded-full bg-red-500/10 border border-red-500/20 px-2 py-1">
+          <span className="text-[9px] text-red-400">❌ Daten veraltet</span>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ─── Variant selector ────────────────────────────────────────────
+
+type ChaosVariant = "alltag" | "zettel" | "tools";
+
+const CHAOS_COMPONENTS: Record<ChaosVariant, () => React.JSX.Element> = {
+  alltag: ChaosAlltag,
+  zettel: ChaosZettel,
+  tools: ChaosTools,
+};
+
 function ChaosToOrderAnimation() {
   const [phase, setPhase] = useState<"chaos" | "transition" | "order">("chaos");
+  const { config: animConfig, trackImpression } = useABTest("hero-animation");
+
+  const chaosVariant: ChaosVariant = useMemo(() => {
+    const v = animConfig.variantId as ChaosVariant | undefined;
+    return v && v in CHAOS_COMPONENTS ? v : "alltag";
+  }, [animConfig.variantId]);
+
+  const ChaosContent = CHAOS_COMPONENTS[chaosVariant];
+
+  useEffect(() => {
+    trackImpression();
+  }, [trackImpression]);
 
   useEffect(() => {
     const cycle = () => {
@@ -91,119 +441,13 @@ function ChaosToOrderAnimation() {
         </div>
       </div>
 
-      {/* Chaos phase — zoomed pain point cards */}
+      {/* Chaos phase — A/B-testable content */}
       <div className={`absolute inset-6 top-14 transition-all duration-700 ${
         phase === "chaos"
           ? "opacity-100 scale-100"
           : "opacity-0 scale-90 pointer-events-none"
       }`}>
-        {/* WhatsApp messages — top left, tilted */}
-        <div className="absolute left-0 top-0 w-[55%] animate-in fade-in slide-in-from-left-4 duration-500" style={{ transform: "rotate(-2deg)" }}>
-          <div className="rounded-xl bg-[#1a2e1a]/80 border border-[#25D366]/20 p-3 shadow-xl">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="h-5 w-5 rounded-full bg-[#25D366]/30 flex items-center justify-center">
-                <span className="text-[10px]">📱</span>
-              </div>
-              <span className="text-[10px] font-bold text-[#25D366]">WhatsApp</span>
-              <span className="ml-auto rounded-full bg-[#25D366] px-1.5 py-0.5 text-[8px] font-bold text-white">12</span>
-            </div>
-            <div className="space-y-1.5">
-              <div className="rounded-lg bg-white/[0.06] px-2.5 py-1.5">
-                <p className="text-[9px] text-[#6a6e76]">Kunde Müller · 09:14</p>
-                <p className="text-[10px] text-white/80">Wann ist meine Bestellung da?? 😤</p>
-              </div>
-              <div className="rounded-lg bg-white/[0.06] px-2.5 py-1.5">
-                <p className="text-[9px] text-[#6a6e76]">Lieferant Schmidt · 10:31</p>
-                <p className="text-[10px] text-white/80">Rechnung überfällig, bitte dringend!</p>
-              </div>
-              <div className="rounded-lg bg-white/[0.06] px-2.5 py-1.5">
-                <p className="text-[9px] text-[#6a6e76]">Team-Gruppe · 11:02</p>
-                <p className="text-[10px] text-white/80">Wer hat den Zugang zum Lager?</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Missed calls — top right */}
-        <div className="absolute right-0 top-2 w-[42%] animate-in fade-in slide-in-from-right-4 duration-500" style={{ animationDelay: "0.2s", animationFillMode: "both", transform: "rotate(3deg)" }}>
-          <div className="rounded-xl bg-red-500/[0.08] border border-red-500/20 p-3 shadow-xl">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-xs">📞</span>
-              <span className="text-[10px] font-bold text-red-400">Verpasste Anrufe</span>
-            </div>
-            <div className="space-y-1.5">
-              {[
-                { name: "Fr. Weber", time: "vor 2 Std.", count: 3 },
-                { name: "Steuerberater", time: "vor 4 Std.", count: 1 },
-                { name: "+49 621 …", time: "gestern", count: 2 },
-              ].map((call, i) => (
-                <div key={i} className="flex items-center justify-between">
-                  <div>
-                    <p className="text-[10px] text-white/80 font-medium">{call.name}</p>
-                    <p className="text-[8px] text-[#6a6e76]">{call.time}</p>
-                  </div>
-                  <span className="rounded-full bg-red-500/30 px-1.5 py-0.5 text-[8px] font-bold text-red-300">
-                    {call.count}×
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Chaotic Excel — bottom, full width */}
-        <div className="absolute bottom-0 left-0 right-0 animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: "0.4s", animationFillMode: "both", transform: "rotate(1deg)" }}>
-          <div className="rounded-xl bg-[#1a2010]/60 border border-[#217346]/20 p-3 shadow-xl">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-xs">📋</span>
-              <span className="text-[10px] font-bold text-[#217346]">Kunden_Liste_FINAL_v3_NEU(2).xlsx</span>
-            </div>
-            <div className="overflow-hidden rounded-lg border border-white/[0.06]">
-              <table className="w-full text-[8px]">
-                <thead>
-                  <tr className="bg-white/[0.04]">
-                    <th className="px-2 py-1 text-left text-[#6a6e76] font-medium">Name</th>
-                    <th className="px-2 py-1 text-left text-[#6a6e76] font-medium">Status</th>
-                    <th className="px-2 py-1 text-left text-[#6a6e76] font-medium">Bezahlt?</th>
-                    <th className="px-2 py-1 text-left text-[#6a6e76] font-medium">Notiz</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr className="border-t border-white/[0.04]">
-                    <td className="px-2 py-1 text-white/60">Müller GmbH</td>
-                    <td className="px-2 py-1 text-amber-400">offen??</td>
-                    <td className="px-2 py-1 text-red-400">NEIN</td>
-                    <td className="px-2 py-1 text-[#6a6e76]">nochmal anrufen!</td>
-                  </tr>
-                  <tr className="border-t border-white/[0.04]">
-                    <td className="px-2 py-1 text-white/60">Weber</td>
-                    <td className="px-2 py-1 text-[#6a6e76]">???</td>
-                    <td className="px-2 py-1 text-white/60">teil</td>
-                    <td className="px-2 py-1 text-red-400">DRINGEND</td>
-                  </tr>
-                  <tr className="border-t border-white/[0.04]">
-                    <td className="px-2 py-1 text-white/60">Schmidt & Co</td>
-                    <td className="px-2 py-1 text-white/60">fertig glaub</td>
-                    <td className="px-2 py-1 text-emerald-400/60">ja</td>
-                    <td className="px-2 py-1 text-[#6a6e76]">oder doch nicht?</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        {/* Floating stress indicators */}
-        <div className="absolute right-2 bottom-[45%] animate-in fade-in duration-300" style={{ animationDelay: "0.6s", animationFillMode: "both" }}>
-          <div className="rounded-full bg-red-500/10 border border-red-500/20 px-2 py-1">
-            <span className="text-[9px] text-red-400">🤯 Überfordert</span>
-          </div>
-        </div>
-        <div className="absolute left-[30%] top-[42%] animate-in fade-in duration-300" style={{ animationDelay: "0.8s", animationFillMode: "both" }}>
-          <div className="rounded-full bg-amber-500/10 border border-amber-500/20 px-2 py-1">
-            <span className="text-[9px] text-amber-400">⏰ 3 Deadlines heute</span>
-          </div>
-        </div>
+        <ChaosContent />
       </div>
 
       {/* Transition — swirl effect */}

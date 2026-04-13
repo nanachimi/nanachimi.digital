@@ -43,6 +43,7 @@ export const RESERVED_HANDLES = new Set([
   "impressum",
   "datenschutz",
   "agb",
+  "partner-agb",
   "robots",
   "sitemap",
   "www",

@@ -60,6 +60,22 @@ export const AB_TEST_ELEMENTS: Record<string, ABTestElement> = {
       },
     ],
   },
+  "hero-animation": {
+    label: "Hero — Animation Variante",
+    component: "Hero.tsx",
+    fields: [
+      {
+        key: "variantId",
+        label: "Chaos-Variante",
+        type: "select",
+        options: [
+          { value: "alltag", label: "Alltags-Chaos — WhatsApp, Anrufe, Excel" },
+          { value: "zettel", label: "Zettelwirtschaft — Notizen, E-Mails, Kalender" },
+          { value: "tools", label: "Tool-Chaos — App-Overload, veraltete Daten" },
+        ],
+      },
+    ],
+  },
   "hero-cta": {
     label: "Hero — CTA-Button Text",
     component: "Hero.tsx",

@@ -487,6 +487,7 @@ model Affiliate {
   commissions           Commission[]
   payouts               Payout[]
   applications          AffiliateApplication[]
+  affiliateIps          AffiliateIp[]
   submissionsWon        Submission[]           @relation("SubmissionWinner")
   submissionsFirstTouch Submission[]           @relation("SubmissionFirstTouch")
 
@@ -495,21 +496,37 @@ model Affiliate {
 }
 
 model AffiliateApplication {
-  id          String     @id @default(cuid())
-  email       String
-  name        String
-  handle      String // souhaité; validé à l'approbation
-  audience    String // qui sont leurs followers, quelle audience
-  motivation  String // pourquoi rejoindre le programme
-  status      String     @default("pending") // "pending" | "approved" | "rejected"
-  reviewedAt  DateTime?
-  reviewedBy  String?
-  notes       String?
-  affiliateId String? // rempli après approbation
-  affiliate   Affiliate? @relation(fields: [affiliateId], references: [id])
-  createdAt   DateTime   @default(now())
+  id            String     @id @default(cuid())
+  email         String
+  name          String
+  handle        String // souhaité; validé à l'approbation
+  audience      String // qui sont leurs followers, quelle audience
+  motivation    String // pourquoi rejoindre le programme
+  status        String     @default("pending") // "pending" | "approved" | "rejected"
+  reviewedAt    DateTime?
+  reviewedBy    String?
+  notes         String?
+  applicationIp String? // IP at application time (DSGVO: consent via AGB checkbox)
+  agbAccepted   Boolean    @default(false)
+  agbAcceptedAt DateTime?
+  affiliateId   String? // rempli après approbation
+  affiliate     Affiliate? @relation(fields: [affiliateId], references: [id])
+  createdAt     DateTime   @default(now())
 
   @@index([status, createdAt])
+}
+
+model AffiliateIp {
+  id          String    @id @default(cuid())
+  affiliateId String
+  affiliate   Affiliate @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+  ip          String
+  source      String // "application" | "login" | "manual"
+  firstSeenAt DateTime  @default(now())
+  lastSeenAt  DateTime  @default(now())
+
+  @@unique([affiliateId, ip])
+  @@index([ip])
 }
 
 // ---------------------------------------------------------------------------

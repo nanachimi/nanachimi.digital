@@ -187,6 +187,67 @@ async function main() {
     console.log(`⏭️  A/B Tests already exist (${existingTests} tests), skipping`);
   }
 
+  // 5. Test Affiliate (for E2E tests — idempotent upsert)
+  const testAffiliate = await prisma.affiliate.upsert({
+    where: { email: "sysys@example.com" },
+    update: {},
+    create: {
+      email: "sysys@example.com",
+      // scrypt hash of "test1234"
+      passwordHash:
+        "scrypt$16384$8$1$aGVsbG8=$c7RwxEiGebDVI09Ui2GUMFzfz7PGm4T5UM9oe61lUnwtc6NHyJrgtBHFOdGIYnPoKxzgsejvdpU0cz+DIV/MQg==",
+      name: "Sysys Test",
+      handle: "sysys35",
+      commissionRate: "0.15",
+      status: "active",
+    },
+  });
+  console.log(`✅ Test affiliate seeded (id: ${testAffiliate.id}, handle: sysys35)`);
+
+  // Test campaign + promo codes
+  const testCampaign = await prisma.campaign.upsert({
+    where: { campaignCode: "Startup2026" },
+    update: {},
+    create: {
+      name: "Test Startup Q2 2026",
+      campaignCode: "Startup2026",
+      discountPercent: "0.25",
+      description: "Testkampagne",
+      active: true,
+    },
+  });
+  // Admin promo code (idempotent: skip if code already exists)
+  const existingAdminCode = await prisma.promoCode.findFirst({
+    where: { code: "startup2026", campaignId: testCampaign.id },
+  });
+  if (!existingAdminCode) {
+    await prisma.promoCode.create({
+      data: {
+        code: "startup2026",
+        campaignId: testCampaign.id,
+        affiliateId: null,
+        discountPercent: "0.25",
+        active: true,
+      },
+    });
+  }
+  // Affiliate promo code
+  const existingAffCode = await prisma.promoCode.findFirst({
+    where: { code: "sysys3525", campaignId: testCampaign.id },
+  });
+  if (!existingAffCode) {
+    await prisma.promoCode.create({
+      data: {
+        code: "sysys3525",
+        campaignId: testCampaign.id,
+        affiliateId: testAffiliate.id,
+        discountPercent: "0.25",
+        active: true,
+      },
+    });
+  }
+  console.log("✅ Test campaign + promo codes seeded");
+
   console.log("\n🎉 Seed complete!");
 }
 

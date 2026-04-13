@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 
 type Status =
   | { state: "idle" }
@@ -21,6 +22,7 @@ export function AffiliateApplyForm() {
     handle: "",
     audience: "",
     motivation: "",
+    agbAccepted: false,
     website: "", // honeypot
   });
 
@@ -169,6 +171,35 @@ export function AffiliateApplyForm() {
         />
       </div>
 
+      {/* Partner-AGB acceptance */}
+      <div className="flex items-start gap-3">
+        <Checkbox
+          id="agbAccepted"
+          checked={form.agbAccepted}
+          onCheckedChange={(checked) =>
+            setForm({ ...form, agbAccepted: checked === true })
+          }
+          disabled={disabled}
+          className="mt-1 border-white/20 data-[state=checked]:bg-[#FFC62C] data-[state=checked]:border-[#FFC62C] data-[state=checked]:text-[#111318]"
+        />
+        <label
+          htmlFor="agbAccepted"
+          className="text-sm text-[#c0c3c9] leading-snug cursor-pointer select-none"
+        >
+          Ich akzeptiere die{" "}
+          <a
+            href="/partner-agb"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[#FFC62C] hover:underline"
+          >
+            Teilnahmebedingungen des Partnerprogramms
+          </a>{" "}
+          und stimme der Erfassung meiner IP-Adresse zur
+          Betrugsprävention zu.
+        </label>
+      </div>
+
       {/* Honeypot — hidden from humans */}
       <div className="hidden" aria-hidden="true">
         <label>
@@ -192,8 +223,8 @@ export function AffiliateApplyForm() {
 
       <Button
         type="submit"
-        disabled={disabled}
-        className="w-full bg-[#FFC62C] text-[#111318] hover:bg-[#FFD257] font-semibold"
+        disabled={disabled || !form.agbAccepted}
+        className="w-full bg-[#FFC62C] text-[#111318] hover:bg-[#FFD257] font-semibold disabled:opacity-50"
       >
         {status.state === "submitting" ? (
           <>
