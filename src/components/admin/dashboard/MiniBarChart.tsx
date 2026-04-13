@@ -43,8 +43,8 @@ export function MiniBarChart({
             fontSize: 12,
             color: "#fff",
           }}
-          labelFormatter={formatDate}
-          formatter={(val: number) => [val, "Anfragen"]}
+          labelFormatter={(label: unknown) => formatDate(String(label ?? ""))}
+          formatter={(val: unknown) => [Number(val ?? 0), "Anfragen"]}
           cursor={{ fill: "rgba(255,255,255,0.03)" }}
         />
         <Bar dataKey="value" fill={color} radius={[2, 2, 0, 0]} />

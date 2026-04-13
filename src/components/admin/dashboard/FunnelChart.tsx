@@ -67,11 +67,12 @@ export function FunnelChart({ steps, height = 220 }: FunnelChartProps) {
             fontSize: 12,
             color: "#fff",
           }}
-          formatter={(val: number, name: string) => {
-            if (name === "entries") return [val, "Eintritte"];
-            return [val, name];
+          formatter={(val: unknown, name: unknown) => {
+            const v = Number(val ?? 0);
+            if (name === "entries") return [v, "Eintritte"];
+            return [v, String(name)];
           }}
-          labelFormatter={(label: string) => label}
+          labelFormatter={(label: unknown) => String(label ?? "")}
         />
         <Bar dataKey="entries" radius={[0, 4, 4, 0]} isAnimationActive={false}>
           {data.map((entry, i) => (

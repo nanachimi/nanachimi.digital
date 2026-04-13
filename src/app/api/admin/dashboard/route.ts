@@ -251,9 +251,9 @@ export async function GET() {
   }
 
   const visitorsDailyMap = new Map<string, number>();
-  for (const [key, set] of visitorsByDay) {
+  visitorsByDay.forEach((set, key) => {
     visitorsDailyMap.set(key, set.size);
-  }
+  });
   const visitorsDaily = fillDailyGaps(visitorsDailyMap, 30);
 
   const visitors7d = new Set<string>();
