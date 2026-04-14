@@ -27,7 +27,7 @@ export const AFFILIATE_SESSION_MAX_AGE_MS = 24 * 60 * 60 * 1000;   // 24 hours a
 export const AFFILIATE_SESSION_IDLE_TIMEOUT_MS = 60 * 60 * 1000;   // 1 hour inactivity
 
 export const affiliateSessionOptions: SessionOptions = {
-  password: process.env.AFFILIATE_SESSION_SECRET || "unsafe-affiliate-dev-secret-must-be-at-least-32-chars",
+  password: process.env.AFFILIATE_SESSION_SECRET!,
   cookieName: "ncd-affiliate-session",
   cookieOptions: {
     secure: process.env.NODE_ENV === "production",

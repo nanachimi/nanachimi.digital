@@ -1,7 +1,20 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { getAvailability, setAvailability } from "@/lib/bookings";
 import { requireAdmin } from "@/lib/auth/require-admin";
 export const dynamic = "force-dynamic";
+
+const slotSchema = z.object({
+  dayOfWeek: z.number().int().min(0).max(6),
+  startHour: z.number().int().min(0).max(23),
+  startMinute: z.number().int().min(0).max(59),
+  endHour: z.number().int().min(0).max(23),
+  endMinute: z.number().int().min(0).max(59),
+});
+
+const putSchema = z.object({
+  slots: z.array(slotSchema),
+});
 
 /**
  * GET /api/admin/availability
@@ -28,39 +41,21 @@ export async function PUT(request: Request) {
   }
   try {
     const body = await request.json();
-    const { slots } = body;
+    const parsed = putSchema.safeParse(body);
 
-    if (!Array.isArray(slots)) {
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: "Body must contain a 'slots' array" },
+        { error: "Ungültiges Slot-Format" },
         { status: 400 }
       );
     }
 
-    // Basic validation
-    for (const slot of slots) {
-      if (
-        typeof slot.dayOfWeek !== "number" ||
-        slot.dayOfWeek < 0 ||
-        slot.dayOfWeek > 6 ||
-        typeof slot.startHour !== "number" ||
-        typeof slot.startMinute !== "number" ||
-        typeof slot.endHour !== "number" ||
-        typeof slot.endMinute !== "number"
-      ) {
-        return NextResponse.json(
-          { error: "Invalid slot format" },
-          { status: 400 }
-        );
-      }
-    }
-
-    await setAvailability(slots);
+    await setAvailability(parsed.data.slots);
 
     return NextResponse.json({ success: true, slots: await getAvailability() });
   } catch {
     return NextResponse.json(
-      { error: "Invalid request body" },
+      { error: "Ungültige Anfrage" },
       { status: 400 }
     );
   }

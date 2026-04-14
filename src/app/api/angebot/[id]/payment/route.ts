@@ -139,10 +139,9 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     return NextResponse.json({ url: result.url });
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error("[Payment] Stripe checkout error:", message, err);
+    console.error("[Payment] Stripe checkout error:", err);
     return NextResponse.json(
-      { error: `Zahlung fehlgeschlagen: ${message}` },
+      { error: "Zahlung fehlgeschlagen. Bitte versuchen Sie es erneut oder kontaktieren Sie uns." },
       { status: 500 }
     );
   }

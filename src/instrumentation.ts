@@ -12,6 +12,17 @@
 export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
 
+  // ─── Startup env validation ──────────────────────────────────────
+  const requiredSecrets = ["SESSION_SECRET", "AFFILIATE_SESSION_SECRET"] as const;
+  for (const name of requiredSecrets) {
+    const val = process.env[name];
+    if (!val || val.length < 32) {
+      throw new Error(
+        `[Startup] ${name} is missing or too short (min 32 chars). Refusing to start.`,
+      );
+    }
+  }
+
   // Avoid double-registration in dev (hot reload)
   const g = globalThis as unknown as { __schedulerStarted?: boolean };
   if (g.__schedulerStarted) return;
@@ -19,13 +30,16 @@ export async function register() {
 
   const port = process.env.PORT || "3000";
   const base = `http://127.0.0.1:${port}`;
+  const cronHeaders: HeadersInit = process.env.CRON_SECRET
+    ? { Authorization: `Bearer ${process.env.CRON_SECRET}` }
+    : {};
 
   console.log("[Scheduler] Background job scheduler started");
 
   // Process jobs every 60 seconds
   setInterval(async () => {
     try {
-      const res = await fetch(`${base}/api/cron/process-jobs`);
+      const res = await fetch(`${base}/api/cron/process-jobs`, { headers: cronHeaders });
       if (res.ok) {
         const data = await res.json();
         if (data.processed > 0) {
@@ -38,7 +52,7 @@ export async function register() {
   // SLA check every 5 minutes
   setInterval(async () => {
     try {
-      const res = await fetch(`${base}/api/cron/sla-check`);
+      const res = await fetch(`${base}/api/cron/sla-check`, { headers: cronHeaders });
       if (res.ok) {
         const data = await res.json();
         if (data.breached > 0) {
@@ -51,7 +65,7 @@ export async function register() {
   // Commission approval every 6 hours (14-day hold window — granularity not critical)
   setInterval(async () => {
     try {
-      const res = await fetch(`${base}/api/cron/commissions-approve`);
+      const res = await fetch(`${base}/api/cron/commissions-approve`, { headers: cronHeaders });
       if (res.ok) {
         const data = await res.json();
         if (data.approved > 0) {
@@ -64,7 +78,7 @@ export async function register() {
   // Initial run after 15s
   setTimeout(async () => {
     try {
-      const res = await fetch(`${base}/api/cron/process-jobs`);
+      const res = await fetch(`${base}/api/cron/process-jobs`, { headers: cronHeaders });
       if (res.ok) {
         const data = await res.json();
         if (data.processed > 0) {

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import {
   getAllBookings,
@@ -7,9 +8,24 @@ import {
   getBookingSettings,
   updateBookingSettings,
 } from "@/lib/bookings";
-import type { AvailabilitySlot } from "@/lib/bookings";
 
 export const dynamic = "force-dynamic";
+
+const availabilitySlotSchema = z.object({
+  dayOfWeek: z.number().int().min(0).max(6),
+  startHour: z.number().int().min(0).max(23),
+  startMinute: z.number().int().min(0).max(59),
+  endHour: z.number().int().min(0).max(23),
+  endMinute: z.number().int().min(0).max(59),
+});
+
+const bookingsPutSchema = z.object({
+  availability: z.array(availabilitySlotSchema).optional(),
+  settings: z.object({
+    meetingDurationMinutes: z.number().int().min(5).max(480).optional(),
+    bufferMinutes: z.number().int().min(0).max(120).optional(),
+  }).optional(),
+});
 
 /** GET /api/admin/bookings — list all bookings + availability + settings */
 export async function GET() {
@@ -38,37 +54,21 @@ export async function PUT(request: Request) {
 
   try {
     const body = await request.json();
+    const parsed = bookingsPutSchema.safeParse(body);
 
-    // Update availability if provided
-    if (body.availability) {
-      if (!Array.isArray(body.availability)) {
-        return NextResponse.json(
-          { error: "availability muss ein Array sein" },
-          { status: 400 }
-        );
-      }
-
-      for (const slot of body.availability as AvailabilitySlot[]) {
-        if (
-          typeof slot.dayOfWeek !== "number" ||
-          slot.dayOfWeek < 0 ||
-          slot.dayOfWeek > 6 ||
-          typeof slot.startHour !== "number" ||
-          typeof slot.endHour !== "number"
-        ) {
-          return NextResponse.json(
-            { error: "Ungültiger Zeitslot" },
-            { status: 400 }
-          );
-        }
-      }
-
-      await setAvailability(body.availability);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Ungültige Anfrage" },
+        { status: 400 }
+      );
     }
 
-    // Update settings if provided
-    if (body.settings) {
-      const { meetingDurationMinutes, bufferMinutes } = body.settings;
+    if (parsed.data.availability) {
+      await setAvailability(parsed.data.availability);
+    }
+
+    if (parsed.data.settings) {
+      const { meetingDurationMinutes, bufferMinutes } = parsed.data.settings;
       await updateBookingSettings({
         ...(meetingDurationMinutes !== undefined && { meetingDurationMinutes }),
         ...(bufferMinutes !== undefined && { bufferMinutes }),

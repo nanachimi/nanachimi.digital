@@ -19,6 +19,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/impressum",
     "/datenschutz",
     "/agb",
+    "/partner-agb",
   ];
 
   const portfolioPages = portfolioProjects.map((p) => `/portfolio/${p.slug}`);

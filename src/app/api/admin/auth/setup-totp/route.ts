@@ -38,9 +38,10 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json();
-  const { code, secret } = body as { code: string; secret: string };
+  const code = typeof body?.code === "string" ? body.code.trim() : "";
+  const secret = typeof body?.secret === "string" ? body.secret.trim() : "";
 
-  if (!code || !secret) {
+  if (!code || !/^\d{6}$/.test(code) || !secret) {
     return NextResponse.json(
       { error: "Code und Secret erforderlich" },
       { status: 400 }

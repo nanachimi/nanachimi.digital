@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import {
   getSubmissionById,
   updateSubmissionStatus,
@@ -12,20 +13,26 @@ import { requireAdmin } from "@/lib/auth/require-admin";
 import { shouldShowToCustomer } from "@/lib/offene-punkte-utils";
 export const dynamic = "force-dynamic";
 
+const createAngebotSchema = z.object({
+  submissionId: z.string().min(1, "submissionId ist erforderlich"),
+});
+
 // POST /api/admin/angebote — Create a new Angebot from an amended Anfrage
 export async function POST(request: Request) {
   try { await requireAdmin(); } catch {
     return NextResponse.json({ error: "Nicht autorisiert" }, { status: 401 });
   }
   const body = await request.json();
-  const { submissionId } = body as { submissionId: string };
+  const parsed = createAngebotSchema.safeParse(body);
 
-  if (!submissionId) {
+  if (!parsed.success) {
     return NextResponse.json(
       { error: "submissionId ist erforderlich" },
       { status: 400 }
     );
   }
+
+  const { submissionId } = parsed.data;
 
   const submission = await getSubmissionById(submissionId);
   if (!submission) {

@@ -26,6 +26,10 @@ function addSecurityHeaders(response: NextResponse): NextResponse {
     "Strict-Transport-Security",
     "max-age=31536000; includeSubDomains"
   );
+  response.headers.set(
+    "Content-Security-Policy",
+    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+  );
   return response;
 }
 
@@ -139,13 +143,14 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/api/admin") &&
     !pathname.startsWith("/api/admin/auth");
 
-  // Internal cron routes — only accessible from localhost (background scheduler)
+  // Internal cron routes — protected by CRON_SECRET bearer token
   if (pathname.startsWith("/api/cron")) {
-    const cronHost = request.headers.get("host") ?? "";
-    if (cronHost.startsWith("localhost") || cronHost.startsWith("127.0.0.1")) {
+    const authHeader = request.headers.get("authorization") ?? "";
+    const cronSecret = process.env.CRON_SECRET;
+    if (cronSecret && authHeader === `Bearer ${cronSecret}`) {
       return addSecurityHeaders(NextResponse.next());
     }
-    return NextResponse.json({ error: "Nicht autorisiert" }, { status: 403 });
+    return NextResponse.json({ error: "Nicht autorisiert" }, { status: 401 });
   }
 
   if (!isAdminPage && !isAdminApi) {

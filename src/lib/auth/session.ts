@@ -27,12 +27,12 @@ export const SESSION_MAX_AGE_MS = 24 * 60 * 60 * 1000;   // 24 hours absolute
 export const SESSION_IDLE_TIMEOUT_MS = 60 * 60 * 1000;    // 1 hour inactivity
 
 export const sessionOptions: SessionOptions = {
-  password: process.env.SESSION_SECRET || "unsafe-dev-secret-must-be-at-least-32-chars",
+  password: process.env.SESSION_SECRET!,
   cookieName: "ncd-admin-session",
   cookieOptions: {
     secure: process.env.NODE_ENV === "production",
     httpOnly: true,
-    sameSite: "lax" as const,
+    sameSite: "strict" as const,
     maxAge: 24 * 60 * 60, // 24h in seconds (cookie TTL)
   },
 };

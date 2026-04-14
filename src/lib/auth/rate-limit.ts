@@ -67,6 +67,9 @@ const publicApiLimiter = new RateLimiter({ maxAttempts: 20, windowMs: 60 * 1000 
 /** Form submissions (onboarding, contact): 5 per IP per 10 minutes */
 const formLimiter = new RateLimiter({ maxAttempts: 5, windowMs: 10 * 60 * 1000 });
 
+/** TOTP verification: 5 attempts per IP per 15 minutes */
+const totpLimiter = new RateLimiter({ maxAttempts: 5, windowMs: 15 * 60 * 1000 });
+
 // Legacy API — used by login route
 export function checkRateLimit(ip: string): boolean {
   return loginLimiter.check(ip);
@@ -77,7 +80,7 @@ export function getRateLimitResetSeconds(ip: string): number {
 }
 
 // New API — use directly
-export { loginLimiter, publicApiLimiter, formLimiter };
+export { loginLimiter, publicApiLimiter, formLimiter, totpLimiter };
 
 // Cleanup all limiters every 30 minutes
 if (typeof setInterval !== "undefined") {
@@ -85,5 +88,6 @@ if (typeof setInterval !== "undefined") {
     loginLimiter.cleanup();
     publicApiLimiter.cleanup();
     formLimiter.cleanup();
+    totpLimiter.cleanup();
   }, 30 * 60 * 1000);
 }
