@@ -177,7 +177,7 @@ export async function analyzePdf(
   let result: PdfAnalysisResult;
   try {
     result = JSON.parse(jsonStr) as PdfAnalysisResult;
-  } catch (parseErr) {
+  } catch {
     logger.error(
       { tag: "PdfAnalysis", filename, rawResponse: text.slice(0, 500) },
       "Failed to parse AI response as JSON"
