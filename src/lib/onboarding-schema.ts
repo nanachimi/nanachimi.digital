@@ -110,6 +110,7 @@ export const abschlussSchema = z.object({
   utmSource: z.string().max(100).optional(),
   utmMedium: z.string().max(100).optional(),
   utmCampaign: z.string().max(100).optional(),
+  onboardingPath: z.enum(["wizard", "pdf_upload"]).default("wizard"),
 });
 
 export const fullOnboardingSchema = z.object({

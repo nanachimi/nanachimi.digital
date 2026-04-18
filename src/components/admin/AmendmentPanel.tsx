@@ -711,7 +711,7 @@ export function AmendmentPanel({
       );
       const data = await res.json();
       if (!res.ok) {
-        setGenerateError(data.error || "Fehler bei der Plan-Generierung");
+        setGenerateError(data.details || data.error || "Fehler bei der Plan-Generierung");
         return;
       }
       setPlan(data.plan);
@@ -834,6 +834,21 @@ export function AmendmentPanel({
                   Vorschau
                 </button>
               )}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setPlan(null);
+                  setPlanGenerated(false);
+                  setEditMode(false);
+                  setGenerateError(null);
+                }}
+                className="flex items-center gap-1.5 rounded-lg border border-red-400/20 px-3 py-1 text-xs font-medium text-red-400 hover:bg-red-400/10 transition-colors"
+                title="Plan löschen"
+              >
+                <Trash2 className="h-3 w-3" />
+                Löschen
+              </button>
               {planExpanded ? (
                 <ChevronUp className="h-4 w-4 text-[#8B8F97]" />
               ) : (

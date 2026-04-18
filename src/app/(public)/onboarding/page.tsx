@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import Link from "next/link";
+import { FileText, ArrowRight } from "lucide-react";
 import { OnboardingForm } from "@/components/onboarding/OnboardingForm";
 
 export const metadata: Metadata = {
@@ -18,6 +20,31 @@ export default function OnboardingPage() {
 
       <div className="container relative mx-auto px-4 py-12 md:px-6 md:py-20">
         <div className="mx-auto max-w-2xl">
+          {/* PDF Upload Shortcut */}
+          <div className="mb-8 rounded-xl border border-white/[0.08] bg-white/[0.03] p-5">
+            <div className="flex items-start gap-4">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#FFC62C]/20">
+                <FileText className="h-5 w-5 text-[#FFC62C]" />
+              </div>
+              <div className="flex-1">
+                <p className="font-semibold text-white">
+                  Sie haben Ihr Konzept bereits als PDF?
+                </p>
+                <p className="mt-1 text-sm text-[#8B8F97]">
+                  Laden Sie es hoch — wir analysieren es mit KI und stellen
+                  Ihnen nur die fehlenden Fragen.
+                </p>
+                <Link
+                  href="/onboarding/pdf-upload"
+                  className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-[#FFC62C] hover:text-[#FFD44D] transition-colors"
+                >
+                  PDF hochladen
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </div>
+            </div>
+          </div>
+
           <OnboardingForm />
         </div>
       </div>

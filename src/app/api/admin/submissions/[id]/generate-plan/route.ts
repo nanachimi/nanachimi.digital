@@ -10,6 +10,45 @@ import {
 
 export const dynamic = "force-dynamic";
 
+/**
+ * Attempt to repair truncated JSON by closing open strings, arrays, and objects.
+ */
+function repairTruncatedJson(json: string): string {
+  // Close any open string (find last unescaped quote)
+  let inString = false;
+  for (let i = 0; i < json.length; i++) {
+    if (json[i] === '"' && (i === 0 || json[i - 1] !== '\\')) {
+      inString = !inString;
+    }
+  }
+  if (inString) json += '"';
+
+  // Count open brackets/braces and close them
+  let openBraces = 0;
+  let openBrackets = 0;
+  inString = false;
+  for (let i = 0; i < json.length; i++) {
+    if (json[i] === '"' && (i === 0 || json[i - 1] !== '\\')) {
+      inString = !inString;
+      continue;
+    }
+    if (inString) continue;
+    if (json[i] === '{') openBraces++;
+    else if (json[i] === '}') openBraces--;
+    else if (json[i] === '[') openBrackets++;
+    else if (json[i] === ']') openBrackets--;
+  }
+
+  // Remove trailing comma if present
+  json = json.replace(/,\s*$/, '');
+
+  // Close arrays then objects
+  for (let i = 0; i < openBrackets; i++) json += ']';
+  for (let i = 0; i < openBraces; i++) json += '}';
+
+  return json;
+}
+
 // POST /api/admin/submissions/[id]/generate-plan
 // Calls Anthropic Claude API to generate a structured project plan
 export async function POST(
@@ -37,11 +76,11 @@ export async function POST(
       }
     } catch { /* ignore */ }
   }
-  if (!apiKey) {
+  if (!apiKey || apiKey === "sk-ant-..." || apiKey.length < 20) {
     return NextResponse.json(
       {
         error:
-          "LLM-Integration nicht konfiguriert. Bitte ANTHROPIC_API_KEY in .env setzen.",
+          "LLM-Integration nicht konfiguriert. Bitte einen gültigen ANTHROPIC_API_KEY in .env setzen.",
       },
       { status: 503 }
     );
@@ -93,7 +132,7 @@ export async function POST(
 
     const message = await client.messages.create({
       model: process.env.ANTHROPIC_MODEL || "claude-sonnet-4-20250514",
-      max_tokens: 4096,
+      max_tokens: 16384,
       system: PLAN_SYSTEM_PROMPT,
       messages: [{ role: "user", content: userPrompt }],
     });
@@ -111,6 +150,12 @@ export async function POST(
     let jsonStr = textBlock.text.trim();
     if (jsonStr.startsWith("```")) {
       jsonStr = jsonStr.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
+    }
+
+    // If the response was truncated (stop_reason = "max_tokens"), try to repair the JSON
+    if (message.stop_reason === "max_tokens") {
+      console.warn("LLM response truncated — attempting JSON repair");
+      jsonStr = repairTruncatedJson(jsonStr);
     }
 
     const plan: ProjectPlan = {

@@ -15,6 +15,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/ueber-mich",
     "/kontakt",
     "/onboarding",
+    "/onboarding/pdf-upload",
     "/affiliates",
     "/impressum",
     "/datenschutz",

@@ -63,6 +63,7 @@ model Submission {
   naechsterSchritt String
   clientFeedback   String?
   bookingId        String?
+  onboardingPath   String    @default("wizard") // "wizard" | "pdf_upload"
 
   // Estimate (auto-generated, internal)
   estimate      Json
