@@ -201,6 +201,7 @@ jobs:
 
       - name: Start dev server for integration tests
         run: |
+          rm -rf .next
           npm run dev &
           echo "Waiting for dev server..."
           for i in $(seq 1 30); do
