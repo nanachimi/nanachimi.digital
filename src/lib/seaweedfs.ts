@@ -7,6 +7,8 @@
  *   SEAWEEDFS_FILER_URL=http://localhost:8888
  */
 
+import { logger } from "@/lib/logger";
+
 const MASTER_URL = process.env.SEAWEEDFS_MASTER_URL || "http://localhost:9333";
 const FILER_URL = process.env.SEAWEEDFS_FILER_URL || "http://localhost:8888";
 
@@ -50,7 +52,7 @@ export async function uploadFile(
     throw new Error(`SeaweedFS upload failed: ${uploadRes.status} ${uploadRes.statusText}`);
   }
 
-  console.log(`[SeaweedFS] Uploaded ${filename} as fid=${assign.fid}`);
+  logger.info({ tag: "SeaweedFS", filename, fid: assign.fid }, "File uploaded");
   return assign.fid;
 }
 
@@ -115,7 +117,7 @@ export async function uploadViaFiler(
     throw new Error(`SeaweedFS filer upload failed: ${uploadRes.status}`);
   }
 
-  console.log(`[SeaweedFS] Uploaded via filer: ${path}`);
+  logger.info({ tag: "SeaweedFS", path }, "Uploaded via filer");
   return path;
 }
 
@@ -140,5 +142,5 @@ export async function deleteFile(fid: string): Promise<void> {
   if (!res.ok) {
     throw new Error(`SeaweedFS delete failed: ${res.status}`);
   }
-  console.log(`[SeaweedFS] Deleted fid=${fid}`);
+  logger.info({ tag: "SeaweedFS", fid }, "File deleted");
 }

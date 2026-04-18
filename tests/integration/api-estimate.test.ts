@@ -1,82 +1,84 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const BASE_URL = process.env.TEST_BASE_URL || "http://localhost:3000";
+// Mock the database — getPricingConfig falls back to DEFAULT_PRICING_CONFIG when DB is unavailable
+vi.mock("@/lib/db", () => ({
+  prisma: {
+    pricingConfig: { findUnique: vi.fn().mockResolvedValue(null) },
+    submission: { count: vi.fn().mockResolvedValue(0) },
+  },
+}));
 
-describe("POST /api/estimate (integration)", () => {
+import { calculateEstimate } from "@/lib/estimation";
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
+
+describe("calculateEstimate (integration)", () => {
   it("returns estimate with valid input", async () => {
-    const res = await fetch(`${BASE_URL}/api/estimate`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        projekttyp: "web",
-        funktionen: ["Anmeldung & Benutzerkonten", "Suche & Filter"],
-        rollenAnzahl: "1",
-        designLevel: "standard",
-        zeitrahmenMvp: "flexibel",
-        zeitrahmenFinal: "2-3monate",
-        budget: "1000-5000",
-        betriebUndWartung: "nein",
-      }),
+    const result = await calculateEstimate({
+      projekttyp: "web",
+      funktionen: ["Anmeldung & Benutzerkonten", "Suche & Filter"],
+      rollenAnzahl: "1",
+      designLevel: "standard",
+      zeitrahmenMvp: "flexibel",
+      zeitrahmenFinal: "2-3monate",
+      budget: "1000-5000",
+      betriebUndWartung: "nein",
     });
 
-    expect(res.status).toBe(200);
-    const body = await res.json();
-
-    expect(body).toHaveProperty("range");
-    expect(body.range).toHaveProperty("untergrenze");
-    expect(body.range).toHaveProperty("obergrenze");
-    expect(body.range.untergrenze).toBeGreaterThan(0);
-    expect(body.range.obergrenze).toBeGreaterThanOrEqual(body.range.untergrenze);
-    expect(body).toHaveProperty("aufwand");
-    expect(body.aufwand).toBeGreaterThanOrEqual(2);
-    expect(body).toHaveProperty("riskLevel");
-    expect(["low", "medium", "high"]).toContain(body.riskLevel);
-    expect(body).toHaveProperty("slaMinutes");
-    expect(body.slaMinutes).toBeGreaterThan(0);
+    expect(result).toHaveProperty("range");
+    expect(result.range).toHaveProperty("untergrenze");
+    expect(result.range).toHaveProperty("obergrenze");
+    expect(result.range.untergrenze).toBeGreaterThan(0);
+    expect(result.range.obergrenze).toBeGreaterThanOrEqual(result.range.untergrenze);
+    expect(result).toHaveProperty("aufwand");
+    expect(result.aufwand).toBeGreaterThanOrEqual(2);
+    expect(result).toHaveProperty("riskLevel");
+    expect(["low", "medium", "high"]).toContain(result.riskLevel);
+    expect(result).toHaveProperty("slaMinutes");
+    expect(result.slaMinutes).toBeGreaterThan(0);
   });
 
   it("returns estimate even with minimal input (defaults applied)", async () => {
-    const res = await fetch(`${BASE_URL}/api/estimate`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({}),
+    const result = await calculateEstimate({
+      projekttyp: "web",
+      funktionen: [],
+      rollenAnzahl: "1",
+      designLevel: "standard",
+      zeitrahmenMvp: "flexibel",
+      zeitrahmenFinal: "2-3monate",
     });
 
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body.range.untergrenze).toBeGreaterThan(0);
+    expect(result.range.untergrenze).toBeGreaterThan(0);
   });
 
   it("more features produce higher estimates", async () => {
-    const small = await fetch(`${BASE_URL}/api/estimate`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        projekttyp: "web",
-        funktionen: ["Suche & Filter"],
-        rollenAnzahl: "1",
-        designLevel: "standard",
-      }),
-    }).then((r) => r.json());
+    const small = await calculateEstimate({
+      projekttyp: "web",
+      funktionen: ["Suche & Filter"],
+      rollenAnzahl: "1",
+      designLevel: "standard",
+      zeitrahmenMvp: "flexibel",
+      zeitrahmenFinal: "2-3monate",
+    });
 
-    const big = await fetch(`${BASE_URL}/api/estimate`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        projekttyp: "beides",
-        funktionen: [
-          "Anmeldung & Benutzerkonten",
-          "Verwaltungsbereich",
-          "Online bezahlen",
-          "E-Mail-Benachrichtigungen",
-          "Chat-Funktion",
-          "Suche & Filter",
-          "Auswertungen & Statistiken",
-        ],
-        rollenAnzahl: "3+",
-        designLevel: "premium",
-      }),
-    }).then((r) => r.json());
+    const big = await calculateEstimate({
+      projekttyp: "beides",
+      funktionen: [
+        "Anmeldung & Benutzerkonten",
+        "Verwaltungsbereich",
+        "Online bezahlen",
+        "E-Mail-Benachrichtigungen",
+        "Chat-Funktion",
+        "Suche & Filter",
+        "Auswertungen & Statistiken",
+      ],
+      rollenAnzahl: "3+",
+      designLevel: "premium",
+      zeitrahmenMvp: "flexibel",
+      zeitrahmenFinal: "2-3monate",
+    });
 
     expect(big.range.obergrenze).toBeGreaterThan(small.range.obergrenze);
     expect(big.aufwand).toBeGreaterThan(small.aufwand);

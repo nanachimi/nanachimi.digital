@@ -9,6 +9,8 @@
  * Calls internal /api/cron/* endpoints via localhost.
  * Middleware allows localhost-only access to these routes.
  */
+import { logger } from "@/lib/logger";
+
 export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
 
@@ -34,7 +36,7 @@ export async function register() {
     ? { Authorization: `Bearer ${process.env.CRON_SECRET}` }
     : {};
 
-  console.log("[Scheduler] Background job scheduler started");
+  logger.info({ tag: "Scheduler" }, "Background job scheduler started");
 
   // Process jobs every 60 seconds
   setInterval(async () => {
@@ -43,7 +45,7 @@ export async function register() {
       if (res.ok) {
         const data = await res.json();
         if (data.processed > 0) {
-          console.log(`[Scheduler] Jobs: ${data.succeeded} ok, ${data.failed} failed`);
+          logger.info({ tag: "Scheduler", succeeded: data.succeeded, failed: data.failed }, "Jobs processed");
         }
       }
     } catch { /* server not ready */ }
@@ -56,20 +58,33 @@ export async function register() {
       if (res.ok) {
         const data = await res.json();
         if (data.breached > 0) {
-          console.log(`[Scheduler] SLA: ${data.breached} breached`);
+          logger.warn({ tag: "Scheduler", breached: data.breached }, "SLA breaches detected");
         }
       }
     } catch { /* server not ready */ }
   }, 5 * 60_000);
 
-  // Commission approval every 6 hours (14-day hold window — granularity not critical)
+  // Commission approval every 6 hours (14-day hold window ��� granularity not critical)
   setInterval(async () => {
     try {
       const res = await fetch(`${base}/api/cron/commissions-approve`, { headers: cronHeaders });
       if (res.ok) {
         const data = await res.json();
         if (data.approved > 0) {
-          console.log(`[Scheduler] Commissions: ${data.approved} approved`);
+          logger.info({ tag: "Scheduler", approved: data.approved }, "Commissions approved");
+        }
+      }
+    } catch { /* server not ready */ }
+  }, 6 * 60 * 60_000);
+
+  // Orphaned file cleanup every 6 hours
+  setInterval(async () => {
+    try {
+      const res = await fetch(`${base}/api/cron/cleanup-files`, { headers: cronHeaders });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.cleaned > 0) {
+          logger.info({ tag: "Scheduler", cleaned: data.cleaned }, "Orphaned files cleaned");
         }
       }
     } catch { /* server not ready */ }
@@ -82,7 +97,7 @@ export async function register() {
       if (res.ok) {
         const data = await res.json();
         if (data.processed > 0) {
-          console.log(`[Scheduler] Initial: ${data.succeeded} ok, ${data.failed} failed`);
+          logger.info({ tag: "Scheduler", succeeded: data.succeeded, failed: data.failed }, "Initial job run");
         }
       }
     } catch { /* expected on first startup */ }

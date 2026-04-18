@@ -12,6 +12,15 @@ export const metadata: Metadata = {
   },
   description: SITE_CONFIG.description,
   metadataBase: new URL(SITE_CONFIG.url),
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    title: SITE_CONFIG.name,
+    statusBarStyle: "black-translucent",
+  },
+  other: {
+    "theme-color": "#111318",
+  },
   openGraph: {
     type: "website",
     locale: "de_DE",

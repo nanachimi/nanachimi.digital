@@ -186,8 +186,8 @@ jobs:
       - name: Generate Prisma client
         run: npx prisma generate
 
-      - name: Push database schema
-        run: npx prisma db push --accept-data-loss
+      - name: Apply database migrations
+        run: npx prisma migrate deploy
         env:
           DATABASE_URL: postgresql://nanachimi:nanachimi@localhost:15432/nanachimi
 
@@ -215,6 +215,7 @@ jobs:
           NEXT_PUBLIC_SITE_URL: http://localhost:3000
           NEXT_TELEMETRY_DISABLED: 1
           SESSION_SECRET: ci-test-session-secret-32-chars-minimum
+          AFFILIATE_SESSION_SECRET: ci-test-affiliate-session-secret-32chars
           ADMIN_USERNAME: admin
           ADMIN_PASSWORD: ci-test-password
 
@@ -224,6 +225,7 @@ jobs:
           TEST_BASE_URL: http://localhost:3000
           DATABASE_URL: postgresql://nanachimi:nanachimi@localhost:15432/nanachimi
           SESSION_SECRET: ci-test-session-secret-32-chars-minimum
+          AFFILIATE_SESSION_SECRET: ci-test-affiliate-session-secret-32chars
           ADMIN_USERNAME: admin
           ADMIN_PASSWORD: ci-test-password
 
@@ -235,6 +237,7 @@ jobs:
           NEXT_PUBLIC_SITE_URL: http://localhost:3000
           NEXT_TELEMETRY_DISABLED: 1
           SESSION_SECRET: ci-test-session-secret-32-chars-minimum
+          AFFILIATE_SESSION_SECRET: ci-test-affiliate-session-secret-32chars
           ADMIN_USERNAME: admin
           ADMIN_PASSWORD: ci-test-password
 
@@ -476,7 +479,7 @@ jobs:
               --network nanachimidigital-network \
               -e DATABASE_URL="${DATABASE_URL}" \
               nanachimi-digital:dev \
-              sh -c "npx prisma db push --accept-data-loss && npx prisma db seed"
+              sh -c "npx prisma migrate deploy && npx prisma db seed"
             echo "✓ Migrations + seed applied"
 
             # Start app
@@ -596,7 +599,7 @@ jobs:
               --network nanachimidigital-network \
               -e DATABASE_URL="${DATABASE_URL}" \
               nanachimi-digital:staging \
-              npx prisma db push --accept-data-loss
+              npx prisma migrate deploy
             echo "✓ Migrations applied"
 
             docker run -d \
@@ -708,6 +711,17 @@ jobs:
             cd ${ENV_DIR}/backups && ls -t *.sql.gz 2>/dev/null | tail -n +11 | xargs rm -f 2>/dev/null || true
             echo "✓ Backup: pre_deploy_${TIMESTAMP}.sql.gz"
 
+            # Upload backup to off-site S3 storage (no-op if not configured)
+            if [ -f "${ENV_DIR}/backups/pre_deploy_${TIMESTAMP}.sql.gz" ]; then
+              docker run --rm \
+                --env-file ${ENV_DIR}/.env \
+                -v ${ENV_DIR}/backups:/backups:ro \
+                -v ${ENV_DIR}/scripts:/scripts:ro \
+                --entrypoint sh \
+                amazon/aws-cli:latest \
+                /scripts/backup-upload.sh "/backups/pre_deploy_${TIMESTAMP}.sql.gz" 2>/dev/null || true
+            fi
+
             # --- Deploy application ---
             docker pull ${REGISTRY}/nanachimi-digital:${IMAGE_TAG}
             docker tag ${REGISTRY}/nanachimi-digital:${IMAGE_TAG} nanachimi-digital:prod
@@ -725,7 +739,7 @@ jobs:
               --network ${NETWORK} \
               --env-file ${ENV_DIR}/.env \
               nanachimi-digital:prod \
-              sh -c "npx prisma db push && npx prisma db seed"
+              sh -c "npx prisma migrate deploy && npx prisma db seed"
             echo "✓ Migrations + seed applied"
 
             # Start app

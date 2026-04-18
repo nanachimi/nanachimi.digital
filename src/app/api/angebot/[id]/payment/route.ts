@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logger } from "@/lib/logger";
 import { getAngebotById } from "@/lib/angebote";
 import { getSubmissionById } from "@/lib/submissions";
 import { createCheckoutSession, isStripeConfigured } from "@/lib/stripe";
@@ -139,7 +140,7 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     return NextResponse.json({ url: result.url });
   } catch (err) {
-    console.error("[Payment] Stripe checkout error:", err);
+    logger.error({ tag: "Payment", err, angebotId: id }, "Stripe checkout error");
     return NextResponse.json(
       { error: "Zahlung fehlgeschlagen. Bitte versuchen Sie es erneut oder kontaktieren Sie uns." },
       { status: 500 }

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { logger } from "@/lib/logger";
 
 // Backoff schedule: 1m → 3m → 10m → 30m → 60m (max ~1h total)
 const BACKOFF_MINUTES = [1, 3, 10, 30, 60];
@@ -29,7 +30,7 @@ export async function createIncident(data: {
       referenceId: data.referenceId,
     },
   });
-  console.log(`[Incident] Created ${data.severity} incident: ${incident.id} — ${data.title}`);
+  logger.info({ tag: "Incident", severity: data.severity, incidentId: incident.id }, data.title);
   return incident;
 }
 
@@ -53,7 +54,7 @@ export async function enqueueJob(
         idempotencyKey: idempotencyKey ?? null,
       },
     });
-    console.log(`[JobQueue] Enqueued job ${job.id} (type=${type})`);
+    logger.info({ tag: "JobQueue", jobId: job.id, type }, "Enqueued job");
     return job;
   } catch (err: unknown) {
     // Unique violation on idempotencyKey — job already exists, not an error
@@ -62,7 +63,7 @@ export async function enqueueJob(
       err instanceof Error &&
       err.message.includes("Unique constraint failed")
     ) {
-      console.log(`[JobQueue] Job already exists (idempotencyKey=${idempotencyKey}), skipping`);
+      logger.info({ tag: "JobQueue", idempotencyKey }, "Job already exists, skipping");
       return null;
     }
     throw err;
@@ -124,7 +125,7 @@ export async function processJobs(): Promise<{
         },
       });
       succeeded++;
-      console.log(`[JobQueue] Job ${job.id} (${job.type}) completed on attempt ${job.attempts + 1}`);
+      logger.info({ tag: "JobQueue", jobId: job.id, type: job.type, attempt: job.attempts + 1 }, "Job completed");
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
       const attempt = job.attempts + 1;
@@ -148,9 +149,7 @@ export async function processJobs(): Promise<{
           referenceId: job.id,
         });
 
-        console.error(
-          `[JobQueue] Job ${job.id} (${job.type}) permanently failed after ${attempt} attempts: ${errorMessage}`
-        );
+        logger.error({ tag: "JobQueue", jobId: job.id, type: job.type, attempt, maxAttempts: job.maxAttempts }, `Permanently failed: ${errorMessage}`);
       } else {
         // Schedule retry with exponential backoff
         const backoffMinutes = BACKOFF_MINUTES[Math.min(attempt - 1, BACKOFF_MINUTES.length - 1)];
@@ -163,9 +162,7 @@ export async function processJobs(): Promise<{
             nextRunAt,
           },
         });
-        console.warn(
-          `[JobQueue] Job ${job.id} (${job.type}) failed (attempt ${attempt}/${job.maxAttempts}), retry at ${nextRunAt.toISOString()}: ${errorMessage}`
-        );
+        logger.warn({ tag: "JobQueue", jobId: job.id, type: job.type, attempt, maxAttempts: job.maxAttempts, nextRunAt: nextRunAt.toISOString() }, `Retry scheduled: ${errorMessage}`);
       }
       failed++;
     }
@@ -222,7 +219,7 @@ async function handleAngebotAcceptedEmail(
     createdAt,
     company,
   });
-  console.log(`[Job:angebot_accepted_email] PDF generated: ${pdfBuffer.length} bytes`);
+  logger.info({ tag: "Job:angebot_accepted_email", bytes: pdfBuffer.length }, "PDF generated");
 
   // Step 2: Store in SeaweedFS (best-effort, doesn't fail the job)
   try {
@@ -235,9 +232,9 @@ async function handleAngebotAcceptedEmail(
         data: { pdfFileId: fid },
       });
     }
-    console.log(`[Job:angebot_accepted_email] PDF stored in SeaweedFS: fid=${fid}`);
+    logger.info({ tag: "Job:angebot_accepted_email", fid }, "PDF stored in SeaweedFS");
   } catch (storageErr) {
-    console.warn(`[Job:angebot_accepted_email] SeaweedFS upload failed (non-blocking):`, storageErr);
+    logger.warn({ tag: "Job:angebot_accepted_email", err: storageErr }, "SeaweedFS upload failed (non-blocking)");
   }
 
   // Calculate betreuung cost for email (if selected)
@@ -258,7 +255,7 @@ async function handleAngebotAcceptedEmail(
     pdfBuffer,
     angebotId,
   });
-  console.log(`[Job:angebot_accepted_email] Email with PDF sent to ${to}`);
+  logger.info({ tag: "Job:angebot_accepted_email", to }, "Email with PDF sent");
 }
 
 /**
@@ -322,7 +319,7 @@ async function handlePaymentConfirmationEmail(
     createdAt: payment.createdAt.toISOString(),
     company,
   });
-  console.log(`[Job:payment_confirmation_email] Rechnung PDF generated: ${rechnungPdfBuffer.length} bytes`);
+  logger.info({ tag: "Job:payment_confirmation_email", bytes: rechnungPdfBuffer.length }, "Rechnung PDF generated");
 
   // Step 3: Retrieve existing Angebot PDF (or generate on-the-fly)
   let angebotPdfBuffer: Buffer;
@@ -330,7 +327,7 @@ async function handlePaymentConfirmationEmail(
     try {
       angebotPdfBuffer = await downloadFile(angebot.pdfFileId);
     } catch {
-      console.warn("[Job:payment_confirmation_email] SeaweedFS Angebot PDF download failed, generating on-the-fly");
+      logger.warn({ tag: "Job:payment_confirmation_email" }, "SeaweedFS Angebot PDF download failed, generating on-the-fly");
       angebotPdfBuffer = await generateAngebotPdf({
         angebotId: angebotNummer,
         kundenName: submission.name,
@@ -363,9 +360,9 @@ async function handlePaymentConfirmationEmail(
   let rechnungFileId: string | null = null;
   try {
     rechnungFileId = await uploadFile(rechnungPdfBuffer, `Rechnung-${rechnungNummer}.pdf`);
-    console.log(`[Job:payment_confirmation_email] Rechnung PDF stored in SeaweedFS: fid=${rechnungFileId}`);
+    logger.info({ tag: "Job:payment_confirmation_email", fid: rechnungFileId }, "Rechnung PDF stored in SeaweedFS");
   } catch (storageErr) {
-    console.warn("[Job:payment_confirmation_email] SeaweedFS upload failed (non-blocking):", storageErr);
+    logger.warn({ tag: "Job:payment_confirmation_email", err: storageErr }, "SeaweedFS upload failed (non-blocking)");
   }
 
   // Step 5: Update Payment with rechnungNummer and rechnungFileId
@@ -376,7 +373,7 @@ async function handlePaymentConfirmationEmail(
       ...(rechnungFileId ? { rechnungFileId } : {}),
     },
   });
-  console.log(`[Job:payment_confirmation_email] Payment ${paymentId} updated: rechnungNummer=${rechnungNummer}`);
+  logger.info({ tag: "Job:payment_confirmation_email", paymentId, rechnungNummer }, "Payment updated");
 
   // Step 6: Send email with both PDFs
   await sendPaymentConfirmationEmail({
@@ -391,7 +388,7 @@ async function handlePaymentConfirmationEmail(
     rechnungPdfBuffer,
     angebotPdfBuffer,
   });
-  console.log(`[Job:payment_confirmation_email] Email sent to ${submission.email}`);
+  logger.info({ tag: "Job:payment_confirmation_email", to: submission.email }, "Email sent");
 }
 
 /**
