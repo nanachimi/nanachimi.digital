@@ -455,7 +455,9 @@ jobs:
             ADMIN_USERNAME=admin
             ADMIN_PASSWORD=${{ secrets.DEV_ADMIN_PASSWORD }}
             SESSION_SECRET=${{ secrets.DEV_SESSION_SECRET }}
+            AFFILIATE_SESSION_SECRET=${{ secrets.DEV_AFFILIATE_SESSION_SECRET }}
             STRIPE_SECRET_KEY=${{ secrets.DEV_STRIPE_SECRET_KEY }}
+            HEALTH_CHECK_SECRET=${{ secrets.DEV_HEALTH_CHECK_SECRET }}
             NEXT_TELEMETRY_DISABLED=1
             ENVEOF
             # Remove leading whitespace and quotes from heredoc values
@@ -502,19 +504,41 @@ jobs:
           username: ${{ vars.NONPROD_USER }}
           key: ${{ secrets.NONPROD_SSH_KEY }}
           script: |
-            echo "Waiting for dev to start..."
+            echo "=== Phase 1: Waiting for dev HTTP server ==="
             for i in $(seq 1 12); do
               HTTP_STATUS=$(curl -so /dev/null -w "%{http_code}" http://localhost:3001/ 2>/dev/null || echo "000")
               if [ "$HTTP_STATUS" -gt 0 ] && [ "$HTTP_STATUS" -lt 500 ]; then
-                echo "Dev is up (HTTP $HTTP_STATUS on attempt $i)"
-                exit 0
+                echo "✓ Dev HTTP is up (HTTP $HTTP_STATUS on attempt $i)"
+                break
               fi
               echo "Attempt $i/12 — HTTP $HTTP_STATUS — waiting 10s..."
               sleep 10
+              if [ "$i" -eq 12 ]; then
+                echo "Dev HTTP check FAILED"
+                docker logs nanachimi-dev --tail 30
+                exit 1
+              fi
             done
-            echo "Dev health check FAILED"
-            docker logs nanachimi-dev --tail 30
-            exit 1
+
+            echo "=== Phase 2: Health check (env vars + services) ==="
+            HEALTH_SECRET="${{ secrets.DEV_HEALTH_CHECK_SECRET }}"
+            if [ -n "$HEALTH_SECRET" ]; then
+              HEALTH_RESPONSE=$(curl -sf -H "Authorization: Bearer $HEALTH_SECRET" http://localhost:3001/api/health 2>/dev/null)
+              HEALTH_STATUS=$(echo "$HEALTH_RESPONSE" | jq -r '.status' 2>/dev/null)
+              if [ "$HEALTH_STATUS" = "healthy" ]; then
+                echo "✓ All services healthy"
+              elif [ "$HEALTH_STATUS" = "degraded" ]; then
+                echo "⚠ Some services degraded (acceptable for dev):"
+                echo "$HEALTH_RESPONSE" | jq -r '.checks[] | select(.status != "healthy") | "  - \(.service): \(.status) — \(.message)"' 2>/dev/null
+              else
+                echo "✗ Health check FAILED:"
+                echo "$HEALTH_RESPONSE" | jq '.' 2>/dev/null || echo "$HEALTH_RESPONSE"
+                docker logs nanachimi-dev --tail 30
+                exit 1
+              fi
+            else
+              echo "⚠ DEV_HEALTH_CHECK_SECRET not set — skipping deep health check"
+            fi
 
   # ===========================================================================
   # STAGE 4b — DEPLOY STAGING (auto on push to staging)
@@ -578,7 +602,9 @@ jobs:
             ADMIN_USERNAME=admin
             ADMIN_PASSWORD=${{ secrets.STAGING_ADMIN_PASSWORD }}
             SESSION_SECRET=${{ secrets.STAGING_SESSION_SECRET }}
+            AFFILIATE_SESSION_SECRET=${{ secrets.STAGING_AFFILIATE_SESSION_SECRET }}
             STRIPE_SECRET_KEY=${{ secrets.STAGING_STRIPE_SECRET_KEY }}
+            HEALTH_CHECK_SECRET=${{ secrets.STAGING_HEALTH_CHECK_SECRET }}
             NEXT_TELEMETRY_DISABLED=1
             ENVEOF
             sed -i 's/^[[:space:]]*//' ${ENV_DIR}/.env
@@ -621,19 +647,41 @@ jobs:
           username: ${{ vars.NONPROD_USER }}
           key: ${{ secrets.NONPROD_SSH_KEY }}
           script: |
-            echo "Waiting for staging to start..."
+            echo "=== Phase 1: Waiting for staging HTTP server ==="
             for i in $(seq 1 12); do
               HTTP_STATUS=$(curl -so /dev/null -w "%{http_code}" http://localhost:3002/ 2>/dev/null || echo "000")
               if [ "$HTTP_STATUS" -gt 0 ] && [ "$HTTP_STATUS" -lt 500 ]; then
-                echo "Staging is up (HTTP $HTTP_STATUS on attempt $i)"
-                exit 0
+                echo "✓ Staging HTTP is up (HTTP $HTTP_STATUS on attempt $i)"
+                break
               fi
               echo "Attempt $i/12 — HTTP $HTTP_STATUS — waiting 10s..."
               sleep 10
+              if [ "$i" -eq 12 ]; then
+                echo "Staging HTTP check FAILED"
+                docker logs nanachimi-staging --tail 30
+                exit 1
+              fi
             done
-            echo "Staging health check FAILED"
-            docker logs nanachimi-staging --tail 30
-            exit 1
+
+            echo "=== Phase 2: Health check (env vars + services) ==="
+            HEALTH_SECRET="${{ secrets.STAGING_HEALTH_CHECK_SECRET }}"
+            if [ -n "$HEALTH_SECRET" ]; then
+              HEALTH_RESPONSE=$(curl -sf -H "Authorization: Bearer $HEALTH_SECRET" http://localhost:3002/api/health 2>/dev/null)
+              HEALTH_STATUS=$(echo "$HEALTH_RESPONSE" | jq -r '.status' 2>/dev/null)
+              if [ "$HEALTH_STATUS" = "healthy" ]; then
+                echo "✓ All services healthy"
+              elif [ "$HEALTH_STATUS" = "degraded" ]; then
+                echo "⚠ Some services degraded (acceptable for staging):"
+                echo "$HEALTH_RESPONSE" | jq -r '.checks[] | select(.status != "healthy") | "  - \(.service): \(.status) — \(.message)"' 2>/dev/null
+              else
+                echo "✗ Health check FAILED:"
+                echo "$HEALTH_RESPONSE" | jq '.' 2>/dev/null || echo "$HEALTH_RESPONSE"
+                docker logs nanachimi-staging --tail 30
+                exit 1
+              fi
+            else
+              echo "⚠ STAGING_HEALTH_CHECK_SECRET not set — skipping deep health check"
+            fi
 
   # ===========================================================================
   # STAGE 4c — DEPLOY PRODUCTION (on push to master/main)
@@ -762,19 +810,43 @@ jobs:
           username: ${{ vars.PROD_USER }}
           key: ${{ secrets.PROD_SSH_KEY }}
           script: |
-            echo "Waiting for prod to start..."
+            echo "=== Phase 1: Waiting for prod HTTP server ==="
             for i in $(seq 1 12); do
               HTTP_STATUS=$(curl -so /dev/null -w "%{http_code}" http://localhost:3000/ 2>/dev/null || echo "000")
               if [ "$HTTP_STATUS" -gt 0 ] && [ "$HTTP_STATUS" -lt 500 ]; then
-                echo "Prod is up (HTTP $HTTP_STATUS on attempt $i)"
-                exit 0
+                echo "✓ Prod HTTP is up (HTTP $HTTP_STATUS on attempt $i)"
+                break
               fi
               echo "Attempt $i/12 — HTTP $HTTP_STATUS — waiting 10s..."
               sleep 10
+              if [ "$i" -eq 12 ]; then
+                echo "Prod HTTP check FAILED"
+                docker logs nanachimi-digital-prod-app --tail 30
+                exit 1
+              fi
             done
-            echo "Prod health check FAILED"
-            docker logs nanachimi-digital-prod-app --tail 30
-            exit 1
+
+            echo "=== Phase 2: Health check (env vars + services) ==="
+            HEALTH_SECRET=$(grep -oP 'HEALTH_CHECK_SECRET=\K.*' /opt/nanachimi-digital/.env 2>/dev/null || true)
+            if [ -n "$HEALTH_SECRET" ]; then
+              HEALTH_RESPONSE=$(curl -sf -H "Authorization: Bearer $HEALTH_SECRET" http://localhost:3000/api/health 2>/dev/null)
+              HEALTH_STATUS=$(echo "$HEALTH_RESPONSE" | jq -r '.status' 2>/dev/null)
+              if [ "$HEALTH_STATUS" = "healthy" ]; then
+                echo "✓ All services healthy"
+                echo "$HEALTH_RESPONSE" | jq -r '.checks[] | "  ✓ \(.service): \(.message)"' 2>/dev/null
+              elif [ "$HEALTH_STATUS" = "degraded" ]; then
+                echo "⚠ Some services degraded:"
+                echo "$HEALTH_RESPONSE" | jq -r '.checks[] | select(.status != "healthy") | "  ⚠ \(.service): \(.status) — \(.message)"' 2>/dev/null
+                echo "Production deploy with degraded services — review recommended"
+              else
+                echo "✗ Health check FAILED — triggering rollback:"
+                echo "$HEALTH_RESPONSE" | jq '.' 2>/dev/null || echo "$HEALTH_RESPONSE"
+                docker logs nanachimi-digital-prod-app --tail 30
+                exit 1
+              fi
+            else
+              echo "⚠ HEALTH_CHECK_SECRET not in prod .env — skipping deep health check"
+            fi
 
       - name: Rollback on failure
         if: failure()

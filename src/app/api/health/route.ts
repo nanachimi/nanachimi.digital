@@ -257,8 +257,15 @@ function checkEnvironment(): HealthCheck {
   const required = [
     "DATABASE_URL",
     "SESSION_SECRET",
+    "AFFILIATE_SESSION_SECRET",
     "ADMIN_USERNAME",
     "ADMIN_PASSWORD",
+    "NEXT_PUBLIC_SITE_URL",
+    "SEAWEEDFS_MASTER_URL",
+    "SEAWEEDFS_FILER_URL",
+    "SMTP_HOST",
+    "SMTP_PORT",
+    "EMAIL_FROM",
   ];
   const missing = required.filter((k) => !process.env[k]);
 
@@ -270,18 +277,23 @@ function checkEnvironment(): HealthCheck {
     };
   }
 
-  const sessionSecret = process.env.SESSION_SECRET || "";
-  if (sessionSecret.length < 32) {
+  // Validate minimum-length secrets
+  const secretChecks = [
+    { name: "SESSION_SECRET", value: process.env.SESSION_SECRET || "", min: 32 },
+    { name: "AFFILIATE_SESSION_SECRET", value: process.env.AFFILIATE_SESSION_SECRET || "", min: 32 },
+  ];
+  const tooShort = secretChecks.filter((s) => s.value.length < s.min);
+  if (tooShort.length > 0) {
     return {
       service: "environment",
       status: "unhealthy",
-      message: "SESSION_SECRET muss mindestens 32 Zeichen lang sein",
+      message: `Zu kurz (min ${tooShort[0].min} Zeichen): ${tooShort.map((s) => s.name).join(", ")}`,
     };
   }
 
   return {
     service: "environment",
     status: "healthy",
-    message: "Alle erforderlichen Umgebungsvariablen gesetzt",
+    message: `Alle ${required.length} erforderlichen Umgebungsvariablen gesetzt`,
   };
 }
