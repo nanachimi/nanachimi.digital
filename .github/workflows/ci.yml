@@ -842,17 +842,23 @@ jobs:
             HEALTH_SECRET=$(grep -oP 'HEALTH_CHECK_SECRET=\K.*' /opt/nanachimi-digital/.env 2>/dev/null || true)
             if [ -n "$HEALTH_SECRET" ]; then
               HEALTH_RESPONSE=$(curl -s -H "Authorization: Bearer $HEALTH_SECRET" http://localhost:3000/api/health 2>/dev/null)
-              HEALTH_STATUS=$(echo "$HEALTH_RESPONSE" | jq -r '.status' 2>/dev/null)
+              # Parse status — use jq if available, otherwise grep
+              if command -v jq &>/dev/null; then
+                HEALTH_STATUS=$(echo "$HEALTH_RESPONSE" | jq -r '.status' 2>/dev/null)
+              else
+                HEALTH_STATUS=$(echo "$HEALTH_RESPONSE" | grep -oP '"status"\s*:\s*"\K[^"]+' | head -1)
+              fi
               if [ "$HEALTH_STATUS" = "healthy" ]; then
                 echo "✓ All services healthy"
-                echo "$HEALTH_RESPONSE" | jq -r '.checks[] | "  ✓ \(.service): \(.message)"' 2>/dev/null
+                if command -v jq &>/dev/null; then
+                  echo "$HEALTH_RESPONSE" | jq -r '.checks[] | "  ✓ \(.service): \(.message)"' 2>/dev/null
+                fi
               elif [ "$HEALTH_STATUS" = "degraded" ]; then
-                echo "⚠ Some services degraded:"
-                echo "$HEALTH_RESPONSE" | jq -r '.checks[] | select(.status != "healthy") | "  ⚠ \(.service): \(.status) — \(.message)"' 2>/dev/null
-                echo "Production deploy with degraded services — review recommended"
+                echo "⚠ Some services degraded (acceptable):"
+                echo "$HEALTH_RESPONSE"
               else
                 echo "✗ Health check FAILED — triggering rollback:"
-                echo "$HEALTH_RESPONSE" | jq '.' 2>/dev/null || echo "$HEALTH_RESPONSE"
+                echo "$HEALTH_RESPONSE"
                 docker logs nanachimi-digital-prod-app --tail 30
                 exit 1
               fi
