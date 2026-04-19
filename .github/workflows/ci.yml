@@ -523,7 +523,7 @@ jobs:
             echo "=== Phase 2: Health check (env vars + services) ==="
             HEALTH_SECRET="${{ secrets.DEV_HEALTH_CHECK_SECRET }}"
             if [ -n "$HEALTH_SECRET" ]; then
-              HEALTH_RESPONSE=$(curl -sf -H "Authorization: Bearer $HEALTH_SECRET" http://localhost:3001/api/health 2>/dev/null)
+              HEALTH_RESPONSE=$(curl -s -H "Authorization: Bearer $HEALTH_SECRET" http://localhost:3001/api/health 2>/dev/null)
               HEALTH_STATUS=$(echo "$HEALTH_RESPONSE" | jq -r '.status' 2>/dev/null)
               if [ "$HEALTH_STATUS" = "healthy" ]; then
                 echo "✓ All services healthy"
@@ -666,7 +666,7 @@ jobs:
             echo "=== Phase 2: Health check (env vars + services) ==="
             HEALTH_SECRET="${{ secrets.STAGING_HEALTH_CHECK_SECRET }}"
             if [ -n "$HEALTH_SECRET" ]; then
-              HEALTH_RESPONSE=$(curl -sf -H "Authorization: Bearer $HEALTH_SECRET" http://localhost:3002/api/health 2>/dev/null)
+              HEALTH_RESPONSE=$(curl -s -H "Authorization: Bearer $HEALTH_SECRET" http://localhost:3002/api/health 2>/dev/null)
               HEALTH_STATUS=$(echo "$HEALTH_RESPONSE" | jq -r '.status' 2>/dev/null)
               if [ "$HEALTH_STATUS" = "healthy" ]; then
                 echo "✓ All services healthy"
@@ -829,7 +829,7 @@ jobs:
             echo "=== Phase 2: Health check (env vars + services) ==="
             HEALTH_SECRET=$(grep -oP 'HEALTH_CHECK_SECRET=\K.*' /opt/nanachimi-digital/.env 2>/dev/null || true)
             if [ -n "$HEALTH_SECRET" ]; then
-              HEALTH_RESPONSE=$(curl -sf -H "Authorization: Bearer $HEALTH_SECRET" http://localhost:3000/api/health 2>/dev/null)
+              HEALTH_RESPONSE=$(curl -s -H "Authorization: Bearer $HEALTH_SECRET" http://localhost:3000/api/health 2>/dev/null)
               HEALTH_STATUS=$(echo "$HEALTH_RESPONSE" | jq -r '.status' 2>/dev/null)
               if [ "$HEALTH_STATUS" = "healthy" ]; then
                 echo "✓ All services healthy"
