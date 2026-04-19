@@ -144,9 +144,6 @@ const MULTI_SELECT_FIELDS: Record<string, Record<string, string>> = {
 // Which fields use a textarea
 const TEXTAREA_FIELDS = new Set(["beschreibung", "rollenBeschreibung", "brandingInfo", "zielgruppe"]);
 
-// Remaining text fields use a text input
-const TEXT_FIELDS = new Set(["rollenName", "markenname", "domain"]);
-
 function formatValue(field: string, value: unknown): string | string[] {
   if (field === "projekttyp" && typeof value === "string")
     return PROJEKTTYP_LABELS[value] || value;
