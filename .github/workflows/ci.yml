@@ -441,6 +441,12 @@ jobs:
 
             DATABASE_URL="postgresql://${DB_USER}:${DB_PASS}@${DB_CONTAINER}:5432/${DB_NAME}"
 
+            # Generate secrets if not provided via GitHub Secrets
+            DEV_AFF_SECRET="${{ secrets.DEV_AFFILIATE_SESSION_SECRET }}"
+            DEV_HEALTH_SECRET="${{ secrets.DEV_HEALTH_CHECK_SECRET }}"
+            [ -z "$DEV_AFF_SECRET" ] && DEV_AFF_SECRET=$(openssl rand -hex 32)
+            [ -z "$DEV_HEALTH_SECRET" ] && DEV_HEALTH_SECRET=$(openssl rand -hex 32)
+
             # Generate .env (always overwrite to pick up secret changes)
             cat > ${ENV_DIR}/.env << ENVEOF
             DATABASE_URL=${DATABASE_URL}
@@ -455,9 +461,9 @@ jobs:
             ADMIN_USERNAME=admin
             ADMIN_PASSWORD=${{ secrets.DEV_ADMIN_PASSWORD }}
             SESSION_SECRET=${{ secrets.DEV_SESSION_SECRET }}
-            AFFILIATE_SESSION_SECRET=${{ secrets.DEV_AFFILIATE_SESSION_SECRET }}
+            AFFILIATE_SESSION_SECRET=${DEV_AFF_SECRET}
             STRIPE_SECRET_KEY=${{ secrets.DEV_STRIPE_SECRET_KEY }}
-            HEALTH_CHECK_SECRET=${{ secrets.DEV_HEALTH_CHECK_SECRET }}
+            HEALTH_CHECK_SECRET=${DEV_HEALTH_SECRET}
             NEXT_TELEMETRY_DISABLED=1
             ENVEOF
             # Remove leading whitespace and quotes from heredoc values
@@ -591,6 +597,12 @@ jobs:
 
             DATABASE_URL="postgresql://${DB_USER}:${DB_PASS}@${DB_CONTAINER}:5432/${DB_NAME}"
 
+            # Generate secrets if not provided via GitHub Secrets
+            STG_AFF_SECRET="${{ secrets.STAGING_AFFILIATE_SESSION_SECRET }}"
+            STG_HEALTH_SECRET="${{ secrets.STAGING_HEALTH_CHECK_SECRET }}"
+            [ -z "$STG_AFF_SECRET" ] && STG_AFF_SECRET=$(openssl rand -hex 32)
+            [ -z "$STG_HEALTH_SECRET" ] && STG_HEALTH_SECRET=$(openssl rand -hex 32)
+
             cat > ${ENV_DIR}/.env << ENVEOF
             DATABASE_URL=${DATABASE_URL}
             NEXT_PUBLIC_SITE_URL=https://staging.nanachimi.digital
@@ -602,9 +614,9 @@ jobs:
             ADMIN_USERNAME=admin
             ADMIN_PASSWORD=${{ secrets.STAGING_ADMIN_PASSWORD }}
             SESSION_SECRET=${{ secrets.STAGING_SESSION_SECRET }}
-            AFFILIATE_SESSION_SECRET=${{ secrets.STAGING_AFFILIATE_SESSION_SECRET }}
+            AFFILIATE_SESSION_SECRET=${STG_AFF_SECRET}
             STRIPE_SECRET_KEY=${{ secrets.STAGING_STRIPE_SECRET_KEY }}
-            HEALTH_CHECK_SECRET=${{ secrets.STAGING_HEALTH_CHECK_SECRET }}
+            HEALTH_CHECK_SECRET=${STG_HEALTH_SECRET}
             NEXT_TELEMETRY_DISABLED=1
             ENVEOF
             sed -i 's/^[[:space:]]*//' ${ENV_DIR}/.env
