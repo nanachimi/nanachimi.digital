@@ -84,7 +84,29 @@
       "Bash(curl -s -X POST http://localhost:3000/api/angebot/ang_1774785951799_6t306f/payment -H \"Content-Type: application/json\" -d '{\"\"type\"\":\"\"tranche_1\"\"}')",
       "Bash(gh run:*)",
       "Bash(ls -la \"/c/Workspace/nanachimi.digital/src/app/\\(admin\\)/\")",
-      "Bash(node -e \"require\\(''libphonenumber-js''\\)\")"
+      "Bash(node -e \"require\\(''libphonenumber-js''\\)\")",
+      "Bash(rm \"C:/Workspace/nanachimi.digital/src/app/favicon.ico\")",
+      "Bash(mv \"C:/Workspace/nanachimi.digital/public/favicon.svg\" \"C:/Workspace/nanachimi.digital/src/app/icon.svg\")",
+      "Bash(head -c 2000 /c/Users/nanac/.claude/projects/C--Workspace-nanachimi-digital/05fa075b-5498-418c-aa86-2c7a0cc3e195/tool-results/mcp-Claude_Preview-preview_console_logs-1775444220076.txt)",
+      "Bash(npx playwright:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git checkout:*)",
+      "Bash(git merge:*)",
+      "Bash(find /c/Workspace/nanachimi.digital -type f \\\\\\(-name robots.txt -o -name sitemap* -o -name layout.tsx \\\\\\))",
+      "Bash(ls -la /c/Workspace/nanachimi.digital/src/app/\\\\\\(public\\\\\\)/agb/)",
+      "Bash(ls -la /c/Workspace/nanachimi.digital/src/app/\\\\\\(public\\\\\\)/datenschutz/)",
+      "Bash(timeout 4 sleep 4)",
+      "Bash(timeout 5 sleep 5)",
+      "Bash(timeout 6 sleep 6)",
+      "Bash(timeout 8 sleep 8)",
+      "Bash(ls C:/Workspace/nanachimi.digital/public/*.svg C:/Workspace/nanachimi.digital/src/app/icon.svg)",
+      "Bash(set -o pipefail)",
+      "Bash(tee playwright-output.txt)",
+      "Bash(grep -v '^$')",
+      "Bash(sort -t: -k1,1 -k2,2n)",
+      "Bash(find C:/Workspace/nanachimi.digital/src -type f \\\\\\( -name \"*.tsx\" -o -name \"*.ts\" \\\\\\) -exec grep -l \"pointer-events-none\" {} \\\\;)"
     ]
   }
 }
