@@ -1,35 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Mail, MapPin, Clock, ArrowRight } from "lucide-react";
+import { MapPin, Clock, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import KontaktBooking from "@/components/kontakt/KontaktBooking";
+import RevealContact from "@/components/kontakt/RevealContact";
 
 export const metadata: Metadata = {
   title: "Kontakt — Termin buchen oder direkt starten",
   description:
     "Nehmen Sie Kontakt auf — buchen Sie einen kostenlosen Beratungstermin oder starten Sie direkt mit dem KI-Onboarding.",
 };
-
-const contactInfo = [
-  {
-    icon: Mail,
-    label: "E-Mail",
-    value: "info@nanachimi.digital",
-    href: "mailto:info@nanachimi.digital",
-  },
-  {
-    icon: MapPin,
-    label: "Standort",
-    value: "Mannheim, Deutschland",
-    href: null,
-  },
-  {
-    icon: Clock,
-    label: "Antwortzeit",
-    value: "Innerhalb von 24 Stunden",
-    href: null,
-  },
-];
 
 export default function KontaktPage() {
   return (
@@ -73,28 +53,38 @@ export default function KontaktPage() {
                 <div>
                   <h2 className="text-xl font-bold">Kontaktdaten</h2>
                   <div className="mt-6 space-y-5">
-                    {contactInfo.map((info) => (
-                      <div key={info.label} className="flex items-start gap-3">
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#FFC62C]/10">
-                          <info.icon className="h-4 w-4 text-[#FFC62C]" />
-                        </div>
-                        <div>
-                          <p className="text-xs uppercase tracking-wider text-muted-foreground">
-                            {info.label}
-                          </p>
-                          {info.href ? (
-                            <Link
-                              href={info.href}
-                              className="text-sm font-medium hover:text-[#FFC62C] transition-colors"
-                            >
-                              {info.value}
-                            </Link>
-                          ) : (
-                            <p className="text-sm font-medium">{info.value}</p>
-                          )}
-                        </div>
+                    {/* Email — hidden until click (anti-spam) */}
+                    <RevealContact
+                      type="email"
+                      encoded={Buffer.from("info@nanachimi.digital").toString("base64")}
+                      label="E-Mail"
+                    />
+
+                    {/* Standort */}
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#FFC62C]/10">
+                        <MapPin className="h-4 w-4 text-[#FFC62C]" />
                       </div>
-                    ))}
+                      <div>
+                        <p className="text-xs uppercase tracking-wider text-muted-foreground">
+                          Standort
+                        </p>
+                        <p className="text-sm font-medium">Mannheim, Deutschland</p>
+                      </div>
+                    </div>
+
+                    {/* Antwortzeit */}
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#FFC62C]/10">
+                        <Clock className="h-4 w-4 text-[#FFC62C]" />
+                      </div>
+                      <div>
+                        <p className="text-xs uppercase tracking-wider text-muted-foreground">
+                          Antwortzeit
+                        </p>
+                        <p className="text-sm font-medium">Innerhalb von 24 Stunden</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
