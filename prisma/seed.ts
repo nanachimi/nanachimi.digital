@@ -187,7 +187,16 @@ async function main() {
     console.log(`⏭️  A/B Tests already exist (${existingTests} tests), skipping`);
   }
 
-  // 5. Test Affiliate (for E2E tests — idempotent upsert)
+  // 5. Test Affiliate (for E2E / dev only — skip in production)
+  const isProduction = process.env.NEXT_PUBLIC_SITE_URL?.includes("nanachimi.digital")
+    && !process.env.NEXT_PUBLIC_SITE_URL?.includes("dev.")
+    && !process.env.NEXT_PUBLIC_SITE_URL?.includes("staging.");
+
+  if (isProduction) {
+    console.log("⏭️  Skipping test data in production");
+  }
+
+  if (!isProduction) {
   const testAffiliate = await prisma.affiliate.upsert({
     where: { email: "sysys@example.com" },
     update: {},
@@ -247,6 +256,7 @@ async function main() {
     });
   }
   console.log("✅ Test campaign + promo codes seeded");
+  } // end !isProduction
 
   console.log("\n🎉 Seed complete!");
 }
