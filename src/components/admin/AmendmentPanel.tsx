@@ -17,14 +17,50 @@ import {
   Trash2,
   Pencil,
   Eye,
+  MessageSquarePlus,
+  RefreshCw,
+  Terminal,
+  Copy,
+  CheckCheck,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import type { ProjectPlan, UserStory, ApiEndpoint, TechChoice, CriticalPoint, OffenerPunkt } from "@/lib/plan-template";
+import type { ProjectPlan, UserStory, ApiEndpoint, TechChoice, CriticalPoint, OffenerPunkt, PlanPromptInput } from "@/lib/plan-template";
+import { generateClaudeCodePrompt } from "@/lib/claude-code-prompt";
 import { OffenePunkteEmpfehlungBanner } from "@/components/admin/OffenePunkteEmpfehlungBanner";
+
+interface SubmissionData {
+  projekttyp: string;
+  beschreibung: string;
+  zielgruppe: string;
+  funktionen: string[];
+  funktionenGruppen?: Record<string, string[]>;
+  rollenAnzahl: string;
+  rollenName?: string;
+  rollenBeschreibung?: string;
+  appStruktur?: "shared" | "separate";
+  rollenApps?: { rolle: string; appTyp: string[]; beschreibung?: string }[];
+  designLevel: string;
+  budget: string;
+  zeitrahmenMvp: string;
+  zeitrahmenFinal: string;
+  betriebUndWartung: string;
+  betriebLaufzeit?: string;
+  markenname?: string;
+  domain?: string;
+  brandingInfo?: string;
+  inspirationUrls?: { url: string; beschreibung: string }[];
+  monetarisierung?: string[];
+  monetarisierungDetails?: string;
+  werZahlt?: string;
+  zahlendeGruppen?: string[];
+  zusatzinfo?: string;
+}
 
 interface AmendmentPanelProps {
   submissionId: string;
+  submissionData?: SubmissionData;
   existingPlan?: ProjectPlan;
   existingPricing?: {
     festpreis: number;
@@ -676,6 +712,7 @@ function EditablePlan({
 
 export function AmendmentPanel({
   submissionId,
+  submissionData,
   existingPlan,
   existingPricing,
   existingNotes,
@@ -688,6 +725,18 @@ export function AmendmentPanel({
   const [planGenerated, setPlanGenerated] = useState(!!existingPlan);
   const [editMode, setEditMode] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // Pre-generation: Admin instructions for initial AI generation
+  const [adminAnweisungen, setAdminAnweisungen] = useState("");
+
+  // Post-generation: Refinement prompt
+  const [refinePrompt, setRefinePrompt] = useState("");
+  const [refining, setRefining] = useState(false);
+  const [refineError, setRefineError] = useState<string | null>(null);
+
+  // Claude Code prompt generator
+  const [claudeCodePrompt, setClaudeCodePrompt] = useState<string | null>(null);
+  const [promptCopied, setPromptCopied] = useState(false);
 
   // Pricing inputs
   const [festpreis, setFestpreis] = useState(
@@ -707,7 +756,13 @@ export function AmendmentPanel({
     try {
       const res = await fetch(
         `/api/admin/submissions/${submissionId}/generate-plan`,
-        { method: "POST" }
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json; charset=utf-8" },
+          body: JSON.stringify({
+            adminAnweisungen: adminAnweisungen.trim() || undefined,
+          }),
+        }
       );
       const data = await res.json();
       if (!res.ok) {
@@ -721,6 +776,101 @@ export function AmendmentPanel({
       setGenerateError("Netzwerkfehler bei der Plan-Generierung");
     } finally {
       setGenerating(false);
+    }
+  }
+
+  async function handleRefine() {
+    if (!plan || !refinePrompt.trim()) return;
+    setRefining(true);
+    setRefineError(null);
+    try {
+      const res = await fetch(
+        `/api/admin/submissions/${submissionId}/refine-plan`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json; charset=utf-8" },
+          body: JSON.stringify({
+            currentPlan: plan,
+            adminPrompt: refinePrompt.trim(),
+          }),
+        }
+      );
+      const data = await res.json();
+      if (!res.ok) {
+        setRefineError(data.details || data.error || "Fehler bei der Plan-Verfeinerung");
+        return;
+      }
+      setPlan(data.plan);
+      setRefinePrompt("");
+      setEditMode(false);
+    } catch {
+      setRefineError("Netzwerkfehler bei der Plan-Verfeinerung");
+    } finally {
+      setRefining(false);
+    }
+  }
+
+  function handleGenerateClaudeCodePrompt() {
+    if (!plan) return;
+
+    const promptInput: PlanPromptInput = submissionData
+      ? {
+          projekttyp: submissionData.projekttyp,
+          beschreibung: submissionData.beschreibung,
+          zielgruppe: submissionData.zielgruppe,
+          funktionen: submissionData.funktionen,
+          funktionenGruppen: submissionData.funktionenGruppen,
+          rollenAnzahl: submissionData.rollenAnzahl,
+          rollenName: submissionData.rollenName,
+          rollenBeschreibung: submissionData.rollenBeschreibung,
+          appStruktur: submissionData.appStruktur,
+          rollenApps: submissionData.rollenApps,
+          designLevel: submissionData.designLevel,
+          budget: submissionData.budget,
+          zeitrahmenMvp: submissionData.zeitrahmenMvp,
+          zeitrahmenFinal: submissionData.zeitrahmenFinal,
+          betriebUndWartung: submissionData.betriebUndWartung,
+          betriebLaufzeit: submissionData.betriebLaufzeit,
+          markenname: submissionData.markenname,
+          domain: submissionData.domain,
+          brandingInfo: submissionData.brandingInfo,
+          inspirationUrls: submissionData.inspirationUrls,
+          monetarisierung: submissionData.monetarisierung,
+          monetarisierungDetails: submissionData.monetarisierungDetails,
+          werZahlt: submissionData.werZahlt,
+          zahlendeGruppen: submissionData.zahlendeGruppen,
+          zusatzinfo: submissionData.zusatzinfo,
+        }
+      : {
+          projekttyp: "Nicht angegeben",
+          beschreibung: "Siehe Projektplan",
+          funktionen: [],
+          rollenAnzahl: "Nicht angegeben",
+          designLevel: "standard",
+          budget: "unsicher",
+          zeitrahmenMvp: "flexibel",
+          zeitrahmenFinal: "laufend",
+          betriebUndWartung: "unsicher",
+        };
+
+    const prompt = generateClaudeCodePrompt({
+      plan,
+      submission: promptInput,
+      projektName: submissionData?.markenname,
+      adminNotes: adminNotes || undefined,
+    });
+    setClaudeCodePrompt(prompt);
+    setPromptCopied(false);
+  }
+
+  async function handleCopyPrompt() {
+    if (!claudeCodePrompt) return;
+    try {
+      await navigator.clipboard.writeText(claudeCodePrompt);
+      setPromptCopied(true);
+      setTimeout(() => setPromptCopied(false), 2000);
+    } catch {
+      // Fallback: select the textarea content
     }
   }
 
@@ -753,11 +903,34 @@ export function AmendmentPanel({
 
   return (
     <div className="space-y-6 border-t border-[#FFC62C]/20 pt-6">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-bold text-white flex items-center gap-2">
-          <Brain className="h-5 w-5 text-[#FFC62C]" />
-          Anfrage bearbeiten
-        </h3>
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-bold text-white flex items-center gap-2">
+            <Brain className="h-5 w-5 text-[#FFC62C]" />
+            Anfrage bearbeiten
+          </h3>
+        </div>
+
+        {/* Pre-generation: Admin instructions for AI */}
+        {!planGenerated && (
+          <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4 space-y-3 mb-4">
+            <label className="flex items-center gap-2 text-sm font-semibold text-white">
+              <MessageSquarePlus className="h-4 w-4 text-[#FFC62C]" />
+              Anweisungen für die KI-Generierung
+            </label>
+            <Textarea
+              value={adminAnweisungen}
+              onChange={(e) => setAdminAnweisungen(e.target.value)}
+              placeholder="z.B. Nach Absprache mit dem Kunden: Funktion X entfällt, stattdessen Y gewünscht. Annahme: Nur 2 Nutzerrollen benötigt..."
+              rows={4}
+              className="bg-white/[0.04] border-white/10 text-white placeholder:text-[#5a5e66] focus:border-[#FFC62C]/50 resize-none"
+            />
+            <p className="text-xs text-[#6a6e76]">
+              Diese Anweisungen fließen direkt in die KI-Generierung ein und haben Vorrang vor den ursprünglichen Kundenangaben.
+            </p>
+          </div>
+        )}
+
         <Button
           onClick={handleGenerate}
           disabled={generating || (planGenerated && !generateError)}
@@ -872,6 +1045,121 @@ export function AmendmentPanel({
       {/* Empfehlung Banner */}
       {plan && plan.offenePunkte && plan.offenePunkte.length > 0 && (
         <OffenePunkteEmpfehlungBanner offenePunkte={plan.offenePunkte} />
+      )}
+
+      {/* Post-generation: Refinement prompt */}
+      {plan && (
+        <div className="rounded-xl border border-purple-400/20 bg-purple-400/[0.03] p-4 space-y-3">
+          <label className="flex items-center gap-2 text-sm font-semibold text-white">
+            <RefreshCw className="h-4 w-4 text-purple-400" />
+            Plan durch KI anpassen
+          </label>
+          <p className="text-xs text-[#8B8F97]">
+            Beschreiben Sie die gewünschten Änderungen. Die KI berücksichtigt den bestehenden Plan, Ihre Anmerkungen und die ursprünglichen Kundenanforderungen.
+          </p>
+          <Textarea
+            value={refinePrompt}
+            onChange={(e) => setRefinePrompt(e.target.value)}
+            placeholder={"z.B. Funktion X durch Y ersetzen. Annahme: Kunde benötigt kein Payment-Modul. Tech-Stack auf Next.js umstellen. Neue Rolle ‚Moderator' ergänzen..."}
+            rows={4}
+            className="bg-white/[0.04] border-white/10 text-white placeholder:text-[#5a5e66] focus:border-purple-400/50 resize-none"
+          />
+          {refineError && (
+            <div className="rounded-lg border border-red-400/20 bg-red-400/[0.05] p-3 flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 text-red-400 shrink-0 mt-0.5" />
+              <p className="text-sm text-red-300/70">{refineError}</p>
+            </div>
+          )}
+          <Button
+            onClick={handleRefine}
+            disabled={refining || !refinePrompt.trim()}
+            className="bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 rounded-xl border border-purple-400/20 text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {refining ? (
+              <>
+                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                Plan wird angepasst...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Plan anpassen
+              </>
+            )}
+          </Button>
+        </div>
+      )}
+
+      {/* Claude Code Prompt Generator */}
+      {plan && (
+        <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/[0.03] p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <label className="flex items-center gap-2 text-sm font-semibold text-white">
+              <Terminal className="h-4 w-4 text-emerald-400" />
+              Claude Code Prompt
+            </label>
+            <div className="flex items-center gap-2">
+              {claudeCodePrompt && (
+                <>
+                  <Button
+                    onClick={handleCopyPrompt}
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs text-emerald-400 hover:text-emerald-300 hover:bg-emerald-400/10"
+                  >
+                    {promptCopied ? (
+                      <>
+                        <CheckCheck className="mr-1 h-3.5 w-3.5" />
+                        Kopiert
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="mr-1 h-3.5 w-3.5" />
+                        Kopieren
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    onClick={() => setClaudeCodePrompt(null)}
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs text-[#8B8F97] hover:text-white hover:bg-white/10"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </>
+              )}
+              {!claudeCodePrompt && (
+                <Button
+                  onClick={handleGenerateClaudeCodePrompt}
+                  className="bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 rounded-xl border border-emerald-400/20 text-sm"
+                >
+                  <Terminal className="mr-2 h-4 w-4" />
+                  Prompt generieren
+                </Button>
+              )}
+            </div>
+          </div>
+          <p className="text-xs text-[#8B8F97]">
+            Generiert einen ausführlichen Entwicklungs-Prompt aus dem Projektplan — optimiert für Claude Code.
+          </p>
+
+          {claudeCodePrompt && (
+            <div className="relative">
+              <textarea
+                readOnly
+                value={claudeCodePrompt}
+                rows={20}
+                className="w-full rounded-lg bg-[#0d1117] border border-emerald-400/10 px-4 py-3 text-sm text-[#c9d1d9] font-mono focus:outline-none resize-y leading-relaxed"
+              />
+              <div className="absolute top-2 right-2 flex items-center gap-1">
+                <span className="text-[10px] text-[#6a6e76] bg-[#0d1117] px-2 py-0.5 rounded">
+                  {claudeCodePrompt.split("\n").length} Zeilen
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
       )}
 
       {/* Pricing Section */}

@@ -168,6 +168,7 @@ export interface PlanPromptInput {
   werZahlt?: string;
   zahlendeGruppen?: string[];
   zusatzinfo?: string;
+  adminAnweisungen?: string;
 }
 
 const PROJEKTTYP_MAP: Record<string, string> = {
@@ -343,6 +344,15 @@ export function buildPlanPrompt(input: PlanPromptInput): string {
     lines.push("", `## Zusätzliche Informationen`, input.zusatzinfo);
   }
 
+  if (input.adminAnweisungen && input.adminAnweisungen.trim()) {
+    lines.push(
+      "",
+      `## Admin-Anweisungen (nach Kundenabsprache)`,
+      `Die folgenden Anweisungen haben Vorrang vor den ursprünglichen Angaben der Kundenanfrage:`,
+      input.adminAnweisungen.trim(),
+    );
+  }
+
   lines.push(
     "",
     "---",
@@ -351,6 +361,59 @@ export function buildPlanPrompt(input: PlanPromptInput): string {
     "",
     JSON.stringify(PLAN_JSON_SCHEMA, null, 2),
   );
+
+  return lines.join("\n");
+}
+
+// ─── Refinement prompt (post-generation) ──────────────────────────
+
+export const REFINE_SYSTEM_PROMPT = `Du bist ein erfahrener Senior Software Architekt bei NanaChimi Digital.
+
+Du hast bereits einen Projektplan erstellt. Der Admin hat diesen Plan geprüft und möchte Anpassungen vornehmen.
+
+Deine Aufgabe:
+1. Nimm den bestehenden Projektplan als Basis.
+2. Berücksichtige die Admin-Anmerkungen, Kundenabsprachen und Annahmen.
+3. Passe den Plan entsprechend an — ändere nur, was laut Anweisungen geändert werden soll.
+4. Behalte alle unveränderten Abschnitte bei.
+5. Stelle sicher, dass der gesamte Plan konsistent bleibt (z.B. wenn ein Feature entfällt, müssen auch die zugehörigen API-Endpunkte, UI-Screens und User Stories entfernt werden).
+
+Antworte AUSSCHLIESSLICH mit validem JSON. Kein Markdown, keine Erklärungen außerhalb des JSON.
+
+Verwende exakt dieselbe JSON-Struktur wie der bestehende Plan.`;
+
+export function buildRefinementPrompt(
+  currentPlan: ProjectPlan,
+  adminPrompt: string,
+  submissionContext: PlanPromptInput,
+): string {
+  const lines: string[] = [
+    "## Bestehender Projektplan",
+    "",
+    "```json",
+    JSON.stringify(currentPlan, null, 2),
+    "```",
+    "",
+    "## Ursprüngliche Kundenanfrage (Kontext)",
+    "",
+    `Projekttyp: ${PROJEKTTYP_MAP[submissionContext.projekttyp] || submissionContext.projekttyp}`,
+    `Beschreibung: ${submissionContext.beschreibung}`,
+    `Zielgruppe: ${submissionContext.zielgruppe || "Nicht angegeben"}`,
+    `Funktionen: ${submissionContext.funktionen.join(", ")}`,
+    `Budget: ${BUDGET_MAP[submissionContext.budget] || submissionContext.budget}`,
+    `MVP-Lieferung: ${ZEITRAHMEN_MVP_MAP[submissionContext.zeitrahmenMvp] || submissionContext.zeitrahmenMvp}`,
+    `Endlieferung: ${ZEITRAHMEN_FINAL_MAP[submissionContext.zeitrahmenFinal] || submissionContext.zeitrahmenFinal}`,
+    "",
+    "## Admin-Anweisungen zur Anpassung",
+    "",
+    adminPrompt.trim(),
+    "",
+    "---",
+    "",
+    "Erstelle den vollständigen, angepassten Projektplan als JSON-Objekt mit exakt dieser Struktur:",
+    "",
+    JSON.stringify(PLAN_JSON_SCHEMA, null, 2),
+  ];
 
   return lines.join("\n");
 }

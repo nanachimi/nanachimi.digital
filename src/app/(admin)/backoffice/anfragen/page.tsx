@@ -399,6 +399,33 @@ function SubmissionCard({
           {showAmendment && (
             <AmendmentPanel
               submissionId={submission.id}
+              submissionData={{
+                projekttyp: submission.projekttyp,
+                beschreibung: submission.beschreibung,
+                zielgruppe: submission.zielgruppe || "",
+                funktionen: submission.funktionen,
+                funktionenGruppen: submission.funktionenGruppen,
+                rollenAnzahl: submission.rollenAnzahl,
+                rollenName: submission.rollenName,
+                rollenBeschreibung: submission.rollenBeschreibung,
+                appStruktur: submission.appStruktur,
+                rollenApps: submission.rollenApps,
+                designLevel: submission.designLevel,
+                budget: submission.budget,
+                zeitrahmenMvp: submission.zeitrahmenMvp,
+                zeitrahmenFinal: submission.zeitrahmenFinal,
+                betriebUndWartung: submission.betriebUndWartung,
+                betriebLaufzeit: submission.betriebLaufzeit,
+                markenname: submission.markenname,
+                domain: submission.domain,
+                brandingInfo: submission.brandingInfo,
+                inspirationUrls: submission.inspirationUrls,
+                monetarisierung: submission.monetarisierung,
+                monetarisierungDetails: submission.monetarisierungDetails,
+                werZahlt: submission.werZahlt,
+                zahlendeGruppen: submission.zahlendeGruppen,
+                zusatzinfo: submission.zusatzinfo,
+              }}
               existingPlan={submission.amendment?.plan}
               existingPricing={
                 submission.amendment
