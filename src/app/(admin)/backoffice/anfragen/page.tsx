@@ -614,7 +614,7 @@ function AnfragenContent() {
         </div>
 
         {/* Filter tabs */}
-        <div className="flex gap-2 mb-6 overflow-x-auto hide-scrollbar">
+        <div className="flex flex-wrap gap-2 mb-6">
           {(["all", "pipeline", "pending", "sla_breached", "amended", "angebot_sent", "accepted", "rejected_by_client", "rejected"] as const).map((f) => {
             const labels: Record<string, string> = {
               all: "Alle",
