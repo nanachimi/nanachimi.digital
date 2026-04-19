@@ -201,6 +201,7 @@ export function PdfUploadFlow() {
           extracted={data}
           confidence={analysis.confidence}
           missing={analysis.missing}
+          onChange={handleChange}
           onConfirm={handleReviewConfirm}
           onRestart={handleRestart}
         />

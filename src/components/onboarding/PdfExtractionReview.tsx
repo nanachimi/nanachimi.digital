@@ -1,6 +1,7 @@
 "use client";
 
-import { CheckCircle2, AlertCircle, HelpCircle, RotateCcw } from "lucide-react";
+import { useState } from "react";
+import { CheckCircle2, AlertCircle, HelpCircle, RotateCcw, Pencil, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { OnboardingData } from "@/lib/onboarding-schema";
@@ -11,6 +12,7 @@ interface Props {
   extracted: Partial<OnboardingData>;
   confidence: Record<string, "high" | "medium" | "low">;
   missing: string[];
+  onChange: (partial: Partial<OnboardingData>) => void;
   onConfirm: () => void;
   onRestart: () => void;
 }
@@ -117,6 +119,34 @@ const ROLLEN_LABELS: Record<string, string> = {
   "3+": "3+ Benutzergruppen",
 };
 
+const APP_STRUKTUR_LABELS: Record<string, string> = {
+  shared: "Gemeinsame Anwendung",
+  separate: "Getrennte Anwendungen",
+};
+
+// Which fields use a select dropdown
+const SELECT_FIELDS: Record<string, Record<string, string>> = {
+  projekttyp: PROJEKTTYP_LABELS,
+  designLevel: DESIGN_LABELS,
+  zeitrahmenMvp: ZEITRAHMEN_MVP_LABELS,
+  zeitrahmenFinal: ZEITRAHMEN_FINAL_LABELS,
+  budget: BUDGET_LABELS,
+  betriebUndWartung: BETRIEB_LABELS,
+  rollenAnzahl: ROLLEN_LABELS,
+  appStruktur: APP_STRUKTUR_LABELS,
+};
+
+// Which fields use a multi-select (checkbox list)
+const MULTI_SELECT_FIELDS: Record<string, Record<string, string>> = {
+  monetarisierung: MONETARISIERUNG_LABELS,
+};
+
+// Which fields use a textarea
+const TEXTAREA_FIELDS = new Set(["beschreibung", "rollenBeschreibung", "brandingInfo", "zielgruppe"]);
+
+// Remaining text fields use a text input
+const TEXT_FIELDS = new Set(["rollenName", "markenname", "domain"]);
+
 function formatValue(field: string, value: unknown): string | string[] {
   if (field === "projekttyp" && typeof value === "string")
     return PROJEKTTYP_LABELS[value] || value;
@@ -132,6 +162,8 @@ function formatValue(field: string, value: unknown): string | string[] {
     return BETRIEB_LABELS[value] || value;
   if (field === "rollenAnzahl" && typeof value === "string")
     return ROLLEN_LABELS[value] || value;
+  if (field === "appStruktur" && typeof value === "string")
+    return APP_STRUKTUR_LABELS[value] || value;
   if (field === "funktionen" && Array.isArray(value))
     return value as string[];
   if (field === "monetarisierung" && Array.isArray(value))
@@ -140,20 +172,129 @@ function formatValue(field: string, value: unknown): string | string[] {
   return String(value);
 }
 
-function ConfidenceBadge({
-  level,
-}: {
-  level: "high" | "medium" | "low";
-}) {
+function ConfidenceBadge({ level }: { level: "high" | "medium" | "low" }) {
   const style = CONFIDENCE_STYLES[level];
   const Icon = style.icon;
   return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs ${style.bg} ${style.color}`}
-    >
+    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs ${style.bg} ${style.color}`}>
       <Icon className="h-3 w-3" />
       {style.label}
     </span>
+  );
+}
+
+function SelectEditor({ field, value, onSave, onCancel }: {
+  field: string;
+  value: string;
+  onSave: (val: string) => void;
+  onCancel: () => void;
+}) {
+  const [selected, setSelected] = useState(value);
+  const options = SELECT_FIELDS[field];
+  return (
+    <div className="space-y-2">
+      <select
+        value={selected}
+        onChange={(e) => setSelected(e.target.value)}
+        className="w-full rounded-lg border border-white/[0.1] bg-white/[0.04] px-3 py-2 text-sm text-white focus:border-[#FFC62C]/40 focus:outline-none"
+      >
+        {Object.entries(options).map(([key, label]) => (
+          <option key={key} value={key} className="bg-[#1a1d24]">{label}</option>
+        ))}
+      </select>
+      <div className="flex gap-2">
+        <button type="button" onClick={() => onSave(selected)} className="inline-flex items-center gap-1 text-xs text-emerald-400 hover:text-emerald-300">
+          <Check className="h-3 w-3" /> Speichern
+        </button>
+        <button type="button" onClick={onCancel} className="inline-flex items-center gap-1 text-xs text-[#8B8F97] hover:text-white">
+          <X className="h-3 w-3" /> Abbrechen
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function MultiSelectEditor({ field, value, onSave, onCancel }: {
+  field: string;
+  value: string[];
+  onSave: (val: string[]) => void;
+  onCancel: () => void;
+}) {
+  const [selected, setSelected] = useState<string[]>(value);
+  const options = field === "funktionen"
+    ? Object.fromEntries(FEATURE_OPTIONS.map((f) => [f, f]))
+    : MULTI_SELECT_FIELDS[field];
+
+  const toggle = (key: string) => {
+    setSelected((prev) =>
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
+    );
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-1.5">
+        {Object.entries(options).map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => toggle(key)}
+            className={`rounded-full px-3 py-1 text-xs font-medium border transition-colors ${
+              selected.includes(key)
+                ? "bg-[#FFC62C]/20 text-[#FFC62C] border-[#FFC62C]/30"
+                : "bg-white/[0.04] text-[#8B8F97] border-white/[0.08] hover:bg-white/[0.06]"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      <div className="flex gap-2">
+        <button type="button" onClick={() => onSave(selected)} className="inline-flex items-center gap-1 text-xs text-emerald-400 hover:text-emerald-300">
+          <Check className="h-3 w-3" /> Speichern
+        </button>
+        <button type="button" onClick={onCancel} className="inline-flex items-center gap-1 text-xs text-[#8B8F97] hover:text-white">
+          <X className="h-3 w-3" /> Abbrechen
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function TextEditor({ value, multiline, onSave, onCancel }: {
+  value: string;
+  multiline: boolean;
+  onSave: (val: string) => void;
+  onCancel: () => void;
+}) {
+  const [text, setText] = useState(value);
+  const inputClasses = "w-full rounded-lg border border-white/[0.1] bg-white/[0.04] px-3 py-2 text-sm text-white focus:border-[#FFC62C]/40 focus:outline-none";
+  return (
+    <div className="space-y-2">
+      {multiline ? (
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          rows={3}
+          className={inputClasses + " resize-y"}
+        />
+      ) : (
+        <input
+          type="text"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          className={inputClasses}
+        />
+      )}
+      <div className="flex gap-2">
+        <button type="button" onClick={() => onSave(text)} className="inline-flex items-center gap-1 text-xs text-emerald-400 hover:text-emerald-300">
+          <Check className="h-3 w-3" /> Speichern
+        </button>
+        <button type="button" onClick={onCancel} className="inline-flex items-center gap-1 text-xs text-[#8B8F97] hover:text-white">
+          <X className="h-3 w-3" /> Abbrechen
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -162,13 +303,62 @@ export function PdfExtractionReview({
   extracted,
   confidence,
   missing,
+  onChange,
   onConfirm,
   onRestart,
 }: Props) {
-  // Group extracted fields (skip undefined values)
+  const [editingField, setEditingField] = useState<string | null>(null);
+
   const extractedEntries = Object.entries(extracted).filter(
     ([, v]) => v !== undefined && v !== null
   );
+
+  function handleSave(field: string, value: unknown) {
+    onChange({ [field]: value } as Partial<OnboardingData>);
+    setEditingField(null);
+  }
+
+  function renderEditor(field: string, value: unknown) {
+    if (SELECT_FIELDS[field]) {
+      return (
+        <SelectEditor
+          field={field}
+          value={String(value)}
+          onSave={(val) => handleSave(field, val)}
+          onCancel={() => setEditingField(null)}
+        />
+      );
+    }
+    if (MULTI_SELECT_FIELDS[field] || field === "funktionen") {
+      return (
+        <MultiSelectEditor
+          field={field}
+          value={Array.isArray(value) ? value : []}
+          onSave={(val) => handleSave(field, val)}
+          onCancel={() => setEditingField(null)}
+        />
+      );
+    }
+    if (TEXTAREA_FIELDS.has(field)) {
+      return (
+        <TextEditor
+          value={String(value || "")}
+          multiline
+          onSave={(val) => handleSave(field, val)}
+          onCancel={() => setEditingField(null)}
+        />
+      );
+    }
+    // Default: text input
+    return (
+      <TextEditor
+        value={String(value || "")}
+        multiline={false}
+        onSave={(val) => handleSave(field, val)}
+        onCancel={() => setEditingField(null)}
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -190,6 +380,7 @@ export function PdfExtractionReview({
             {extractedEntries.map(([field, value]) => {
               const formatted = formatValue(field, value);
               const conf = confidence[field] || "medium";
+              const isEditing = editingField === field;
 
               return (
                 <div
@@ -200,9 +391,24 @@ export function PdfExtractionReview({
                     <span className="text-xs text-[#6a6e76] font-medium">
                       {FIELD_LABELS[field] || field}
                     </span>
-                    <ConfidenceBadge level={conf} />
+                    <div className="flex items-center gap-2">
+                      <ConfidenceBadge level={conf} />
+                      {!isEditing && (
+                        <button
+                          type="button"
+                          onClick={() => setEditingField(field)}
+                          className="text-[#8B8F97] hover:text-[#FFC62C] transition-colors"
+                          title="Bearbeiten"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  {Array.isArray(formatted) ? (
+
+                  {isEditing ? (
+                    renderEditor(field, value)
+                  ) : Array.isArray(formatted) ? (
                     <div className="flex flex-wrap gap-1.5 mt-1">
                       {formatted.map((item) => (
                         <Badge
@@ -212,9 +418,7 @@ export function PdfExtractionReview({
                         >
                           {item.startsWith("custom:")
                             ? item.replace("custom:", "")
-                            : (FEATURE_OPTIONS as readonly string[]).includes(item)
-                              ? item
-                              : item}
+                            : item}
                         </Badge>
                       ))}
                     </div>
