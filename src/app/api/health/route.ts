@@ -231,10 +231,18 @@ async function checkJobQueue(): Promise<HealthCheck> {
       where: { status: "open", severity: "critical" },
     });
 
-    if (failedJobs > 0 || openIncidents > 0) {
+    if (failedJobs > 10) {
       return {
         service: "job_queue",
         status: "unhealthy",
+        message: `${failedJobs} fehlgeschlagene Jobs, ${openIncidents} kritische Vorfälle, ${pendingJobs} ausstehend`,
+      };
+    }
+
+    if (failedJobs > 0 || openIncidents > 0) {
+      return {
+        service: "job_queue",
+        status: "degraded",
         message: `${failedJobs} fehlgeschlagene Jobs, ${openIncidents} kritische Vorfälle, ${pendingJobs} ausstehend`,
       };
     }
