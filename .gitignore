@@ -47,3 +47,7 @@ next-env.d.ts
 /test-results/
 /playwright-report/
 e2e/.auth/
+playwright-output.txt
+
+# Local scratch / temp files
+/scripts/tmp/
