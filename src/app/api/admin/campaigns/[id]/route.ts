@@ -3,6 +3,7 @@
  *
  * - GET    detail (with promo codes and participant list)
  * - PATCH  update cosmetic fields
+ * - DELETE hard delete (only if no code has been used and no submission attributed)
  *
  * Note: `campaignCode` and `discountPercent` are intentionally immutable
  * after creation — changing them would invalidate every PromoCode an
@@ -128,4 +129,61 @@ export async function PATCH(
     ...updated,
     discountPercent: Number(updated.discountPercent),
   });
+}
+
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    await requireAdmin();
+  } catch {
+    return NextResponse.json({ error: "Nicht autorisiert" }, { status: 401 });
+  }
+
+  const { id } = await params;
+
+  const existing = await prisma.campaign.findUnique({
+    where: { id },
+    include: {
+      promoCodes: {
+        select: {
+          id: true,
+          usedCount: true,
+          _count: { select: { submissions: true } },
+        },
+      },
+    },
+  });
+
+  if (!existing) {
+    return NextResponse.json(
+      { error: "Campaign nicht gefunden" },
+      { status: 404 },
+    );
+  }
+
+  const usedCount = existing.promoCodes.reduce((sum, p) => sum + p.usedCount, 0);
+  const submissions = existing.promoCodes.reduce(
+    (sum, p) => sum + p._count.submissions,
+    0,
+  );
+
+  if (usedCount > 0 || submissions > 0) {
+    return NextResponse.json(
+      {
+        error:
+          "Kampagne kann nicht gelöscht werden — Codes wurden bereits eingelöst oder Submissions sind zugeordnet. Bitte stattdessen deaktivieren.",
+        details: { usedCount, submissions },
+      },
+      { status: 409 },
+    );
+  }
+
+  await prisma.$transaction([
+    prisma.promoCode.deleteMany({ where: { campaignId: id } }),
+    prisma.campaign.delete({ where: { id } }),
+  ]);
+
+  return NextResponse.json({ ok: true });
 }
