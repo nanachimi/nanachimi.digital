@@ -1,0 +1,864 @@
+#!/bin/bash
+# ============================================================================
+# ncd-deploy — Deploy customer demo/POC apps to nanachimi.dev
+#
+# Usage:
+#   ncd-deploy setup                          Bootstrap the demo VPS
+#   ncd-deploy deploy <name> [OPTIONS]        Deploy a project
+#   ncd-deploy list                           List all deployed projects
+#   ncd-deploy remove <name>                  Remove a deployed project
+#   ncd-deploy logs <name> [--tail N]         Stream container logs
+#   ncd-deploy status <name>                  Show project details
+#
+# Config: ~/.ncd-deploy.conf
+#   DEMO_HOST=<VPS-IP>
+#   DEMO_USER=root
+#   SSH_KEY=~/.ssh/id_ed25519
+# ============================================================================
+
+set -euo pipefail
+
+VERSION="1.0.0"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+NCD_CONFIG="${NCD_CONFIG:-$HOME/.ncd-deploy.conf}"
+DEMOS_DIR="/opt/demos"
+CADDY_SITES="/etc/caddy/sites-enabled"
+DOMAIN="nanachimi.dev"
+NETWORK="ncd-demos"
+PORT_RANGE_START=4000
+PORT_RANGE_END=4999
+CONTAINER_PREFIX="ncd-demo"
+
+# ── Colors ────────────────────────────────────────────────────────────
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+BOLD='\033[1m'
+NC='\033[0m'
+
+# ── Helpers ───────────────────────────────────────────────────────────
+
+log_info()    { echo -e "${BLUE}▶${NC} $*"; }
+log_success() { echo -e "${GREEN}  ✓${NC} $*"; }
+log_warn()    { echo -e "${YELLOW}  ⚠${NC} $*"; }
+log_error()   { echo -e "${RED}  ✗${NC} $*"; }
+log_step()    { echo -e "${CYAN}  →${NC} $*"; }
+
+die() { log_error "$@"; exit 1; }
+
+load_config() {
+  if [ ! -f "$NCD_CONFIG" ]; then
+    die "Config not found: $NCD_CONFIG
+
+Create it with:
+  cat > ~/.ncd-deploy.conf << 'EOF'
+DEMO_HOST=<your-vps-ip>
+DEMO_USER=root
+SSH_KEY=~/.ssh/id_ed25519
+EOF"
+  fi
+  # shellcheck source=/dev/null
+  source "$NCD_CONFIG"
+
+  [ -z "${DEMO_HOST:-}" ] && die "DEMO_HOST not set in $NCD_CONFIG"
+  [ -z "${DEMO_USER:-}" ] && die "DEMO_USER not set in $NCD_CONFIG"
+  [ -z "${SSH_KEY:-}" ]   && die "SSH_KEY not set in $NCD_CONFIG"
+
+  # Expand ~ in SSH_KEY
+  SSH_KEY="${SSH_KEY/#\~/$HOME}"
+
+  [ -f "$SSH_KEY" ] || die "SSH key not found: $SSH_KEY"
+}
+
+ssh_cmd() {
+  ssh -o StrictHostKeyChecking=accept-new \
+      -o ConnectTimeout=10 \
+      -i "$SSH_KEY" \
+      "$DEMO_USER@$DEMO_HOST" \
+      "$1"
+}
+
+ssh_tty() {
+  ssh -t \
+      -o StrictHostKeyChecking=accept-new \
+      -o ConnectTimeout=10 \
+      -i "$SSH_KEY" \
+      "$DEMO_USER@$DEMO_HOST" \
+      "$@"
+}
+
+scp_to() {
+  scp -o StrictHostKeyChecking=accept-new \
+      -i "$SSH_KEY" \
+      "$1" "$DEMO_USER@$DEMO_HOST:$2"
+}
+
+generate_password() {
+  LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 16
+}
+
+# Generate bcrypt hash on the VPS for a plaintext password.
+# Password is passed via --plaintext with printf %q quoting so special chars survive.
+hash_password_on_vps() {
+  local plaintext="$1"
+  local quoted
+  quoted=$(printf '%q' "$plaintext")
+  ssh_cmd "caddy hash-password --plaintext ${quoted}"
+}
+
+# Write the Caddy site config for a project, including basic_auth if .auth exists.
+# Reads the port and auth state entirely from files on the VPS (no shell interpolation of secrets).
+write_caddy_config() {
+  local project="$1"
+  ssh_cmd "
+    PORT=\$(cat ${DEMOS_DIR}/${project}/.port 2>/dev/null || true)
+    if [ -z \"\$PORT\" ]; then
+      echo 'ERROR: no .port file for ${project}' >&2
+      exit 1
+    fi
+
+    CADDY_FILE='${CADDY_SITES}/${project}.caddy'
+    {
+      echo '${project}.${DOMAIN} {'
+      echo '    encode zstd gzip'
+      if [ -f ${DEMOS_DIR}/${project}/.auth ]; then
+        AUTH_LINE=\$(cat ${DEMOS_DIR}/${project}/.auth)
+        AUTH_USER=\${AUTH_LINE%%:*}
+        AUTH_HASH=\${AUTH_LINE#*:}
+        echo '    basic_auth {'
+        printf '        %s %s\n' \"\$AUTH_USER\" \"\$AUTH_HASH\"
+        echo '    }'
+      fi
+      echo \"    reverse_proxy localhost:\$PORT\"
+      echo '}'
+    } > \"\$CADDY_FILE\"
+
+    caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null 2>&1 || {
+      echo 'CADDY_ERROR' >&2
+      exit 1
+    }
+    systemctl reload caddy 2>/dev/null || systemctl restart caddy
+  "
+}
+
+validate_project_name() {
+  local name="$1"
+  if [[ ! "$name" =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?$ ]]; then
+    die "Invalid project name: '$name'
+Must be lowercase alphanumeric with hyphens, e.g. 'my-project'"
+  fi
+  if [ ${#name} -gt 63 ]; then
+    die "Project name too long (max 63 characters)"
+  fi
+}
+
+# ── setup ─────────────────────────────────────────────────────────────
+
+cmd_setup() {
+  load_config
+
+  echo ""
+  echo -e "${BOLD}╔══════════════════════════════════════════╗${NC}"
+  echo -e "${BOLD}║   ncd-deploy — VPS Bootstrap             ║${NC}"
+  echo -e "${BOLD}╚══════════════════════════════════════════╝${NC}"
+  echo ""
+  echo -e "  Server:  ${CYAN}$DEMO_USER@$DEMO_HOST${NC}"
+  echo ""
+
+  log_info "Testing SSH connection..."
+  ssh_cmd "echo 'ok'" > /dev/null 2>&1 \
+    || die "Cannot connect to $DEMO_USER@$DEMO_HOST — check SSH key and network"
+  log_success "SSH connection OK"
+
+  log_info "Installing Docker..."
+  ssh_cmd "
+    if command -v docker &>/dev/null; then
+      echo 'ALREADY_INSTALLED'
+    else
+      curl -fsSL https://get.docker.com | sh
+      systemctl enable docker
+      systemctl start docker
+      echo 'INSTALLED'
+    fi
+  " | grep -q 'ALREADY_INSTALLED' && log_success "Docker already installed" || log_success "Docker installed"
+
+  log_info "Installing Caddy..."
+  ssh_cmd "
+    if command -v caddy &>/dev/null; then
+      echo 'ALREADY_INSTALLED'
+    else
+      apt-get install -y debian-keyring debian-archive-keyring apt-transport-https curl >/dev/null 2>&1
+      curl -1sSLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' \
+        | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg 2>/dev/null
+      curl -1sSLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' \
+        > /etc/apt/sources.list.d/caddy-stable.list 2>/dev/null
+      apt-get update -qq
+      apt-get install -y caddy >/dev/null
+      echo 'INSTALLED'
+    fi
+  " | grep -q 'ALREADY_INSTALLED' && log_success "Caddy already installed" || log_success "Caddy installed"
+
+  log_info "Creating directory structure..."
+  ssh_cmd "mkdir -p $DEMOS_DIR $CADDY_SITES"
+  log_success "Directories created"
+
+  log_info "Configuring base Caddyfile..."
+  ssh_cmd "
+    CADDYFILE='/etc/caddy/Caddyfile'
+    DESIRED='import ${CADDY_SITES}/*.caddy'
+    if [ -f \"\$CADDYFILE\" ] && grep -qF 'import ${CADDY_SITES}' \"\$CADDYFILE\"; then
+      echo 'ALREADY_CONFIGURED'
+    else
+      echo \"\$DESIRED\" > \"\$CADDYFILE\"
+      echo 'CONFIGURED'
+    fi
+  " | grep -q 'ALREADY_CONFIGURED' && log_success "Caddyfile already configured" || log_success "Caddyfile configured"
+
+  log_info "Creating Docker network..."
+  ssh_cmd "docker network create $NETWORK 2>/dev/null && echo 'CREATED' || echo 'EXISTS'"  \
+    | grep -q 'CREATED' && log_success "Network '$NETWORK' created" || log_success "Network '$NETWORK' exists"
+
+  log_info "Starting Caddy..."
+  ssh_cmd "
+    systemctl enable caddy >/dev/null 2>&1 || true
+    systemctl start caddy 2>/dev/null || systemctl restart caddy
+  "
+  log_success "Caddy is running"
+
+  echo ""
+  echo -e "${GREEN}${BOLD}  ✅ VPS bootstrap complete!${NC}"
+  echo ""
+  echo "  Next steps:"
+  echo "  1. Add a wildcard DNS record on Namecheap:"
+  echo -e "     ${CYAN}*.${DOMAIN}${NC}  →  A record  →  ${CYAN}${DEMO_HOST}${NC}"
+  echo ""
+  echo "  2. Deploy your first project:"
+  echo -e "     ${CYAN}cd /path/to/project && ncd-deploy deploy my-app${NC}"
+  echo ""
+}
+
+# ── deploy ────────────────────────────────────────────────────────────
+
+cmd_deploy() {
+  local project_name=""
+  local project_path="."
+  local env_file=""
+  local override_port=""
+  local internal_port=""
+  local with_db=false
+  local build_args=()
+  local auth_password=""
+  local auth_user=""
+  local disable_auth=false
+
+  # Parse arguments
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --path)         project_path="$2"; shift 2 ;;
+      --env)          env_file="$2"; shift 2 ;;
+      --port)         override_port="$2"; shift 2 ;;
+      --internal-port) internal_port="$2"; shift 2 ;;
+      --db)           with_db=true; shift ;;
+      --build-arg)    build_args+=("--build-arg" "$2"); shift 2 ;;
+      --password)     auth_password="$2"; shift 2 ;;
+      --user)         auth_user="$2"; shift 2 ;;
+      --no-auth)      disable_auth=true; shift ;;
+      -*)             die "Unknown option: $1" ;;
+      *)
+        if [ -z "$project_name" ]; then
+          project_name="$1"; shift
+        else
+          die "Unexpected argument: $1"
+        fi
+        ;;
+    esac
+  done
+
+  [ -z "$project_name" ] && die "Usage: ncd-deploy deploy <project-name> [OPTIONS]"
+  validate_project_name "$project_name"
+  load_config
+
+  local container_name="${CONTAINER_PREFIX}-${project_name}"
+  local image_name="${CONTAINER_PREFIX}-${project_name}"
+
+  echo ""
+  echo -e "${BOLD}╔══════════════════════════════════════════╗${NC}"
+  echo -e "${BOLD}║   ncd-deploy — Deploying ${project_name}${NC}"
+  echo -e "${BOLD}╚══════════════════════════════════════════╝${NC}"
+  echo ""
+
+  # ── 1. Resolve project path ──
+  project_path="$(cd "$project_path" && pwd)"
+  [ -d "$project_path" ] || die "Project path not found: $project_path"
+
+  # ── 2. Ensure Dockerfile exists ──
+  if [ ! -f "$project_path/Dockerfile" ]; then
+    log_info "No Dockerfile found — auto-detecting project type..."
+    detect_and_create_dockerfile "$project_path"
+  fi
+
+  # ── 3. Detect internal port from Dockerfile ──
+  if [ -z "$internal_port" ]; then
+    internal_port=$(grep -i '^EXPOSE' "$project_path/Dockerfile" | head -1 | awk '{print $2}' | tr -d '[:space:]')
+    internal_port="${internal_port:-3000}"
+  fi
+  log_step "Internal port: $internal_port"
+
+  # ── 4. Build Docker image locally ──
+  log_info "Building Docker image..."
+  docker build -t "$image_name" "${build_args[@]+"${build_args[@]}"}" "$project_path" \
+    || die "Docker build failed"
+  log_success "Image built: $image_name"
+
+  # ── 5. Transfer image to VPS ──
+  log_info "Transferring image to VPS (this may take a moment)..."
+  docker save "$image_name" | gzip | ssh \
+    -o StrictHostKeyChecking=accept-new \
+    -i "$SSH_KEY" \
+    "$DEMO_USER@$DEMO_HOST" \
+    "gunzip | docker load"
+  log_success "Image transferred"
+
+  # ── 6. Allocate port on server ──
+  local host_port
+  if [ -n "$override_port" ]; then
+    host_port="$override_port"
+  else
+    host_port=$(ssh_cmd "
+      if [ -f ${DEMOS_DIR}/${project_name}/.port ]; then
+        cat ${DEMOS_DIR}/${project_name}/.port
+      else
+        USED=\$(cat ${DEMOS_DIR}/*/.port 2>/dev/null | sort -n || true)
+        PORT=$PORT_RANGE_START
+        while echo \"\$USED\" | grep -qx \"\$PORT\" 2>/dev/null; do
+          PORT=\$((PORT + 1))
+          [ \$PORT -gt $PORT_RANGE_END ] && { echo 'FULL'; exit 1; }
+        done
+        echo \$PORT
+      fi
+    ")
+    [ "$host_port" = "FULL" ] && die "No free ports in range $PORT_RANGE_START-$PORT_RANGE_END"
+  fi
+  log_step "Host port: $host_port"
+
+  # ── 7. Upload .env file ──
+  if [ -z "$env_file" ] && [ -f "$project_path/.env" ]; then
+    env_file="$project_path/.env"
+  fi
+  if [ -n "$env_file" ]; then
+    [ -f "$env_file" ] || die ".env file not found: $env_file"
+    ssh_cmd "mkdir -p ${DEMOS_DIR}/${project_name}"
+    scp_to "$env_file" "${DEMOS_DIR}/${project_name}/.env"
+    log_success "Environment file uploaded"
+  fi
+
+  # ── 8. Provision database (optional) ──
+  if [ "$with_db" = true ]; then
+    log_info "Provisioning PostgreSQL database..."
+    local db_container="${CONTAINER_PREFIX}-${project_name}-db"
+    local db_pass
+    db_pass=$(openssl rand -hex 16)
+    ssh_cmd "
+      if docker ps -a --format '{{.Names}}' | grep -qx '${db_container}'; then
+        echo 'DB_EXISTS'
+      else
+        docker run -d \
+          --name ${db_container} \
+          --network ${NETWORK} \
+          --restart unless-stopped \
+          -e POSTGRES_USER=${project_name//-/_} \
+          -e POSTGRES_PASSWORD=${db_pass} \
+          -e POSTGRES_DB=${project_name//-/_} \
+          -v ${CONTAINER_PREFIX}-${project_name}-pgdata:/var/lib/postgresql/data \
+          postgres:16-alpine
+        echo 'DB_CREATED'
+      fi
+    " | grep -q 'DB_EXISTS' && {
+      log_success "Database already exists"
+    } || {
+      log_success "Database provisioned"
+      # Append DATABASE_URL to .env on server
+      local db_user="${project_name//-/_}"
+      ssh_cmd "
+        mkdir -p ${DEMOS_DIR}/${project_name}
+        echo 'DATABASE_URL=postgresql://${db_user}:${db_pass}@${db_container}:5432/${db_user}' >> ${DEMOS_DIR}/${project_name}/.env
+      "
+      log_step "DATABASE_URL added to .env"
+    }
+  fi
+
+  # ── 9. Start/restart container ──
+  log_info "Starting container..."
+  ssh_cmd "
+    docker stop ${container_name} 2>/dev/null || true
+    docker rm ${container_name} 2>/dev/null || true
+
+    mkdir -p ${DEMOS_DIR}/${project_name}
+    echo '${host_port}' > ${DEMOS_DIR}/${project_name}/.port
+    echo '${image_name}' > ${DEMOS_DIR}/${project_name}/.image
+
+    ENV_ARG=''
+    [ -f ${DEMOS_DIR}/${project_name}/.env ] && ENV_ARG='--env-file ${DEMOS_DIR}/${project_name}/.env'
+
+    docker run -d \
+      --name ${container_name} \
+      --network ${NETWORK} \
+      --restart unless-stopped \
+      -p ${host_port}:${internal_port} \
+      \${ENV_ARG} \
+      ${image_name}
+  "
+  log_success "Container started"
+
+  # ── 9.5. Configure basic auth ──
+  log_info "Configuring authentication..."
+  local auth_enabled=false
+  local display_password=""
+  local final_user=""
+
+  if [ "$disable_auth" = true ]; then
+    ssh_cmd "rm -f ${DEMOS_DIR}/${project_name}/.auth"
+    log_step "Authentication disabled (--no-auth)"
+  elif [ -n "$auth_password" ]; then
+    final_user="${auth_user:-demo}"
+    local hash
+    hash=$(hash_password_on_vps "$auth_password")
+    ssh_cmd "
+      mkdir -p ${DEMOS_DIR}/${project_name}
+      printf '%s:%s\n' '${final_user}' '${hash}' > ${DEMOS_DIR}/${project_name}/.auth
+    "
+    auth_enabled=true
+    display_password="$auth_password"
+    log_success "Password set for user '${final_user}'"
+  else
+    # Check if auth already exists (re-deploy scenario)
+    local existing
+    existing=$(ssh_cmd "cat ${DEMOS_DIR}/${project_name}/.auth 2>/dev/null || true")
+    if [ -n "$existing" ]; then
+      auth_enabled=true
+      final_user="${existing%%:*}"
+      log_step "Authentication preserved (user '${final_user}')"
+    else
+      # First-time deploy — auto-generate password
+      final_user="${auth_user:-demo}"
+      auth_password=$(generate_password)
+      local hash
+      hash=$(hash_password_on_vps "$auth_password")
+      ssh_cmd "
+        mkdir -p ${DEMOS_DIR}/${project_name}
+        printf '%s:%s\n' '${final_user}' '${hash}' > ${DEMOS_DIR}/${project_name}/.auth
+      "
+      auth_enabled=true
+      display_password="$auth_password"
+      log_success "Password auto-generated for user '${final_user}'"
+    fi
+  fi
+
+  # ── 10. Configure Caddy ──
+  log_info "Configuring HTTPS..."
+  write_caddy_config "$project_name"
+  log_success "Caddy configured"
+
+  # ── 11. Health check ──
+  log_info "Waiting for application to start..."
+  local healthy=false
+  for i in $(seq 1 12); do
+    local status
+    status=$(ssh_cmd "curl -so /dev/null -w '%{http_code}' http://localhost:${host_port}/ 2>/dev/null || echo '000'")
+    if [ "$status" != "000" ] && [ "$status" -lt 500 ] 2>/dev/null; then
+      healthy=true
+      break
+    fi
+    log_step "Attempt $i/12 — status $status, retrying in 5s..."
+    sleep 5
+  done
+
+  echo ""
+  if [ "$healthy" = true ]; then
+    echo -e "${GREEN}${BOLD}  ✅ Deployment complete!${NC}"
+  else
+    echo -e "${YELLOW}${BOLD}  ⚠  Deployed but health check inconclusive${NC}"
+    echo -e "     Check logs: ${CYAN}ncd-deploy logs ${project_name}${NC}"
+  fi
+  echo ""
+  echo -e "  URL:       ${CYAN}https://${project_name}.${DOMAIN}${NC}"
+  echo -e "  Container: ${CYAN}${container_name}${NC}"
+  echo -e "  Port:      ${CYAN}${host_port}:${internal_port}${NC}"
+  if [ "$auth_enabled" = true ]; then
+    echo ""
+    echo -e "  ${BOLD}🔒 Protected${NC}"
+    echo -e "  User:      ${CYAN}${final_user}${NC}"
+    if [ -n "$display_password" ]; then
+      echo -e "  Password:  ${CYAN}${display_password}${NC}"
+      echo -e "  ${YELLOW}⚠  Save this password — it will not be shown again${NC}"
+    else
+      echo -e "  Password:  ${YELLOW}(unchanged — use 'ncd-deploy auth ${project_name} --rotate' to regenerate)${NC}"
+    fi
+  else
+    echo ""
+    echo -e "  ${YELLOW}⚠  Public (no authentication)${NC}"
+  fi
+  echo ""
+}
+
+# ── auto-detect project type ──────────────────────────────────────────
+
+detect_and_create_dockerfile() {
+  local dir="$1"
+  local template=""
+
+  if [ -f "$dir/package.json" ]; then
+    if grep -q '"next"' "$dir/package.json" 2>/dev/null; then
+      template="Dockerfile.nextjs"
+      log_step "Detected: Next.js project"
+    else
+      template="Dockerfile.node"
+      log_step "Detected: Node.js project"
+    fi
+  elif [ -f "$dir/requirements.txt" ] || [ -f "$dir/pyproject.toml" ]; then
+    template="Dockerfile.python"
+    log_step "Detected: Python project"
+  elif [ -f "$dir/index.html" ]; then
+    template="Dockerfile.static"
+    log_step "Detected: Static site"
+  else
+    die "Cannot auto-detect project type. Please add a Dockerfile to your project.
+Supported auto-detect: Next.js, Node.js, Python, Static (index.html)"
+  fi
+
+  local template_path="$SCRIPT_DIR/templates/$template"
+  [ -f "$template_path" ] || die "Template not found: $template_path"
+
+  cp "$template_path" "$dir/Dockerfile"
+  log_success "Generated Dockerfile from template: $template"
+  log_warn "Auto-generated Dockerfile copied to project — review and adjust if needed"
+}
+
+# ── list ──────────────────────────────────────────────────────────────
+
+cmd_list() {
+  load_config
+
+  echo ""
+  echo -e "${BOLD}  Deployed projects on ${DOMAIN}${NC}"
+  echo -e "  ──────────────────────────────────────────────────────────────────────"
+  printf "  ${BOLD}%-20s %-6s %-10s %-8s %s${NC}\n" "PROJECT" "PORT" "STATUS" "AUTH" "URL"
+  echo -e "  ──────────────────────────────────────────────────────────────────────"
+
+  local output
+  output=$(ssh_cmd "
+    found=false
+    for dir in ${DEMOS_DIR}/*/; do
+      [ -f \"\${dir}.port\" ] || continue
+      found=true
+      PROJECT=\$(basename \"\$dir\")
+      PORT=\$(cat \"\${dir}.port\")
+      STATUS=\$(docker inspect -f '{{.State.Status}}' ${CONTAINER_PREFIX}-\${PROJECT} 2>/dev/null || echo 'stopped')
+      if [ -f \"\${dir}.auth\" ]; then
+        AUTH='locked'
+      else
+        AUTH='public'
+      fi
+      printf '%-20s %-6s %-10s %-8s https://%s.${DOMAIN}\n' \"\$PROJECT\" \"\$PORT\" \"\$STATUS\" \"\$AUTH\" \"\$PROJECT\"
+    done
+    \$found || echo 'NO_PROJECTS'
+  ")
+
+  if [ "$output" = "NO_PROJECTS" ]; then
+    echo -e "  ${YELLOW}No projects deployed yet.${NC}"
+  else
+    echo "$output" | while IFS= read -r line; do
+      echo "  $line"
+    done
+  fi
+  echo ""
+}
+
+# ── remove ────────────────────────────────────────────────────────────
+
+cmd_remove() {
+  local project_name="${1:-}"
+  [ -z "$project_name" ] && die "Usage: ncd-deploy remove <project-name>"
+  validate_project_name "$project_name"
+  load_config
+
+  local container_name="${CONTAINER_PREFIX}-${project_name}"
+
+  echo ""
+  log_info "Removing project: $project_name"
+
+  ssh_cmd "
+    # Stop and remove app container
+    docker stop ${container_name} 2>/dev/null || true
+    docker rm ${container_name} 2>/dev/null || true
+
+    # Stop and remove DB container if it exists
+    docker stop ${container_name}-db 2>/dev/null || true
+    docker rm ${container_name}-db 2>/dev/null || true
+    docker volume rm ${CONTAINER_PREFIX}-${project_name}-pgdata 2>/dev/null || true
+
+    # Remove Caddy config and reload
+    rm -f ${CADDY_SITES}/${project_name}.caddy
+    systemctl reload caddy 2>/dev/null || true
+
+    # Remove image
+    docker rmi ${CONTAINER_PREFIX}-${project_name} 2>/dev/null || true
+
+    # Clean up project directory
+    rm -rf ${DEMOS_DIR}/${project_name}
+  "
+
+  log_success "Project '${project_name}' removed"
+  echo -e "  URL ${CYAN}https://${project_name}.${DOMAIN}${NC} is no longer active"
+  echo ""
+}
+
+# ── logs ──────────────────────────────────────────────────────────────
+
+cmd_logs() {
+  local project_name="${1:-}"
+  [ -z "$project_name" ] && die "Usage: ncd-deploy logs <project-name>"
+  validate_project_name "$project_name"
+  load_config
+
+  local container_name="${CONTAINER_PREFIX}-${project_name}"
+  local tail_arg="${2:---tail 100 -f}"
+
+  ssh_tty "docker logs ${container_name} ${tail_arg}"
+}
+
+# ── status ────────────────────────────────────────────────────────────
+
+cmd_status() {
+  local project_name="${1:-}"
+  [ -z "$project_name" ] && die "Usage: ncd-deploy status <project-name>"
+  validate_project_name "$project_name"
+  load_config
+
+  local container_name="${CONTAINER_PREFIX}-${project_name}"
+
+  echo ""
+  echo -e "${BOLD}  Project: ${CYAN}${project_name}${NC}"
+  echo -e "  URL: ${CYAN}https://${project_name}.${DOMAIN}${NC}"
+  echo -e "  ─────────────────────────────────────────"
+
+  ssh_cmd "
+    echo ''
+    echo '  Container:'
+    if docker inspect ${container_name} >/dev/null 2>&1; then
+      docker inspect ${container_name} --format '    State:    {{.State.Status}}
+    Started:  {{.State.StartedAt}}
+    Restarts: {{.RestartCount}}'
+    else
+      echo '    Not found'
+    fi
+
+    echo ''
+    echo '  Port:'
+    if [ -f ${DEMOS_DIR}/${project_name}/.port ]; then
+      echo \"    \$(cat ${DEMOS_DIR}/${project_name}/.port)\"
+    else
+      echo '    Not allocated'
+    fi
+
+    echo ''
+    echo '  Environment:'
+    if [ -f ${DEMOS_DIR}/${project_name}/.env ]; then
+      VARS=\$(wc -l < ${DEMOS_DIR}/${project_name}/.env)
+      echo \"    .env present (\${VARS} variables)\"
+    else
+      echo '    No .env file'
+    fi
+
+    echo ''
+    echo '  Authentication:'
+    if [ -f ${DEMOS_DIR}/${project_name}/.auth ]; then
+      AUTH_USER=\$(cut -d: -f1 ${DEMOS_DIR}/${project_name}/.auth)
+      echo \"    Protected (user: \$AUTH_USER)\"
+    else
+      echo '    Public (no authentication)'
+    fi
+
+    echo ''
+    echo '  Database:'
+    if docker ps -a --format '{{.Names}}' | grep -qx '${container_name}-db'; then
+      docker inspect ${container_name}-db --format '    Status: {{.State.Status}}'
+    else
+      echo '    None'
+    fi
+
+    echo ''
+    echo '  Caddy config:'
+    if [ -f ${CADDY_SITES}/${project_name}.caddy ]; then
+      echo '    Active'
+    else
+      echo '    Not found'
+    fi
+  "
+  echo ""
+}
+
+# ── auth ──────────────────────────────────────────────────────────────
+
+cmd_auth() {
+  local project_name="${1:-}"
+  shift || true
+  [ -z "$project_name" ] && die "Usage: ncd-deploy auth <project-name> [--password PASS | --rotate | --disable | --show]"
+  validate_project_name "$project_name"
+  load_config
+
+  local new_password=""
+  local new_user=""
+  local rotate=false
+  local disable=false
+  local show=false
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --password) new_password="$2"; shift 2 ;;
+      --user)     new_user="$2"; shift 2 ;;
+      --rotate)   rotate=true; shift ;;
+      --disable)  disable=true; shift ;;
+      --show)     show=true; shift ;;
+      *)          die "Unknown option: $1" ;;
+    esac
+  done
+
+  # Verify project exists
+  local port
+  port=$(ssh_cmd "cat ${DEMOS_DIR}/${project_name}/.port 2>/dev/null || true")
+  [ -z "$port" ] && die "Project '${project_name}' is not deployed"
+
+  if [ "$show" = true ]; then
+    local existing
+    existing=$(ssh_cmd "cat ${DEMOS_DIR}/${project_name}/.auth 2>/dev/null || true")
+    echo ""
+    echo -e "  Project: ${CYAN}${project_name}${NC}"
+    if [ -n "$existing" ]; then
+      echo -e "  Status:  ${GREEN}Protected${NC}"
+      echo -e "  User:    ${CYAN}${existing%%:*}${NC}"
+      echo -e "  ${YELLOW}(password is hashed — use --rotate to issue a new one)${NC}"
+    else
+      echo -e "  Status:  ${YELLOW}Public (no authentication)${NC}"
+    fi
+    echo ""
+    return
+  fi
+
+  if [ "$disable" = true ]; then
+    ssh_cmd "rm -f ${DEMOS_DIR}/${project_name}/.auth"
+    write_caddy_config "$project_name"
+    echo ""
+    log_success "Authentication disabled for ${project_name}"
+    echo -e "  ${YELLOW}⚠  https://${project_name}.${DOMAIN} is now public${NC}"
+    echo ""
+    return
+  fi
+
+  if [ "$rotate" = true ] && [ -z "$new_password" ]; then
+    new_password=$(generate_password)
+  fi
+
+  [ -z "$new_password" ] && die "Specify --password PASS, --rotate, --disable, or --show"
+
+  # Preserve existing user if not overridden
+  if [ -z "$new_user" ]; then
+    new_user=$(ssh_cmd "cut -d: -f1 ${DEMOS_DIR}/${project_name}/.auth 2>/dev/null || true")
+    new_user="${new_user:-demo}"
+  fi
+
+  local hash
+  hash=$(hash_password_on_vps "$new_password")
+  ssh_cmd "
+    mkdir -p ${DEMOS_DIR}/${project_name}
+    printf '%s:%s\n' '${new_user}' '${hash}' > ${DEMOS_DIR}/${project_name}/.auth
+  "
+  write_caddy_config "$project_name"
+
+  echo ""
+  log_success "Credentials updated for ${project_name}"
+  echo -e "  URL:      ${CYAN}https://${project_name}.${DOMAIN}${NC}"
+  echo -e "  User:     ${CYAN}${new_user}${NC}"
+  echo -e "  Password: ${CYAN}${new_password}${NC}"
+  echo -e "  ${YELLOW}⚠  Save this password — it will not be shown again${NC}"
+  echo ""
+}
+
+# ── help ──────────────────────────────────────────────────────────────
+
+cmd_help() {
+  echo ""
+  echo -e "${BOLD}ncd-deploy${NC} v${VERSION} — Deploy customer demos to ${DOMAIN}"
+  echo ""
+  echo -e "${BOLD}USAGE${NC}"
+  echo "  ncd-deploy <command> [arguments]"
+  echo ""
+  echo -e "${BOLD}COMMANDS${NC}"
+  echo "  setup                         Bootstrap the demo VPS (one-time)"
+  echo "  deploy <name> [OPTIONS]       Deploy a project"
+  echo "  auth <name> [OPTIONS]         Manage HTTP basic auth on a deployed project"
+  echo "  list                          List all deployed projects"
+  echo "  remove <name>                 Remove a deployed project"
+  echo "  logs <name>                   Stream container logs"
+  echo "  status <name>                 Show detailed project status"
+  echo "  help                          Show this help"
+  echo ""
+  echo -e "${BOLD}DEPLOY OPTIONS${NC}"
+  echo "  --path PATH                   Project directory (default: current dir)"
+  echo "  --env FILE                    .env file to upload (default: ./.env)"
+  echo "  --port PORT                   Override auto-assigned host port"
+  echo "  --internal-port PORT          Container port (default: from Dockerfile EXPOSE)"
+  echo "  --db                          Provision a PostgreSQL database"
+  echo "  --build-arg KEY=VALUE         Docker build argument (repeatable)"
+  echo "  --password PASS               Set specific password (default: auto-generate on first deploy)"
+  echo "  --user USER                   Username for basic auth (default: 'demo')"
+  echo "  --no-auth                     Deploy without password protection (public)"
+  echo ""
+  echo -e "${BOLD}AUTH OPTIONS${NC}"
+  echo "  --password PASS               Set a new password"
+  echo "  --user USER                   Change username (default: keep existing)"
+  echo "  --rotate                      Generate a new random password"
+  echo "  --disable                     Remove basic auth (make public)"
+  echo "  --show                        Show current auth state (no password displayed)"
+  echo ""
+  echo -e "${BOLD}EXAMPLES${NC}"
+  echo "  ncd-deploy deploy acme-app                           # auto-generates password"
+  echo "  ncd-deploy deploy acme-app --password 's3cret!'"
+  echo "  ncd-deploy deploy acme-app --user client --password 's3cret!'"
+  echo "  ncd-deploy deploy acme-app --no-auth                 # public demo"
+  echo "  ncd-deploy auth acme-app --rotate                    # new random password"
+  echo "  ncd-deploy auth acme-app --password 'newpass'        # change password"
+  echo "  ncd-deploy auth acme-app --disable                   # make public"
+  echo "  ncd-deploy auth acme-app --show                      # see user (not password)"
+  echo "  ncd-deploy logs acme-app"
+  echo "  ncd-deploy remove acme-app"
+  echo ""
+  echo -e "${BOLD}SETUP${NC}"
+  echo "  1. Create ~/.ncd-deploy.conf:"
+  echo "     DEMO_HOST=<your-vps-ip>"
+  echo "     DEMO_USER=root"
+  echo "     SSH_KEY=~/.ssh/id_ed25519"
+  echo ""
+  echo "  2. Run: ncd-deploy setup"
+  echo ""
+  echo "  3. Add DNS on Namecheap:"
+  echo "     *.${DOMAIN}  →  A record  →  <VPS-IP>"
+  echo ""
+}
+
+# ── Main dispatcher ───────────────────────────────────────────────────
+
+case "${1:-}" in
+  setup)   cmd_setup ;;
+  deploy)  shift; cmd_deploy "$@" ;;
+  auth)    shift; cmd_auth "$@" ;;
+  list)    cmd_list ;;
+  remove)  shift; cmd_remove "$@" ;;
+  logs)    shift; cmd_logs "$@" ;;
+  status)  shift; cmd_status "$@" ;;
+  help|-h|--help) cmd_help ;;
+  version|-v|--version) echo "ncd-deploy v${VERSION}" ;;
+  *)       cmd_help ;;
+esac
