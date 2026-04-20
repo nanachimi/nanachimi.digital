@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { redirect, notFound } from "next/navigation";
 import { CampaignToggle } from "@/components/admin/CampaignToggle";
+import { CampaignEditForm } from "@/components/admin/CampaignEditForm";
 
 export const dynamic = "force-dynamic";
 
@@ -66,112 +67,119 @@ export default async function CampaignDetailPage({ params }: PageProps) {
         <CampaignToggle id={campaign.id} initialActive={campaign.active} />
       </div>
 
-      {/* Metrics */}
-      <div className="grid gap-4 md:grid-cols-4 mb-8">
-        <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-5">
-          <p className="text-xs text-zinc-500 uppercase tracking-wider">
-            Rabatt
-          </p>
-          <p className="mt-1 text-2xl font-black text-[#FFC62C]">
-            {Math.round(Number(campaign.discountPercent) * 100)}%
-          </p>
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-1">
+          <CampaignEditForm
+            id={campaign.id}
+            initialName={campaign.name}
+            initialDescription={campaign.description}
+            initialValidUntil={
+              campaign.validUntil ? campaign.validUntil.toISOString() : null
+            }
+            initialMaxUsesPerCode={campaign.maxUsesPerCode}
+          />
         </div>
-        <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-5">
-          <p className="text-xs text-zinc-500 uppercase tracking-wider">
-            Campaign Code
-          </p>
-          <p className="mt-1 text-lg font-mono text-white">
-            {campaign.campaignCode}
-          </p>
-        </div>
-        <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-5">
-          <p className="text-xs text-zinc-500 uppercase tracking-wider">
-            Admin Code
-          </p>
-          <p className="mt-1 text-lg font-mono text-[#FFC62C]">
-            {campaign.campaignCode.toLowerCase()}
-          </p>
-        </div>
-        <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-5">
-          <p className="text-xs text-zinc-500 uppercase tracking-wider">
-            Generierte Codes
-          </p>
-          <p className="mt-1 text-2xl font-black text-white">
-            {campaign.promoCodes.length}
-          </p>
-        </div>
-      </div>
 
-      {campaign.description && (
-        <div className="mb-8 rounded-xl border border-white/[0.08] bg-white/[0.02] p-5">
-          <p className="text-xs text-zinc-500 uppercase tracking-wider mb-2">
-            Beschreibung
-          </p>
-          <p className="text-sm text-zinc-300 whitespace-pre-wrap">
-            {campaign.description}
-          </p>
-        </div>
-      )}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Metrics */}
+          <div className="grid gap-4 md:grid-cols-4">
+            <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-5">
+              <p className="text-xs text-zinc-500 uppercase tracking-wider">
+                Rabatt
+              </p>
+              <p className="mt-1 text-2xl font-black text-[#FFC62C]">
+                {Math.round(Number(campaign.discountPercent) * 100)}%
+              </p>
+            </div>
+            <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-5">
+              <p className="text-xs text-zinc-500 uppercase tracking-wider">
+                Campaign Code
+              </p>
+              <p className="mt-1 text-lg font-mono text-white">
+                {campaign.campaignCode}
+              </p>
+            </div>
+            <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-5">
+              <p className="text-xs text-zinc-500 uppercase tracking-wider">
+                Admin Code
+              </p>
+              <p className="mt-1 text-lg font-mono text-[#FFC62C]">
+                {campaign.campaignCode.toLowerCase()}
+              </p>
+            </div>
+            <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-5">
+              <p className="text-xs text-zinc-500 uppercase tracking-wider">
+                Generierte Codes
+              </p>
+              <p className="mt-1 text-2xl font-black text-white">
+                {campaign.promoCodes.length}
+              </p>
+            </div>
+          </div>
 
-      {/* Promo codes table */}
-      <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] overflow-hidden">
-        <div className="p-5 border-b border-white/[0.06]">
-          <h2 className="font-semibold text-white flex items-center gap-2">
-            <Tag className="h-4 w-4 text-[#FFC62C]" />
-            Promo Codes ({campaign.promoCodes.length})
-          </h2>
-        </div>
-        <table className="w-full text-sm">
-          <thead className="bg-white/[0.03] text-xs uppercase tracking-wider text-zinc-400">
-            <tr>
-              <th className="px-4 py-3 text-left">Code</th>
-              <th className="px-4 py-3 text-left">Partner</th>
-              <th className="px-4 py-3 text-center">Verwendungen</th>
-              <th className="px-4 py-3 text-center">Max</th>
-              <th className="px-4 py-3 text-left">Status</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-white/[0.04]">
-            {campaign.promoCodes.map((p) => (
-              <tr key={p.id} className="hover:bg-white/[0.02]">
-                <td className="px-4 py-3 font-mono text-[#FFC62C]">{p.code}</td>
-                <td className="px-4 py-3">
-                  {p.affiliate ? (
-                    <Link
-                      href={`/backoffice/affiliates/${p.affiliate.id}`}
-                      className="inline-flex items-center gap-1 text-white hover:text-[#FFC62C]"
-                    >
-                      <User className="h-3 w-3" />
-                      {p.affiliate.name}
-                      <span className="text-xs text-zinc-500">
-                        @{p.affiliate.handle}
+          {/* Promo codes table */}
+          <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] overflow-hidden">
+            <div className="p-5 border-b border-white/[0.06]">
+              <h2 className="font-semibold text-white flex items-center gap-2">
+                <Tag className="h-4 w-4 text-[#FFC62C]" />
+                Promo Codes ({campaign.promoCodes.length})
+              </h2>
+            </div>
+            <table className="w-full text-sm">
+              <thead className="bg-white/[0.03] text-xs uppercase tracking-wider text-zinc-400">
+                <tr>
+                  <th className="px-4 py-3 text-left">Code</th>
+                  <th className="px-4 py-3 text-left">Partner</th>
+                  <th className="px-4 py-3 text-center">Verwendungen</th>
+                  <th className="px-4 py-3 text-center">Max</th>
+                  <th className="px-4 py-3 text-left">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/[0.04]">
+                {campaign.promoCodes.map((p) => (
+                  <tr key={p.id} className="hover:bg-white/[0.02]">
+                    <td className="px-4 py-3 font-mono text-[#FFC62C]">
+                      {p.code}
+                    </td>
+                    <td className="px-4 py-3">
+                      {p.affiliate ? (
+                        <Link
+                          href={`/backoffice/affiliates/${p.affiliate.id}`}
+                          className="inline-flex items-center gap-1 text-white hover:text-[#FFC62C]"
+                        >
+                          <User className="h-3 w-3" />
+                          {p.affiliate.name}
+                          <span className="text-xs text-zinc-500">
+                            @{p.affiliate.handle}
+                          </span>
+                        </Link>
+                      ) : (
+                        <span className="text-zinc-500">Admin</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-center text-zinc-300">
+                      {p.usedCount}
+                    </td>
+                    <td className="px-4 py-3 text-center text-zinc-500">
+                      {p.maxUses ?? "∞"}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`inline-flex rounded-full px-2 py-0.5 text-xs ${
+                          p.active
+                            ? "bg-emerald-400/10 text-emerald-400"
+                            : "bg-zinc-500/10 text-zinc-500"
+                        }`}
+                      >
+                        {p.active ? "Aktiv" : "Inaktiv"}
                       </span>
-                    </Link>
-                  ) : (
-                    <span className="text-zinc-500">Admin</span>
-                  )}
-                </td>
-                <td className="px-4 py-3 text-center text-zinc-300">
-                  {p.usedCount}
-                </td>
-                <td className="px-4 py-3 text-center text-zinc-500">
-                  {p.maxUses ?? "∞"}
-                </td>
-                <td className="px-4 py-3">
-                  <span
-                    className={`inline-flex rounded-full px-2 py-0.5 text-xs ${
-                      p.active
-                        ? "bg-emerald-400/10 text-emerald-400"
-                        : "bg-zinc-500/10 text-zinc-500"
-                    }`}
-                  >
-                    {p.active ? "Aktiv" : "Inaktiv"}
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </div>
   );

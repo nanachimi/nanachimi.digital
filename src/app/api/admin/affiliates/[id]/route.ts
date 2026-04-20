@@ -1,8 +1,9 @@
 /**
  * Admin API — single affiliate.
  *
- * - GET   /api/admin/affiliates/[id]   detail with stats
- * - PATCH /api/admin/affiliates/[id]   update rate / status / name / email
+ * - GET    /api/admin/affiliates/[id]   detail with stats
+ * - PATCH  /api/admin/affiliates/[id]   update rate / status / name / email
+ * - DELETE /api/admin/affiliates/[id]   hard delete (only if no accounting trail)
  */
 
 import { NextResponse } from "next/server";
@@ -170,4 +171,67 @@ export async function PATCH(
     }
     throw err;
   }
+}
+
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    await requireAdmin();
+  } catch {
+    return NextResponse.json({ error: "Nicht autorisiert" }, { status: 401 });
+  }
+
+  const { id } = await params;
+
+  const existing = await prisma.affiliate.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      _count: {
+        select: {
+          commissions: true,
+          payouts: true,
+          submissionsWon: true,
+        },
+      },
+    },
+  });
+
+  if (!existing) {
+    return NextResponse.json(
+      { error: "Affiliate nicht gefunden" },
+      { status: 404 },
+    );
+  }
+
+  const { commissions, payouts, submissionsWon } = existing._count;
+  if (commissions > 0 || payouts > 0 || submissionsWon > 0) {
+    return NextResponse.json(
+      {
+        error:
+          "Affiliate kann nicht gelöscht werden — es existieren Kommissionen, Auszahlungen oder gewonnene Submissions. Bitte stattdessen auf 'Gesperrt' setzen.",
+        details: { commissions, payouts, submissionsWon },
+      },
+      { status: 409 },
+    );
+  }
+
+  await prisma.$transaction([
+    prisma.referral.deleteMany({ where: { affiliateId: id } }),
+    prisma.affiliateIp.deleteMany({ where: { affiliateId: id } }),
+    prisma.promoCode.deleteMany({ where: { affiliateId: id } }),
+    prisma.affiliateApplication.updateMany({
+      where: { affiliateId: id },
+      data: { affiliateId: null },
+    }),
+    prisma.submission.updateMany({
+      where: { firstTouchAffiliateId: id },
+      data: { firstTouchAffiliateId: null },
+    }),
+    prisma.affiliate.delete({ where: { id } }),
+  ]);
+
+  return NextResponse.json({ ok: true });
 }
