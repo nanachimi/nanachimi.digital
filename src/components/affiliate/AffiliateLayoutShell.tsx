@@ -3,7 +3,9 @@
 import { usePathname } from "next/navigation";
 import { AffiliateSidebar } from "./AffiliateSidebar";
 
-const AUTH_PATHS = ["/portal/login"];
+// On the affiliate subdomain, middleware rewrites `/login` → `/portal/login`,
+// but usePathname() returns the URL-bar path (`/login`). Match both.
+const AUTH_PATHS = ["/portal/login", "/login"];
 
 export function AffiliateLayoutShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
