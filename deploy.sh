@@ -279,7 +279,7 @@ fi
 
 # Write Caddyfile only if missing or if reverse_proxy target changed
 DESIRED_CADDYFILE=$(cat <<'CADDY'
-nanachimi.digital, www.nanachimi.digital {
+nanachimi.digital, www.nanachimi.digital, affiliates.nanachimi.digital {
     encode zstd gzip
     reverse_proxy localhost:3000
 }
