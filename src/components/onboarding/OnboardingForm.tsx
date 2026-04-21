@@ -437,8 +437,8 @@ export function OnboardingForm() {
               Sie haben Ihr Konzept bereits als PDF?
             </p>
             <p className="mt-1 text-sm text-[#8B8F97]">
-              Laden Sie es hoch — wir analysieren es mit KI und stellen
-              Ihnen nur die fehlenden Fragen.
+              Laden Sie es hoch — wir analysieren es und stellen Ihnen nur
+              die fehlenden Fragen.
             </p>
             <Link
               href="/onboarding/pdf-upload"
